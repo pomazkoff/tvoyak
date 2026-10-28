@@ -15,6 +15,14 @@ export type BoardCell = {
   special: string | null;
   assigned_player_id: string | null;
   revealed_answer: string | null;
+  kind: "text" | "image" | "video" | "music";
+  youtube_id: string | null;
+  vk_url: string | null;
+  rutube_url: string | null;
+  image_url: string | null;
+  start_seconds: number | null;
+  end_seconds: number | null;
+  curtain: boolean;
 };
 
 export function ScoreStrip({ players }: { players: PlayerRow[] }) {

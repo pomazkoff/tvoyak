@@ -3,6 +3,7 @@
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState } from "react";
 import { Board, ScoreStrip, type BoardCell } from "@/components/game/board";
+import { MediaPlayer } from "@/components/game/media-player";
 import { speakRussian, stopSpeech } from "@/components/game/speech";
 import {
   secondsLeft,
@@ -217,6 +218,9 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
                   decisions: decisionsFrom(sheet, finalPicks),
                 })
               }
+              hostStartsMedia={match.room.host_starts_media}
+              hostMode={match.room.host_mode}
+              onHostStarts={(value) => void run("media_cue", { correct: value })}
             />
           )}
         </div>
@@ -358,6 +362,9 @@ function GameView({
   onJudge,
   onFinalPick,
   onFinalize,
+  hostStartsMedia,
+  hostMode,
+  onHostStarts,
 }: {
   players: PlayerRow[];
   board: BoardCell[];
@@ -374,6 +381,9 @@ function GameView({
   onJudge: (correct: boolean) => void;
   onFinalPick: (playerId: string, correct: boolean) => void;
   onFinalize: () => void;
+  hostStartsMedia: boolean;
+  hostMode: "human" | "bot";
+  onHostStarts: (value: boolean) => void;
 }) {
   const current = board.find((cell) => cell.id === game.current_question_id);
   const chooser = players.find(
@@ -436,6 +446,24 @@ function GameView({
           <h2 className="prompt mt-3 text-3xl leading-tight sm:text-5xl">
             {publicPrompt}
           </h2>
+          {current && current.kind !== "text" ? (
+            <div className="mt-4">
+              <MediaPlayer
+                cell={current}
+                autoplay={!(hostMode === "human" && hostStartsMedia)}
+              />
+            </div>
+          ) : null}
+          {hostMode === "human" ? (
+            <label className="mt-4 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={hostStartsMedia}
+                onChange={(event) => onHostStarts(event.target.checked)}
+              />
+              Трек включает ведущий
+            </label>
+          ) : null}
           {left !== null && game.phase !== "reveal" ? (
             <p className="mt-3 font-mono text-gold">Осталось {left} с</p>
           ) : null}

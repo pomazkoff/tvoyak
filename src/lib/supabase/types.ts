@@ -7,6 +7,7 @@ export type RoomRow = {
   code: string;
   status: RoomStatus;
   host_mode: HostMode;
+  host_starts_media: boolean;
   created_at: string;
 };
 

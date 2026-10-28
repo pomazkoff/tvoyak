@@ -381,6 +381,13 @@ function PlayTurn({
             {current.special === "cat" ? " · кот в мешке" : ""}
           </p>
           <h2 className="prompt mt-2 text-2xl leading-snug sm:text-3xl">{current.prompt}</h2>
+          {current.kind === "image" && current.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={current.image_url} alt="" className="mt-4 max-h-64 w-full object-contain" />
+          ) : null}
+          {current.kind === "video" || current.kind === "music" ? (
+            <p className="mt-3 text-sm text-muted">Смотрите и слушайте экран ведущего.</p>
+          ) : null}
         </Panel>
       ) : null}
 

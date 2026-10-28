@@ -241,5 +241,11 @@ export async function hostAction(input: {
   if (input.action === "finalize") {
     return settleFinal(input.code, input.decisions ?? null, true);
   }
+  if (input.action === "media_cue") {
+    return callRpc("set_host_starts_media", {
+      p_code: input.code,
+      p_on: input.correct === true,
+    });
+  }
   return { ok: false, error: "bad_phase" };
 }

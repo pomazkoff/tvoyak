@@ -106,4 +106,15 @@ describe("банк вопросов", () => {
       expect(count).toBeGreaterThanOrEqual(10);
     }
   });
+
+  it("добавляет медиа-вопросы с проверенными роликами или картинками", () => {
+    const sql = readFileSync(
+      "supabase/migrations/20261028210100_media_questions.sql",
+      "utf8",
+    );
+    const tuples = sql.match(/^\('/gm) ?? [];
+    expect(tuples.length).toBeGreaterThanOrEqual(20);
+    expect(sql).toContain("dQw4w9WgXcQ");
+    expect(sql).toContain("curtain");
+  });
 });

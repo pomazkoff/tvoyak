@@ -12,6 +12,7 @@ import {
   type GameRow,
 } from "@/components/game/use-match";
 import { Panel, Shell } from "@/components/shell";
+import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { messageFor } from "@/lib/rooms/messages";
 import { readHostSecret, useHasHostSecret } from "@/lib/rooms/storage";
@@ -220,7 +221,9 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
               }
               hostStartsMedia={match.room.host_starts_media}
               hostMode={match.room.host_mode}
-              onHostStarts={(value) => void run("media_cue", { correct: value })}
+              onHostStarts={(value) =>
+                void run("media_cue", { correct: value })
+              }
             />
           )}
         </div>
@@ -246,7 +249,7 @@ function Lobby({
   onCopy: () => void;
   onStart: () => void;
 }) {
-  const seated = players.filter((player) => player.role === "player");
+  const seated = scoreboardPlayers(players);
   const watchers = players.filter((player) => player.role === "spectator");
   return (
     <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -610,8 +613,7 @@ function GameView({
 }
 
 function Results({ players }: { players: PlayerRow[] }) {
-  const table = players
-    .filter((player) => player.role === "player")
+  const table = scoreboardPlayers(players)
     .slice()
     .sort((left, right) => right.score - left.score);
   return (

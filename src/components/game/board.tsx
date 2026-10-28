@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import type { PlayerRow } from "@/lib/supabase/types";
 
 export type BoardCell = {
@@ -26,8 +27,7 @@ export type BoardCell = {
 };
 
 export function ScoreStrip({ players }: { players: PlayerRow[] }) {
-  const table = players
-    .filter((player) => player.role === "player")
+  const table = scoreboardPlayers(players)
     .slice()
     .sort(
       (left, right) =>
@@ -77,7 +77,10 @@ export function Board({
   return (
     <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6 sm:gap-2">
       {columns.map((column, index) => (
-        <div key={column[0]?.category ?? index} className="grid gap-1.5 sm:gap-2">
+        <div
+          key={column[0]?.category ?? index}
+          className="grid gap-1.5 sm:gap-2"
+        >
           <p className="flex min-h-12 items-end justify-center px-1 pb-1 text-center text-[11px] tracking-[0.14em] text-muted uppercase sm:min-h-14 sm:text-xs">
             {column[0]?.category ?? ""}
           </p>

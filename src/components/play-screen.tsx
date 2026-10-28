@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Board, ScoreStrip } from "@/components/game/board";
 import { secondsLeft, useMatch, useNow } from "@/components/game/use-match";
 import { Panel, Shell } from "@/components/shell";
+import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { messageFor } from "@/lib/rooms/messages";
 import {
@@ -282,8 +283,7 @@ function PlayTurn({
   }
 
   if (game.phase === "finished") {
-    const table = players
-      .filter((player) => player.role === "player")
+    const table = scoreboardPlayers(players)
       .slice()
       .sort((leftPlayer, rightPlayer) => rightPlayer.score - leftPlayer.score);
     return (
@@ -380,13 +380,21 @@ function PlayTurn({
             {current.category}
             {current.special === "cat" ? " · кот в мешке" : ""}
           </p>
-          <h2 className="prompt mt-2 text-2xl leading-snug sm:text-3xl">{current.prompt}</h2>
+          <h2 className="prompt mt-2 text-2xl leading-snug sm:text-3xl">
+            {current.prompt}
+          </h2>
           {current.kind === "image" && current.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={current.image_url} alt="" className="mt-4 max-h-64 w-full object-contain" />
+            <img
+              src={current.image_url}
+              alt=""
+              className="mt-4 max-h-64 w-full object-contain"
+            />
           ) : null}
           {current.kind === "video" || current.kind === "music" ? (
-            <p className="mt-3 text-sm text-muted">Смотрите и слушайте экран ведущего.</p>
+            <p className="mt-3 text-sm text-muted">
+              Смотрите и слушайте экран ведущего.
+            </p>
           ) : null}
         </Panel>
       ) : null}

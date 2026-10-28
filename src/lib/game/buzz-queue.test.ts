@@ -134,6 +134,21 @@ describe.skipIf(!live)("очередь кнопки и финал", () => {
     if (error) throw new Error(error.message);
   }
 
+  it("anon читает комнату ведущего, включая host_starts_media", async () => {
+    const created = await rpc(service, "create_room", { p_host_mode: "bot" });
+    expect(created.ok).toBe(true);
+    rooms.push(created.room_id ?? "");
+    const { data, error } = await anon
+      .from("rooms")
+      .select("id, code, status, host_mode, host_starts_media, created_at")
+      .eq("code", created.code ?? "")
+      .maybeSingle();
+    expect(error).toBeNull();
+    expect(data?.code).toBe(created.code);
+    expect(data?.host_mode).toBe("bot");
+    expect(data?.host_starts_media).toBe(false);
+  });
+
   it("после неверного ответа отдаёт ход тому, кто нажал вторым", async () => {
     const room = await openRoom();
     const game = await stateOf(room.roomId);

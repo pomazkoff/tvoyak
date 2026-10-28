@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #e8eef7;
+  --color-muted: #9aadc4;
+  --color-gold: #f0c75e;
+  --color-navy: #07111f;
+  --color-panel: #10243f;
+  --color-line: #2c4d73;
+  --color-danger: #ffb4b4;
+  --color-ok: #9be7c4;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background:
+    radial-gradient(
+      1100px 520px at 8% -10%,
+      rgb(36 78 140 / 0.85),
+      transparent 58%
+    ),
+    radial-gradient(
+      800px 420px at 110% 0%,
+      rgb(92 62 18 / 0.55),
+      transparent 46%
+    ),
+    var(--color-navy);
+  color: var(--color-ink);
+  font-family: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+}
+
+button,
+a,
+input,
+label {
+  -webkit-tap-highlight-color: transparent;
+}

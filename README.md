@@ -133,6 +133,9 @@ npm test
 - `supabase/migrations/20261028200100_question_bank.sql` — пул вопросов
 - `supabase/migrations/20261028210000_media.sql` — картинка, видео, музыка, шторка, «трек включает ведущий»
 - `supabase/migrations/20261028210100_media_questions.sql` — медиа-вопросы
+- `supabase/migrations/20261028220000_packs.sql` — пачки и протоколы проверки
+
+Сборка пачки: `POST /api/cron/build-pack` с заголовком `x-admin-token: $ADMIN_TOKEN` или `Authorization: Bearer $CRON_SECRET`. Раз в неделю то же самое вызывает Vercel Cron (`vercel.json`). Без `OPENROUTER_API_KEY` или `OPENROUTER_MODEL` пачка записывается со статусом `failed` и ошибкой `openrouter_missing`, процесс не падает. Готовую пачку смотрят и принимают на `/admin`.
 
 Локально их подхватит `supabase db reset` или `supabase migration up`. На уже живом проекте выполните файлы в SQL Editor или через Management API в этом порядке. В конце gameplay и media есть `notify pgrst`.
 

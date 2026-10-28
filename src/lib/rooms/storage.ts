@@ -59,6 +59,14 @@ export function hasHostSecret(code: string): boolean {
   }
 }
 
+export function readHostSecret(code: string): string | null {
+  try {
+    return localStorage.getItem(hostKey(code));
+  } catch {
+    return null;
+  }
+}
+
 export function readPlayer(code: string): StoredPlayer | null {
   try {
     const raw = safeGet(playerKey(code));

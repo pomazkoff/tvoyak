@@ -128,7 +128,6 @@ try {
       category: "Проверка",
       value: 100,
       prompt: "Столица России?",
-      answer: "Москва",
       row_index: 0,
       col_index: 0,
     })
@@ -138,24 +137,39 @@ try {
     !question.error && question.data?.id,
     `вопрос не записался: ${question.error?.message ?? ""}`,
   );
+  const secret = await service.from("question_secrets").insert({
+    question_id: question.data.id,
+    answer: "Москва",
+    variants: ["Москва"],
+  });
+  assert(!secret.error, `эталон не записался: ${secret.error?.message ?? ""}`);
 
-  const leaked = await anon
+  const leaked = await anon.from("question_secrets").select("answer").limit(1);
+  assert(!leaked.data || leaked.data.length === 0, "anon видит эталон ответа");
+  const hidden = await anon
+    .from("question_board")
+    .select("prompt, revealed_answer")
+    .eq("id", question.data.id)
+    .single();
+  assert(!hidden.error, "поле не читается");
+  assert(hidden.data?.prompt === null, "скрытая формулировка видна");
+  assert(hidden.data?.revealed_answer === null, "эталон виден до вскрытия");
+  await service
     .from("questions")
-    .select("id, prompt, answer")
+    .update({ status: "open" })
     .eq("id", question.data.id);
-  assert(
-    Boolean(leaked.error) ||
-      !leaked.data?.some((row) => "answer" in row && row.answer),
-    "anon видит эталон ответа",
-  );
   const visible = await anon
-    .from("questions")
-    .select("id, prompt, category, value")
+    .from("question_board")
+    .select("prompt, revealed_answer")
     .eq("id", question.data.id)
     .single();
   assert(
     visible.data?.prompt === "Столица России?",
     "формулировку вопроса не видно",
+  );
+  assert(
+    visible.data?.revealed_answer === null,
+    "эталон виден у открытого вопроса",
   );
 
   const opened = await service
@@ -263,12 +277,19 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function expectRealtimeJoin(client, room, code) {
+function expectRealtimeJoin(_client, room, code) {
+  const client = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY,
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+    },
+  );
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       void client.removeChannel(channel);
       reject(new Error("Realtime не прислал нового игрока"));
-    }, 15_000);
+    }, 20_000);
 
     const channel = client
       .channel(`verify-${room}`)

@@ -80,7 +80,7 @@ export function HomeScreen() {
             <ModeOption
               checked={hostMode === "bot"}
               label="Ведущий-бот"
-              hint="Голос появится позже. Пока режим только запоминается."
+              hint="Браузер читает вопросы вслух и сам засчитывает ответы."
               onSelect={() => setHostMode("bot")}
             />
           </div>

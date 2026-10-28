@@ -15,6 +15,21 @@ const MESSAGES: Record<string, string> = {
     "Сервер не видит ключи Supabase. Проверьте .env.local и перезапустите dev-сервер.",
   create_failed: "Не удалось создать комнату.",
   network: "Нет связи с комнатой.",
+  need_players: "Нужно минимум два игрока.",
+  too_many_players: "За столом больше десяти игроков.",
+  already_started: "Партия уже идёт.",
+  bank_too_small: "В базе мало вопросов для поля.",
+  not_chooser: "Сейчас выбирает другой игрок.",
+  bad_cell: "Эта ячейка уже недоступна.",
+  cat_needs_other: "Кота отдают другому игроку.",
+  cat_no_buzz: "На «кота в мешке» отвечает один игрок.",
+  bad_phase: "Сейчас этот ход не принимается.",
+  not_your_turn: "Сейчас отвечает другой игрок.",
+  bad_wager: "Ставка от нуля до ваших очков.",
+  not_eligible: "В финал выходят только игроки с очками больше нуля.",
+  need_wager: "Сначала сделайте ставку.",
+  not_host: "Это может сделать только ведущий этой комнаты.",
+  judging: "Ответ у ведущего.",
 };
 
 export function messageFor(code: string | undefined): string {

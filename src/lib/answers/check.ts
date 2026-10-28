@@ -75,3 +75,28 @@ export function checkAnswerLocally(
     scoreEffect: "subtract",
   };
 }
+
+export function checkAgainstVariants(
+  given: string,
+  expected: string,
+  variants: string[] = [],
+): LocalAnswerCheck {
+  const options = [expected, ...variants.filter((variant) => variant.trim())];
+  let best = checkAnswerLocally(given, options[0] ?? "");
+  for (const option of options.slice(1)) {
+    const next = checkAnswerLocally(given, option);
+    if (next.correct) {
+      return { ...next, normalizedExpected: best.normalizedExpected };
+    }
+    if (next.similarity > best.similarity) {
+      best = {
+        ...best,
+        similarity: next.similarity,
+        ambiguous: best.ambiguous || next.ambiguous,
+      };
+    } else if (next.ambiguous) {
+      best = { ...best, ambiguous: true };
+    }
+  }
+  return best;
+}

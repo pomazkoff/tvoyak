@@ -1,4 +1,5 @@
 .next
+supabase/migrations
 node_modules
 out
 coverage

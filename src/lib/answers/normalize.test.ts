@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { checkAnswerLocally } from "@/lib/answers/check";
+import { checkAgainstVariants, checkAnswerLocally } from "@/lib/answers/check";
 import { normalizeAnswer } from "@/lib/answers/normalize";
 
 describe("normalizeAnswer", () => {
@@ -78,5 +79,31 @@ describe("checkAnswerLocally", () => {
     const result = checkAnswerLocally("москва", "   ");
     expect(result.correct).toBe(false);
     expect(result.scoreEffect).toBe("subtract");
+  });
+
+  it("принимает допустимый вариант написания", () => {
+    const result = checkAgainstVariants("Шазам", "Shazam", ["Шазам"]);
+    expect(result.correct).toBe(true);
+  });
+});
+
+describe("банк вопросов", () => {
+  it("содержит не меньше 150 вопросов и 12 тем", () => {
+    const sql = readFileSync(
+      "supabase/migrations/20261028200100_question_bank.sql",
+      "utf8",
+    );
+    const tuples = sql.match(/^\('/gm) ?? [];
+    expect(tuples.length).toBeGreaterThanOrEqual(150);
+    const categories = new Map<string, number>();
+    for (const line of sql.split("\n")) {
+      const match = line.match(/^\('([^']+)'/);
+      if (!match) continue;
+      categories.set(match[1], (categories.get(match[1]) ?? 0) + 1);
+    }
+    expect(categories.size).toBeGreaterThanOrEqual(12);
+    for (const count of categories.values()) {
+      expect(count).toBeGreaterThanOrEqual(10);
+    }
   });
 });

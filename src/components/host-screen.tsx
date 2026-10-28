@@ -433,7 +433,7 @@ function GameView({
             {current?.category} · {current?.value || "финал"}
             {current?.special === "cat" ? " · кот в мешке" : ""}
           </p>
-          <h2 className="mt-3 text-3xl font-semibold leading-tight">
+          <h2 className="prompt mt-3 text-3xl leading-tight sm:text-5xl">
             {publicPrompt}
           </h2>
           {left !== null && game.phase !== "reveal" ? (

@@ -1,15 +1,22 @@
 @import "tailwindcss";
 
+/*
+  Опора: портфолио Đặng Trung Thắng 22–23.
+  Сам Behance ответил 403. Публичные копии кадров дают почти чёрное поле
+  (#040404) и лестницу серого. Свой акцент — одна лимонная полоска,
+  чтобы стоимость ячейки читалась с телевизора.
+*/
 @theme {
-  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
-  --color-ink: #e8eef7;
-  --color-muted: #9aadc4;
-  --color-gold: #f0c75e;
-  --color-navy: #07111f;
-  --color-panel: #10243f;
-  --color-line: #2c4d73;
-  --color-danger: #ffb4b4;
-  --color-ok: #9be7c4;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-literata), "Iowan Old Style", Georgia, serif;
+  --color-ink: #f3f3f3;
+  --color-muted: #8c8c8c;
+  --color-gold: #e6ff4d;
+  --color-navy: #070707;
+  --color-panel: #141414;
+  --color-line: #2c2c2c;
+  --color-danger: #ff6d6d;
+  --color-ok: #d8ff73;
 }
 
 html {
@@ -19,19 +26,10 @@ html {
 body {
   min-height: 100%;
   background:
-    radial-gradient(
-      1100px 520px at 8% -10%,
-      rgb(36 78 140 / 0.85),
-      transparent 58%
-    ),
-    radial-gradient(
-      800px 420px at 110% 0%,
-      rgb(92 62 18 / 0.55),
-      transparent 46%
-    ),
+    linear-gradient(180deg, #101010 0%, transparent 28%),
     var(--color-navy);
   color: var(--color-ink);
-  font-family: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
 }
 
 button,
@@ -39,4 +37,71 @@ a,
 input,
 label {
   -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.prompt {
+  font-family: var(--font-literata), Georgia, serif;
+  font-weight: 520;
+  letter-spacing: -0.02em;
+}
+
+.cell {
+  perspective: 800px;
+}
+
+.cell-inner {
+  position: relative;
+  display: grid;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 460ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.cell-inner.is-spent {
+  transform: rotateY(180deg);
+}
+
+.cell-face {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backface-visibility: hidden;
+}
+
+.cell-back {
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  a,
+  .cell-inner {
+    transition: none;
+  }
+
+  button:active:not(:disabled) {
+    transform: none;
+  }
+
+  .cell-inner.is-spent {
+    transform: none;
+  }
+
+  .cell-back {
+    display: none;
+  }
 }

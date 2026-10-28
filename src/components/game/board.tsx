@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { PlayerRow } from "@/lib/supabase/types";
 
 export type BoardCell = {
@@ -33,9 +36,9 @@ export function ScoreStrip({ players }: { players: PlayerRow[] }) {
         >
           <p className="truncate text-sm">{player.nickname}</p>
           <p
-            className={`font-mono text-lg ${player.score < 0 ? "text-danger" : "text-gold"}`}
+            className={`text-2xl font-semibold tabular-nums ${player.score < 0 ? "text-danger" : "text-ink"}`}
           >
-            {player.score}
+            <CountUp value={player.score} />
           </p>
         </li>
       ))}
@@ -64,10 +67,10 @@ export function Board({
   );
 
   return (
-    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6 sm:gap-2">
       {columns.map((column, index) => (
-        <div key={column[0]?.category ?? index} className="grid gap-2">
-          <p className="flex min-h-12 items-center justify-center text-center text-xs font-semibold text-gold sm:text-sm">
+        <div key={column[0]?.category ?? index} className="grid gap-1.5 sm:gap-2">
+          <p className="flex min-h-12 items-end justify-center px-1 pb-1 text-center text-[11px] tracking-[0.14em] text-muted uppercase sm:min-h-14 sm:text-xs">
             {column[0]?.category ?? ""}
           </p>
           {column.map((cell) => {
@@ -78,13 +81,12 @@ export function Board({
                 type="button"
                 disabled={!canPick || spent}
                 onClick={() => onPick?.(cell)}
-                className={`h-14 rounded-xl border text-lg font-semibold ${
-                  spent
-                    ? "border-transparent bg-navy/40 text-muted"
-                    : "border-line bg-[#1d4e89] text-ink hover:border-gold"
-                } disabled:cursor-default`}
+                className="cell h-16 border border-line bg-[#1c1c1c] text-xl font-semibold text-ink hover:border-[#c4c4c4] disabled:cursor-default sm:h-20 sm:text-2xl lg:h-24 lg:text-3xl"
               >
-                {spent ? "" : cell.value}
+                <span className={`cell-inner ${spent ? "is-spent" : ""}`}>
+                  <span className="cell-face cell-front">{cell.value}</span>
+                  <span className="cell-face cell-back text-muted">—</span>
+                </span>
               </button>
             );
           })}
@@ -92,4 +94,40 @@ export function Board({
       ))}
     </div>
   );
+}
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function CountUp({ value }: { value: number }) {
+  const reduced = useSyncExternalStore(
+    (onStoreChange) => {
+      const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+      query.addEventListener("change", onStoreChange);
+      return () => query.removeEventListener("change", onStoreChange);
+    },
+    prefersReducedMotion,
+    () => false,
+  );
+  const [shown, setShown] = useState(value);
+  const fromRef = useRef(value);
+
+  useEffect(() => {
+    if (reduced || fromRef.current === value) return;
+    const from = fromRef.current;
+    const started = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - started) / 480);
+      const eased = 1 - (1 - progress) ** 3;
+      setShown(Math.round(from + (value - from) * eased));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+      else fromRef.current = value;
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [reduced, value]);
+
+  return <>{reduced ? value : shown}</>;
 }

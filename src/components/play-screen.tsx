@@ -380,7 +380,7 @@ function PlayTurn({
             {current.category}
             {current.special === "cat" ? " · кот в мешке" : ""}
           </p>
-          <h2 className="mt-2 text-2xl font-semibold">{current.prompt}</h2>
+          <h2 className="prompt mt-2 text-2xl leading-snug sm:text-3xl">{current.prompt}</h2>
         </Panel>
       ) : null}
 

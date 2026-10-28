@@ -52,7 +52,8 @@ export function HomeScreen() {
   return (
     <Shell width="max-w-xl">
       <div className="mb-8">
-        <h1 className="text-5xl font-semibold tracking-tight text-ink sm:text-6xl">
+        <p className="text-xs tracking-[0.42em] text-muted uppercase">01 / партия</p>
+        <h1 className="mt-3 text-5xl font-semibold tracking-tight text-ink sm:text-7xl">
           Твояк
         </h1>
         <p className="mt-4 max-w-md text-lg leading-7 text-muted">

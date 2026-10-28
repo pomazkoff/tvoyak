@@ -14,9 +14,10 @@ export function Shell({
     >
       <Link
         href="/"
-        className="mb-6 text-sm font-semibold tracking-[0.28em] text-gold uppercase"
+        className="mb-6 flex items-baseline gap-3 text-xs tracking-[0.42em] text-muted uppercase"
       >
-        Твояк
+        <span className="text-gold">Твояк</span>
+        <span className="h-px flex-1 bg-line" />
       </Link>
       {children}
     </div>
@@ -40,7 +41,7 @@ export function Panel({
 }) {
   return (
     <section
-      className={`rounded-3xl border border-line bg-panel/90 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.28)] sm:p-6 ${className}`}
+      className={`border border-line bg-panel p-5 sm:p-6 ${className}`}
     >
       {children}
     </section>

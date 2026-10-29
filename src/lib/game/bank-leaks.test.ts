@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { promptContainsAnswer } from "@/lib/game/bank-leaks";
+import {
+  findAnswerLeaks,
+  hasBlockingLeak,
+  promptContainsAnswer,
+  soundSkeleton,
+} from "@/lib/game/bank-leaks";
 
 type BankRow = {
   category: string;
@@ -94,8 +99,23 @@ function parseBankInserts(sql: string): BankRow[] {
   return rows;
 }
 
+function applyDeletes(rows: BankRow[], sql: string) {
+  const blocks = sql.split(/delete from public\.question_bank/i).slice(1);
+  for (const block of blocks) {
+    const category = readSqlString(block, block.indexOf("category"))?.value;
+    const prompt = readSqlString(block, block.indexOf("prompt"))?.value;
+    const at = rows.findIndex(
+      (row) => row.category === category && row.prompt === prompt,
+    );
+    expect(at, prompt).toBeGreaterThanOrEqual(0);
+    rows.splice(at, 1);
+  }
+  return blocks.length;
+}
+
 function applyLeakFixes(rows: BankRow[], sql: string) {
-  const blocks = sql.split(/update public\.question_bank/i).slice(1);
+  const updates = sql.split(/delete from public\.question_bank/i)[0];
+  const blocks = updates.split(/update public\.question_bank/i).slice(1);
   expect(blocks.length).toBeGreaterThan(0);
   for (const block of blocks) {
     const whereAt = block.search(/\nwhere\b/i);
@@ -194,6 +214,44 @@ describe("банк после правки утечек", () => {
     "utf8",
   );
   applyLeakFixes(rows, fixes);
+  const second = readFileSync(
+    "supabase/migrations/20261029200000_bank_answer_leaks_2.sql",
+    "utf8",
+  );
+  applyLeakFixes(rows, second);
+  const removed = applyDeletes(rows, second);
+
+  it("применяет вторую волну правок целиком", () => {
+    expect(removed).toBe(8);
+    expect(rows).toHaveLength(172);
+  });
+
+  it("не оставляет ответа целиком (с транслитом) ни в вопросе, ни в теме", () => {
+    const leaks = rows.flatMap((row) =>
+      [row.prompt, row.category]
+        .filter((text) => hasBlockingLeak(text, row.answer, row.variants))
+        .map((text) => `${row.category}: ${text} → ${row.answer}`),
+    );
+    expect(leaks).toEqual([]);
+  });
+
+  it("в медиавопросах не называет звучащий трек", () => {
+    const named = rows.filter(
+      (row) =>
+        /клип|трек|песн|хит/i.test(row.prompt) &&
+        /[A-Z][a-z]+ [A-Z]?[a-z]+\?$|\b(Thunder|Perfect|Hello|Roar|Faded|Despacito|Shape of You|Uptown Funk|Gangnam Style|Blank Space|Shake It Off|Blinding Lights)\b/.test(
+          row.prompt,
+        ) &&
+        /^(Кто|Чей|Чья|Какая группа)/.test(row.prompt) &&
+        row.category !== "Артисты",
+    );
+    expect(named.map((row) => row.prompt)).toEqual([]);
+  });
+
+  it("не принимает вариант, который уже стоит в тексте вопроса", () => {
+    const twitter = rows.find((row) => row.answer === "Twitter");
+    expect(twitter?.variants).not.toContain("X");
+  });
 
   it("не оставляет в вопросе эталон или допустимый вариант", () => {
     const leaks = rows.flatMap((row) => {
@@ -205,5 +263,90 @@ describe("банк после правки утечек", () => {
         : [];
     });
     expect(leaks).toEqual([]);
+  });
+});
+
+describe("findAnswerLeaks", () => {
+  it("ловит ответ латиницей в кириллическом вопросе и наоборот", () => {
+    expect(
+      hasBlockingLeak(
+        "Кто ведёт игровой канал Kuplinov Play?",
+        "Дмитрий Куплинов",
+        ["Куплинов"],
+      ),
+    ).toBe(true);
+    expect(hasBlockingLeak("Какой сервис называют Шазамом?", "Shazam")).toBe(
+      true,
+    );
+    expect(hasBlockingLeak("Чем знаменит проект Rozetked?", "Розеткед")).toBe(
+      true,
+    );
+  });
+
+  it("ловит регистр, ё/е и пунктуацию", () => {
+    expect(
+      hasBlockingLeak("Что такое «ВСЁ ХОРОШО» на меме?", "This is fine", [
+        "Всё хорошо",
+      ]),
+    ).toBe(true);
+    expect(hasBlockingLeak("кто такой губка-боб?", "Губка Боб")).toBe(true);
+  });
+
+  it("ловит короткий вариант-алиас целым словом", () => {
+    expect(
+      hasBlockingLeak(
+        "Как называется соцсеть с птичкой, которую переименовали в X?",
+        "Twitter",
+        ["Твиттер", "X"],
+      ),
+    ).toBe(true);
+    expect(
+      hasBlockingLeak("Какая соцсеть с логотипом «вк»?", "ВКонтакте", ["ВК"]),
+    ).toBe(true);
+  });
+
+  it("ловит слитное написание", () => {
+    expect(hasBlockingLeak("Кто такой thebrianmaps?", "TheBrianMaps")).toBe(
+      true,
+    );
+  });
+
+  it("отмечает часть имени исполнителя или названия как подсказку", () => {
+    const leaks = findAnswerLeaks(
+      "Как зовут певицу, фанатов которой называют свифти?",
+      "Тейлор Свифт",
+      ["Taylor Swift"],
+    );
+    expect(leaks.some((leak) => leak.level === "part")).toBe(true);
+    expect(
+      findAnswerLeaks(
+        "Как называется музыкальный сервис Apple?",
+        "Apple Music",
+      ),
+    ).toEqual([{ needle: "apple", level: "part", via: "same" }]);
+  });
+
+  it("не путает обычные слова и не ругается на честные вопросы", () => {
+    expect(
+      findAnswerLeaks("Кто исполняет хит Blinding Lights?", "The Weeknd", [
+        "Уикенд",
+      ]),
+    ).toEqual([]);
+    expect(
+      findAnswerLeaks("Какая компания выпускает iPhone?", "Apple", ["Эпл"]),
+    ).toEqual([]);
+    expect(
+      findAnswerLeaks(
+        "В какой игре строят из блоков и сражаются с криперами?",
+        "Minecraft",
+        ["Майнкрафт"],
+      ),
+    ).toEqual([]);
+  });
+
+  it("звуковой скелет сводит латиницу и кириллицу", () => {
+    expect(soundSkeleton("Джастин")).toBe(soundSkeleton("Justin"));
+    expect(soundSkeleton("Шазам")).toBe(soundSkeleton("Shazam"));
+    expect(soundSkeleton("Тикток")).toBe(soundSkeleton("TikTok"));
   });
 });

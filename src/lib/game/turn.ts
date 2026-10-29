@@ -261,9 +261,8 @@ export async function hostAction(input: {
     });
   }
   if (input.action === "pick") {
-    if (auth.room.host_mode !== "bot") {
-      return { ok: false, error: "not_chooser" };
-    }
+    // Ведущий (живой или бот) может выбрать клетку за игрока — например,
+    // когда у выбирающего отвалился телефон.
     if (!input.questionId) return { ok: false, error: "bad_cell" };
     const picked = await callRpc("host_pick_cell", {
       p_code: input.code,

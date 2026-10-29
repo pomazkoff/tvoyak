@@ -409,8 +409,8 @@ function GameView({
     (current?.kind !== "image" || game.phase !== "reveal");
   const hot = left !== null && left <= 5;
   const chooserName = chooser?.nickname ?? "игрок";
-  const hostCanPick =
-    hostMode === "bot" && ownsRoom && game.phase === "board" && !pending;
+  // В обоих режимах ведущий может выбрать клетку за игрока (телефон отвалился).
+  const hostCanPick = ownsRoom && game.phase === "board" && !pending;
 
   return (
     <main className="stage">
@@ -430,7 +430,10 @@ function GameView({
           </p>
         ) : null}
         {game.phase === "board" ? (
-          <p className="pick-prompt hand">Выбирает {chooserName} с телефона</p>
+          <p className="pick-prompt hand">
+            Выбирает {chooserName} с телефона
+            {hostCanPick && hostMode !== "bot" ? " — или нажмите клетку за него" : ""}
+          </p>
         ) : null}
         {game.phase === "board" || game.phase === "cat_pick" ? (
           <Board

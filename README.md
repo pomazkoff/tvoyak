@@ -172,6 +172,10 @@ supabase db push
 
 Правила генерации и проверки — `src/lib/pictures/generate.ts` и `validate.ts`; банк — `scripts/picture-tasks/bank.ts`, миграция собирается `npx tsx scripts/picture-tasks/build-migration.ts` (проверяет лицензию и доступность каждого файла).
 
+### Ревью картинок
+
+`/admin/pictures` показывает все картиночные задания банка по форматам: картинка целиком, превью эффекта, ответ, варианты, атрибуция и переключатель «оставить/убрать». Выбор хранится в `question_bank.enabled` (по умолчанию `true`), `start_game` берёт картиночные задания только с `enabled`. Вход — тем же `ADMIN_TOKEN`, что и `/admin`, или ссылкой `/api/admin/login?token=…&next=/admin/pictures`. Необязательный `ADMIN_REVIEW_TOKEN` пускает только на ревью картинок.
+
 ### Авторство
 
 - Эмодзи — [Twemoji](https://github.com/jdecked/twemoji) © Twitter, Inc. и другие авторы, CC-BY 4.0.

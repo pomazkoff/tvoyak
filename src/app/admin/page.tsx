@@ -62,6 +62,11 @@ async function AdminBody() {
   return (
     <Shell width="max-w-3xl">
       <h1 className="text-3xl font-semibold">Пачки вопросов</h1>
+      <p className="mt-2 text-sm">
+        <a href="/admin/pictures" className="underline">
+          Картиночные задания — выбрать, какие брать в игру
+        </a>
+      </p>
       <div className="mt-6 grid gap-4">
         {(packs ?? []).map((pack) => {
           const rows = (items ?? []).filter((item) => item.pack_id === pack.id);

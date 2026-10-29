@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Board, PlayerRail, type BoardCell } from "@/components/game/board";
 import { MediaPlayer } from "@/components/game/media-player";
-import { speakRussian, stopSpeech } from "@/components/game/speech";
+import {
+  prewarmSpeech,
+  speakRussian,
+  stopSpeech,
+  type TtsAuth,
+} from "@/components/game/speech";
 import {
   requestMatchReload,
   secondsLeft,
@@ -48,6 +53,14 @@ type HostSheet = {
 };
 
 const noopSubscribe = () => () => undefined;
+
+// Голос Марины доступен только телевизору с ключом ведущего: /api/tts
+// озвучивает фразы комнаты лишь для её хозяина.
+function ttsAuth(code: string | null, ownsRoom: boolean): TtsAuth | null {
+  if (!code || !ownsRoom) return null;
+  const hostSecret = readHostSecret(code);
+  return hostSecret ? { code, hostSecret } : null;
+}
 
 export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const normalized = normalizeRoomCode(code);
@@ -117,6 +130,21 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
           ?.prompt
       : null;
 
+  // Прогрев на раунд: пока игроки выбирают клетку, сервер заранее
+  // синтезирует вопросы раунда, и на открытии звук уже в кэше.
+  const warmedRound = useRef<number | null>(null);
+  const roundForWarm = game?.round ?? null;
+  const phaseForWarm = game?.phase ?? null;
+  useEffect(() => {
+    if (!voiceOn || roundForWarm === null) return;
+    if (phaseForWarm !== "board" && phaseForWarm !== "question") return;
+    if (warmedRound.current === roundForWarm) return;
+    const auth = ttsAuth(normalized, ownsRoom);
+    if (!auth) return;
+    warmedRound.current = roundForWarm;
+    prewarmSpeech(auth);
+  }, [voiceOn, roundForWarm, phaseForWarm, normalized, ownsRoom]);
+
   useEffect(() => {
     if (game?.phase !== "question") {
       // На поле не обрываем: бот договаривает вердикт после вскрытия.
@@ -129,18 +157,23 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     let started = false;
     if (voiceOn && spoken.current !== game.current_question_id) {
       spoken.current = game.current_question_id;
-      started = speakRussian(questionPrompt, () => {
-        if (hostMode === "bot") openBuzz();
-      });
+      started = speakRussian(
+        questionPrompt,
+        () => {
+          if (hostMode === "bot") openBuzz();
+        },
+        ttsAuth(normalized, ownsRoom),
+      );
     }
     if (hostMode !== "bot") return;
     // Бот открывает кнопку и без голоса: голос выключен, синтеза нет или
-    // onend так и не пришёл. Срок — примерно время чтения вслух.
+    // onend так и не пришёл. Срок — примерно время чтения вслух (+ до 3 с
+    // на загрузку голоса Марины).
     const readMs = Math.min(
       30000,
       Math.max(6000, questionPrompt.length * 70 + 2500),
     );
-    const timer = setTimeout(openBuzz, started ? readMs + 4000 : readMs);
+    const timer = setTimeout(openBuzz, started ? readMs + 7000 : readMs);
     return () => clearTimeout(timer);
   }, [
     game?.phase,
@@ -149,6 +182,7 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     voiceOn,
     normalized,
     hostMode,
+    ownsRoom,
   ]);
 
   // Бот-ведущий озвучивает вердикт. Очки и фаза приходят отдельными
@@ -177,10 +211,10 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
         after: scoresRef.current,
         answer: answerRef.current,
       });
-      if (line) speakRussian(line);
+      if (line) speakRussian(line, undefined, ttsAuth(normalized, ownsRoom));
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [phaseNow, roundNow, voiceOn, hostMode]);
+  }, [phaseNow, roundNow, voiceOn, hostMode, normalized, ownsRoom]);
   // После эффекта вердикта: там scoresRef ещё хранит очки прошлого рендера.
   const revealedAnswer = game?.revealed_answer ?? null;
   useEffect(() => {

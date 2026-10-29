@@ -32,6 +32,13 @@ export type DraftQuestion = {
   start_seconds?: number | null;
   end_seconds?: number | null;
   media_note?: string | null;
+  /** Картиночное задание: формат, как собрать/раскрыть, подпись к фото. */
+  picture?: string | null;
+  picture_spec?: unknown;
+  reveal_seconds?: number | null;
+  image_credit?: string | null;
+  image_license?: string | null;
+  image_page?: string | null;
 };
 
 export function calibrateValue(raw: number): number {

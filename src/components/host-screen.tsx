@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useBackgroundMusic } from "@/components/game/background-music";
 import { Board, PlayerRail, type BoardCell } from "@/components/game/board";
 import { MediaPlayer } from "@/components/game/media-player";
+import { PictureTask } from "@/components/game/picture-task";
 import { MusicToggle } from "@/components/game/music-toggle";
 import {
   prewarmSpeech,
@@ -581,10 +582,13 @@ function GameView({
     Boolean(current?.prompt) &&
     !["board", "cat_pick", "finished", "lobby"].includes(game.phase);
   // Видео и музыка остаются на месте и при ответе: снимаются только полоски.
+  // Картиночные задания (ребус, фрагмент…) остаются и при ответе — целиком,
+  // с подписью автора.
+  const hasPicture = Boolean(current?.picture && current?.image_url);
   const hasMedia =
     Boolean(current) &&
     current?.kind !== "text" &&
-    (current?.kind !== "image" || game.phase !== "reveal");
+    (current?.kind !== "image" || game.phase !== "reveal" || hasPicture);
   const hot = left !== null && left <= 5;
   const chooserName = chooser?.nickname ?? "игрок";
   // В обоих режимах ведущий может выбрать клетку за игрока (телефон отвалился).
@@ -643,7 +647,13 @@ function GameView({
             <h2 className="question-copy mt-4">
               {game.phase === "reveal" ? game.revealed_answer : current.prompt}
             </h2>
-            {hasMedia ? (
+            {hasMedia && hasPicture && current ? (
+              <PictureTask
+                key={current.id}
+                cell={current}
+                revealed={game.phase === "reveal"}
+              />
+            ) : hasMedia ? (
               <MediaPlayer
                 cell={current}
                 autoplay={!(hostMode === "human" && hostStartsMedia)}

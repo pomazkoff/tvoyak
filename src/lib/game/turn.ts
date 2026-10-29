@@ -2,6 +2,8 @@ import "server-only";
 import { checkAgainstVariants } from "@/lib/answers/check";
 import { isLlmCheckEnabled, judgeWithOpenRouter } from "@/lib/answers/llm";
 import { requireHost } from "@/lib/game/host-auth";
+import { PICTURE_JUDGE_NOTE } from "@/lib/pictures/rules";
+import { isPictureFormat } from "@/lib/pictures/types";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 
 type Rpc = {
@@ -47,10 +49,27 @@ function asVariants(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string");
 }
 
+/** Формат картиночного задания — чтобы подсказать судье, как принимать ответ. */
+async function pictureNote(questionId: unknown): Promise<string | null> {
+  if (typeof questionId !== "string") return null;
+  try {
+    const { data } = await getServiceSupabase()
+      .from("questions")
+      .select("picture")
+      .eq("id", questionId)
+      .maybeSingle();
+    const picture = data?.picture;
+    return isPictureFormat(picture) ? PICTURE_JUDGE_NOTE[picture] : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function judgeText(
   given: string,
   expected: string,
   variants: string[],
+  loadNote?: () => Promise<string | null>,
 ) {
   const local = checkAgainstVariants(given, expected, variants);
   if (!local.correct && local.ambiguous && isLlmCheckEnabled()) {
@@ -58,7 +77,8 @@ export async function judgeText(
       const hint = variants.length
         ? `${expected}. Также засчитай совпадение с: ${variants.join(", ")}`
         : expected;
-      const correct = await judgeWithOpenRouter(given, hint);
+      const note = loadNote ? await loadNote() : null;
+      const correct = await judgeWithOpenRouter(given, hint, note);
       return { correct, method: "llm" as const };
     } catch {
       return { correct: false, method: "fuzzy" as const };
@@ -82,6 +102,7 @@ export async function submitPlayerAnswer(
       String(begun.raw_text ?? text),
       String(begun.expected ?? ""),
       asVariants(begun.variants),
+      () => pictureNote(begun.question_id),
     );
     if (begun.host_mode === "bot") {
       const applied = await callRpc("apply_verdict", {

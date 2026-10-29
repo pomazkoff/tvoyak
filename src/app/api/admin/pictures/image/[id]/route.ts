@@ -1,12 +1,16 @@
 import { canReviewPictures } from "@/lib/admin-auth";
-import { isAllowedImageSource, isQuestionId } from "@/lib/media/image-proxy";
+import {
+  isAllowedImageSource,
+  isQuestionId,
+  isSelfHostedImage,
+} from "@/lib/media/image-proxy";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { buildPictureSvg } from "@/lib/pictures/svg";
 import { GENERATED_FORMATS, isPictureFormat } from "@/lib/pictures/types";
 
 /** Картинка задания из банка целиком — для страницы ревью. */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const fail = (status: number, text: string) =>
@@ -38,6 +42,15 @@ export async function GET(
     });
   }
   const source = data.image_url as string | null;
+  if (isSelfHostedImage(source)) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: new URL(source as string, request.url).toString(),
+        "Cache-Control": "private, max-age=3600",
+      },
+    });
+  }
   if (!isAllowedImageSource(source)) return fail(404, "not found");
   const upstream = await fetch(source as string, {
     headers: { "User-Agent": "TvoyakQuiz/1.0 (party quiz; image proxy)" },

@@ -9,6 +9,7 @@ export const PICTURE_FORMATS = [
   "hidden",
   "blur",
   "logo",
+  "kids",
 ] as const;
 
 export type PictureFormat = (typeof PICTURE_FORMATS)[number];
@@ -28,6 +29,7 @@ export const PICTURE_CATEGORY: Record<PictureFormat, string> = {
   hidden: "Найди лишнее",
   blur: "Размытое фото",
   logo: "Логотипы",
+  kids: "Детский рисунок",
 };
 
 export const PICTURE_TITLE: Record<PictureFormat, string> = {
@@ -37,6 +39,7 @@ export const PICTURE_TITLE: Record<PictureFormat, string> = {
   hidden: "Найди лишнее",
   blur: "Размытая картинка",
   logo: "Логотип без названия",
+  kids: "Детский рисунок: что за фильм?",
 };
 
 /** Картинка собирается сервером в SVG — внешний файл не нужен. */
@@ -54,7 +57,14 @@ export const DEFAULT_REVEAL: Record<PictureFormat, number> = {
   hidden: 0,
   blur: 18,
   logo: 12,
+  kids: 10,
 };
+
+/**
+ * «Детский рисунок»: рисунки нарисованы ИИ и лежат в public/pictures/k/
+ * под случайными именами (имя файла не выдаёт ответ).
+ */
+export const KIDS_CREDIT = "Рисунок нарисован ИИ для «Твояка»";
 
 /** Кнопка «Ответ» не закрывается раньше, чем через столько секунд после раскрытия. */
 export const BUZZ_AFTER_REVEAL_SECONDS = 6;
@@ -126,8 +136,21 @@ export type LogoSpec = {
   background?: string;
 };
 
+// ---- Детский рисунок ----------------------------------------------------
+
+export type KidsSpec = {
+  /** none — сразу целиком; blur — лёгкое проявление из размытия. */
+  effect: "none" | "blur";
+};
+
 export type PictureSpec =
-  RebusSpec | EmojiSpec | HiddenSpec | FragmentSpec | BlurSpec | LogoSpec;
+  | RebusSpec
+  | EmojiSpec
+  | HiddenSpec
+  | FragmentSpec
+  | BlurSpec
+  | LogoSpec
+  | KidsSpec;
 
 /** Что видит экран ведущего: picture_spec без «содержимого» (оно выдало бы ответ). */
 export type PictureFx = {

@@ -22,6 +22,7 @@ const FORMAT_RULES: Record<PictureFormat, string> = {
   hidden: `Картинка — сетка одинаковых эмодзи, среди которых один «лишний» похожий. picture_spec = {"base":"🍅","odd":"🍎","cols":8,"rows":5,"seed":<число>}. Пара должна быть похожей по форме или цвету, но однозначно различимой; ответ — как называется лишний предмет (одно-два слова). Стандартные эмодзи Unicode 15.`,
   blur: `Фото предмета, животного или блюда с Wikimedia Commons, свободная лицензия; один крупный объект на простом фоне. image_url = "https://commons.wikimedia.org/wiki/Special:FilePath/<ИМЯ_ФАЙЛА>?width=960". picture_spec = {"effect":"blur"} или {"effect":"pixel"}. reveal_seconds ${DEFAULT_REVEAL.blur}.`,
   logo: `Логотип без названия с Wikimedia Commons — только файлы со свободной лицензией или в общественном достоянии (простые геометрические знаки, PD-textlogo, CC BY). На картинке не должно быть букв названия. image_url = "https://commons.wikimedia.org/wiki/Special:FilePath/<ИМЯ_ФАЙЛА>?width=960". picture_spec = {"effect":"blur","background":"#ffffff"} или {"effect":"none"}. reveal_seconds ${DEFAULT_REVEAL.logo}. Без логотипов Meta (Instagram, Facebook), политических и военных символов. Постеры фильмов не используй: они несвободны.`,
+  kids: `Детский рисунок по мотивам очень известного фильма или мультфильма (голливудский хит, советская классика, российский хит, мультфильм), нарисованный ИИ. Рисунки готовятся заранее и лежат в public/pictures/k/; LLM этот формат не генерирует.`,
 };
 
 export const PICTURE_GENERATION_SYSTEM = `Ты составитель картиночных заданий для «Своей игры». ${AUDIENCE} ${PROMPT_RULE} Перед ответом перепроверь каждое задание. Верни только JSON-массив.`;
@@ -48,5 +49,6 @@ export const PICTURE_REVIEW_RULE: Record<PictureFormat, string> = {
   hidden:
     "Это «найди лишнее»: сетка эмодзи base с одним odd. Проверь, что odd отличим от base и answer — понятное название odd.",
   blur: "Это размытое фото по ссылке Commons. Проверь, что объект — один, узнаваемый, и answer называет его; prompt не подсказывает.",
+  kids: "Это детский рисунок по мотивам фильма (файл в public/pictures/k/). Проверь: фильм или мультфильм известен в России, answer — его название, variants — оригинальное и русское названия без года; на рисунке нет текста; prompt не подсказывает.",
   logo: "Это логотип без названия по ссылке Commons. Проверь, что бренд известен в России, на логотипе нет букв названия, это не Meta, не политика; prompt не подсказывает.",
 };

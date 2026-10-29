@@ -1,4 +1,8 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { isSelfHostedImage } from "@/lib/media/image-proxy";
+import { kidsRows } from "../../../scripts/picture-tasks/kids";
 import { REBUSES, EMOJI, HIDDEN } from "../../../scripts/picture-tasks/bank";
 import { commonsFileFromUrl, commonsImageUrl, isFreeLicense } from "./commons";
 import { normalizeWord, rebusProblems, solveRebus } from "./rebus";
@@ -258,5 +262,37 @@ describe("Commons", () => {
     });
     expect(problems.join()).toContain("Commons");
     expect(problems.join()).toContain("лицензия");
+  });
+});
+
+describe("детский рисунок", () => {
+  it("все задания банка проходят правила, файлы на месте, имена не выдают ответ", () => {
+    const rows = kidsRows();
+    expect(rows.length).toBeGreaterThanOrEqual(20);
+    for (const row of rows) {
+      expect(pictureProblems(row)).toEqual([]);
+      expect(isSelfHostedImage(row.image_url)).toBe(true);
+      expect(existsSync(join(process.cwd(), "public", row.image_url!))).toBe(
+        true,
+      );
+    }
+    expect(new Set(rows.map((row) => row.image_url)).size).toBe(rows.length);
+  });
+
+  it("чужие пути и год в названии не пускаем", () => {
+    expect(isSelfHostedImage("/pictures/k/titanic.jpg")).toBe(false);
+    expect(isSelfHostedImage("/pictures/k/../../secret.jpg")).toBe(false);
+    expect(
+      isSelfHostedImage(
+        "https://evil.example/pictures/k/0d952d9a49a0fd877337.jpg",
+      ),
+    ).toBe(false);
+    const problems = pictureProblems({
+      ...kidsRows()[0]!,
+      variants: ["Титаник (1997)"],
+      image_url: "https://example.com/a.jpg",
+    });
+    expect(problems.join()).toContain("без года");
+    expect(problems.join()).toContain("/pictures/k/");
   });
 });

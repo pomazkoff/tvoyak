@@ -12,6 +12,7 @@ import {
 import { TWEMOJI_CREDIT } from "@/lib/pictures/twemoji";
 import {
   GENERATED_FORMATS,
+  KIDS_CREDIT,
   PICTURE_TITLE,
   isPictureFormat,
   type PictureFx,
@@ -168,11 +169,14 @@ export function PictureTask({
     effect =
       fx.effect === "blur" ? "blur" : fx.effect === "tiles" ? "tiles" : "none";
   }
+  if (format === "kids" && fx.effect === "blur") effect = "blur";
   if (progress >= 1) effect = "none";
 
   const imageStyle: React.CSSProperties = {};
   if (effect === "blur") {
-    imageStyle.filter = `blur(${blurPx(progress)}px)`;
+    // Детский рисунок проявляется легко: его и так непросто узнать.
+    const max = format === "kids" ? 14 : undefined;
+    imageStyle.filter = `blur(${blurPx(progress, max)}px)`;
   }
   if (effect === "zoom") {
     const [fxX, fxY] = fx.focus ?? [0.5, 0.5];
@@ -182,11 +186,13 @@ export function PictureTask({
 
   const credit = generated
     ? TWEMOJI_CREDIT
-    : revealed && cell.image_credit
-      ? cell.image_credit
-      : cell.image_license
-        ? `${cell.image_license} · Wikimedia Commons (автор — после ответа)`
-        : null;
+    : format === "kids"
+      ? KIDS_CREDIT
+      : revealed && cell.image_credit
+        ? cell.image_credit
+        : cell.image_license
+          ? `${cell.image_license} · Wikimedia Commons (автор — после ответа)`
+          : null;
 
   return (
     <figure

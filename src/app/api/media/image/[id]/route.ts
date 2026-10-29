@@ -1,12 +1,16 @@
 import { getServiceSupabase } from "@/lib/supabase/admin";
-import { isAllowedImageSource, isQuestionId } from "@/lib/media/image-proxy";
+import {
+  isAllowedImageSource,
+  isQuestionId,
+  isSelfHostedImage,
+} from "@/lib/media/image-proxy";
 import { buildPictureSvg } from "@/lib/pictures/svg";
 import { GENERATED_FORMATS, isPictureFormat } from "@/lib/pictures/types";
 
 // Игрокам отдаём картинку по id вопроса: исходное имя файла
 // (например, Statue_of_Liberty.jpg) выдавало бы ответ.
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
@@ -50,6 +54,16 @@ export async function GET(
         "Content-Security-Policy":
           "default-src 'none'; style-src 'unsafe-inline'",
         "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
+  // Свои рисунки отдаёт CDN; случайное имя файла ответа не выдаёт.
+  if (isSelfHostedImage(source)) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: new URL(source as string, request.url).toString(),
+        "Cache-Control": "private, max-age=3600",
       },
     });
   }

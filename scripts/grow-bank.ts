@@ -206,7 +206,9 @@ async function main() {
   const pictureFormats = (process.env.GROW_PICTURES ?? "")
     .split(",")
     .map((item) => item.trim())
-    .filter(isPictureFormat);
+    .filter(isPictureFormat)
+    // Детские рисунки готовятся вручную (scripts/picture-tasks/kids.ts).
+    .filter((format) => format !== "kids");
   if (pictureFormats.length) {
     for (const format of pictureFormats) {
       const category = PICTURE_CATEGORY[format];

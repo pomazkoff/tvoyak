@@ -17,10 +17,14 @@ import {
   type EmojiSpec,
   type FragmentSpec,
   type HiddenSpec,
+  type KidsSpec,
   type PictureFormat,
   type RebusSpec,
 } from "./types";
-import { isAllowedImageSource } from "@/lib/media/image-proxy";
+import {
+  isAllowedImageSource,
+  isSelfHostedImage,
+} from "@/lib/media/image-proxy";
 
 /** Картиночный черновик (поля как в question_bank). */
 export type PictureDraft = {
@@ -100,6 +104,28 @@ function photoProblems(draft: PictureDraft, format: PictureFormat): string[] {
   return problems;
 }
 
+function kidsProblems(draft: PictureDraft): string[] {
+  const problems: string[] = [];
+  if (!isSelfHostedImage(draft.image_url)) {
+    problems.push("детский рисунок: файл /pictures/k/<случайное имя>.jpg");
+  }
+  if (!draft.image_license) problems.push("картинка: не указана лицензия");
+  const spec = draft.picture_spec as KidsSpec | null;
+  if (!spec || (spec.effect !== "none" && spec.effect !== "blur")) {
+    problems.push("детский рисунок: effect none или blur");
+  }
+  const reveal = draft.reveal_seconds ?? 0;
+  if (spec?.effect === "blur" && (reveal < 6 || reveal > 15)) {
+    problems.push("детский рисунок: лёгкое раскрытие 6–15 секунд");
+  }
+  if (
+    /\(?\b(19|20)\d{2}\b\)?/.test([draft.answer, ...draft.variants].join(" "))
+  ) {
+    problems.push("детский рисунок: название без года");
+  }
+  return problems;
+}
+
 /** Детерминированные правила формата (без сети). */
 export function pictureProblems(draft: PictureDraft): string[] {
   if (!isPictureFormat(draft.picture)) return ["неизвестный формат картинки"];
@@ -127,6 +153,8 @@ export function pictureProblems(draft: PictureDraft): string[] {
     );
   } else if (format === "hidden") {
     problems.push(...hiddenProblems(draft.picture_spec as HiddenSpec));
+  } else if (format === "kids") {
+    problems.push(...kidsProblems(draft));
   } else {
     problems.push(...photoProblems(draft, format));
   }
@@ -161,6 +189,16 @@ export async function checkPictureDraft<T extends PictureDraft>(
       problems,
       draft: { ...draft, reveal_seconds: draft.reveal_seconds ?? 0 },
     };
+  }
+  if (format === "kids") {
+    // Рисунок лежит в public/: проверяем, что файл есть в репозитории.
+    const { existsSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const path = join(process.cwd(), "public", draft.image_url ?? "");
+    if (draft.image_url && !existsSync(path)) {
+      problems.push(`файла ${draft.image_url} нет в public/`);
+    }
+    return { problems, draft };
   }
   const file = draft.image_url ? commonsFileFromUrl(draft.image_url) : null;
   if (!file)

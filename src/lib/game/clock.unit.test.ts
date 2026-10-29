@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BOT_FINAL_JUDGE_MS,
   BOT_READ_LIMIT_MS,
   CLOCK_GRACE_MS,
   clockDueAt,
@@ -33,6 +34,22 @@ describe("клиентские часы", () => {
     expect(clockDueAt(game, "bot")).toBe(
       new Date(updated).getTime() + BOT_READ_LIMIT_MS + CLOCK_GRACE_MS,
     );
+  });
+
+  it("финал бота без срока проверяется по запасному сроку", () => {
+    const updated = "2026-10-29T10:00:00.000Z";
+    const game = {
+      phase: "judging",
+      round: 3,
+      version: 9,
+      deadline: null,
+      updated_at: updated,
+    };
+    expect(clockDueAt(game, "human")).toBe(null);
+    expect(clockDueAt(game, "bot")).toBe(
+      new Date(updated).getTime() + BOT_FINAL_JUDGE_MS + CLOCK_GRACE_MS,
+    );
+    expect(clockDueAt({ ...game, round: 2 }, "bot")).toBe(null);
   });
 
   it("повторяют вызов с растущей паузой, но не реже раза в 5 секунд", () => {

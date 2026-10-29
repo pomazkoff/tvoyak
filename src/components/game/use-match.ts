@@ -270,6 +270,35 @@ export function useMatch(code: string): MatchState {
     };
   }, [clockId, clockDue, clockVersion, code]);
 
+  // Финал у бота: сервер проверяет ответы сам (fuzzy + LLM), даже если
+  // телевизор закрыт. Просим об этом один раз на версию партии.
+  const settleVersion =
+    clockGame &&
+    clockMode === "bot" &&
+    clockGame.phase === "judging" &&
+    clockGame.round === 3
+      ? clockGame.version
+      : null;
+  useEffect(() => {
+    if (settleVersion === null) return;
+    const normalized = normalizeRoomCode(code);
+    if (!normalized) return;
+    // Небольшой разброс, чтобы все телефоны не стучались разом.
+    const timer = setTimeout(
+      () => {
+        void fetch("/api/play/settle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: normalized }),
+        })
+          .catch(() => undefined)
+          .finally(() => void reloadRef.current?.());
+      },
+      Math.floor(Math.random() * 1200),
+    );
+    return () => clearTimeout(timer);
+  }, [settleVersion, code]);
+
   const normalized = normalizeRoomCode(code);
   if (!normalized) return { status: "invalid" };
   if (!isSupabaseConfigured()) return { status: "unconfigured" };

@@ -250,4 +250,88 @@ describe.skipIf(!live)("защита ходов и выход из застре�
     expect(tick.reason).toBe("read_timeout");
     expect((await stateOf(room.roomId)).phase).toBe("buzzing");
   });
+  it("финал у бота подводит сервер по сроку, даже без телевизора", async () => {
+    const room = await openRoom("bot", 3);
+    for (const seat of room.seats) {
+      await service
+        .from("players")
+        .update({ score: 500 })
+        .eq("id", seat.player_id);
+    }
+    // Поле сыграно: следующий шаг после вскрытия — ставки финала.
+    await service
+      .from("questions")
+      .update({ status: "answered" })
+      .eq("room_id", room.roomId);
+    await service
+      .from("game_states")
+      .update({ round: 2, phase: "reveal", deadline: null })
+      .eq("room_id", room.roomId);
+    const toFinal = await rpc(service, "continue_game", { p_code: room.code });
+    expect(toFinal.ok, toFinal.error).toBe(true);
+    const { data: finalState } = await service
+      .from("game_states")
+      .select("phase, current_question_id")
+      .eq("room_id", room.roomId)
+      .single();
+    expect(finalState?.phase).toBe("wager");
+    const { data: secret } = await service
+      .from("question_secrets")
+      .select("answer")
+      .eq("question_id", finalState?.current_question_id)
+      .single();
+    const [a, b, c] = room.seats;
+    for (const [seat, wager] of [
+      [a, 100],
+      [b, 100],
+      [c, 200],
+    ] as const) {
+      const placed = await rpc(anon, "place_wager", {
+        p_code: room.code,
+        p_player_token: seat.player_token,
+        p_wager: wager,
+      });
+      expect(placed.ok, placed.error).toBe(true);
+    }
+    expect((await stateOf(room.roomId)).phase).toBe("final_answer");
+    const right = await rpc(service, "begin_final_answer", {
+      p_code: room.code,
+      p_player_token: a.player_token,
+      p_text: `  ${String(secret?.answer ?? "").toUpperCase()}!  `,
+    });
+    expect(right.ok, right.error).toBe(true);
+    await rpc(service, "begin_final_answer", {
+      p_code: room.code,
+      p_player_token: b.player_token,
+      p_text: "совсем не то",
+    });
+    // Срок ответа вышел, телевизора нет: часы телефонов переводят в judging.
+    const past = new Date(Date.now() - 2000).toISOString();
+    await service
+      .from("game_states")
+      .update({ deadline: past })
+      .eq("room_id", room.roomId);
+    const judged = await rpc(anon, "advance_clock", { p_code: room.code });
+    expect(judged.reason).toBe("final_timeout");
+    const judging = await stateOf(room.roomId);
+    expect(judging.phase).toBe("judging");
+    expect(judging.deadline).not.toBeNull();
+    // Никто не подвёл итог — по сроку сервер делает это сам.
+    await service
+      .from("game_states")
+      .update({ deadline: past })
+      .eq("room_id", room.roomId);
+    const settled = await rpc(anon, "advance_clock", { p_code: room.code });
+    expect(settled.reason).toBe("final_auto");
+    expect((await stateOf(room.roomId)).phase).toBe("finished");
+    const { data: scores } = await service
+      .from("players")
+      .select("id, score")
+      .eq("room_id", room.roomId);
+    const scoreOf = (id?: string) =>
+      scores?.find((row) => row.id === id)?.score;
+    expect(scoreOf(a.player_id)).toBe(600);
+    expect(scoreOf(b.player_id)).toBe(400);
+    expect(scoreOf(c.player_id)).toBe(300);
+  });
 });

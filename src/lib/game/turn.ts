@@ -122,6 +122,20 @@ export async function submitPlayerAnswer(
   return { ok: true, waiting: true };
 }
 
+/**
+ * Финал у бота подводит сервер: срок мог выйти (advance_clock), ответы
+ * проверяются как обычно (fuzzy + LLM). Если вызвать некому — по сроку
+ * tick_room сам подведёт итог нормализованным сравнением.
+ */
+export async function settleBotFinal(code: string) {
+  await callRpc("advance_clock", { p_code: code });
+  const sheet = await callRpc("final_sheet", { p_code: code });
+  if (!sheet.ok) return { ok: false, error: sheet.error ?? "rpc_failed" };
+  if (sheet.host_mode !== "bot") return { ok: false, error: "not_bot" };
+  if (sheet.phase !== "judging") return { ok: true, waiting: true };
+  return settleFinal(code, null, false);
+}
+
 async function loadFinalDecisions(code: string): Promise<
   | { ok: false; error?: string }
   | {

@@ -7,10 +7,14 @@ export type ClockGame = {
   version: number;
   deadline: string | null;
   updated_at?: string | null;
+  round?: number;
 };
 
 /** Столько бот-ведущий читает вопрос, прежде чем часы откроют кнопку сами. */
 export const BOT_READ_LIMIT_MS = 45000;
+
+/** Запасной срок проверки финала у бота, если срок не записан. */
+export const BOT_FINAL_JUDGE_MS = 20000;
 
 /** Сколько ждать первый вызов после края срока: запас на расхождение часов. */
 export const CLOCK_GRACE_MS = 350;
@@ -25,6 +29,18 @@ export function clockDueAt(
     const read = new Date(game.updated_at).getTime();
     return Number.isFinite(read)
       ? read + BOT_READ_LIMIT_MS + CLOCK_GRACE_MS
+      : null;
+  }
+  if (
+    game.phase === "judging" &&
+    game.round === 3 &&
+    hostMode === "bot" &&
+    !game.deadline &&
+    game.updated_at
+  ) {
+    const since = new Date(game.updated_at).getTime();
+    return Number.isFinite(since)
+      ? since + BOT_FINAL_JUDGE_MS + CLOCK_GRACE_MS
       : null;
   }
   if (!game.deadline) return null;

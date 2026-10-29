@@ -23,6 +23,10 @@ type Kid = {
   hint: string;
 };
 
+/**
+ * Первая волна — самые дешёвые номиналы: 100, самые трудные — 200.
+ * Следующие волны пойдут дороже (300–500).
+ */
 export const KIDS: Kid[] = [
   {
     file: "0d952d9a49a0fd877337",
@@ -88,49 +92,49 @@ export const KIDS: Kid[] = [
     file: "3df76bd4ef724dd62909",
     answer: "Гарри Поттер",
     variants: ["Harry Potter", "Гарри Поттер и философский камень"],
-    value: 200,
+    value: 100,
     hint: "фильм",
   },
   {
     file: "fddced5854593e902993",
     answer: "Один дома",
     variants: ["Home Alone"],
-    value: 200,
+    value: 100,
     hint: "фильм",
   },
   {
     file: "c8c962b99f6626b252ef",
     answer: "Пираты Карибского моря",
     variants: ["Pirates of the Caribbean"],
-    value: 200,
+    value: 100,
     hint: "фильм",
   },
   {
     file: "6e6f63f5a1a327d01113",
     answer: "Тачки",
     variants: ["Cars"],
-    value: 200,
+    value: 100,
     hint: "мультфильм",
   },
   {
     file: "cd06fdd02b4fd56b3849",
     answer: "Холодное сердце",
     variants: ["Frozen"],
-    value: 200,
+    value: 100,
     hint: "мультфильм",
   },
   {
     file: "7da45ac485602cbb4e5d",
     answer: "Ледниковый период",
     variants: ["Ice Age"],
-    value: 200,
+    value: 100,
     hint: "мультфильм",
   },
   {
     file: "c9a0b8aa373fa7a941b0",
     answer: "Гадкий я",
     variants: ["Despicable Me", "Миньоны", "Minions"],
-    value: 200,
+    value: 100,
     hint: "мультфильм",
   },
   {
@@ -141,70 +145,70 @@ export const KIDS: Kid[] = [
       "Карлсон вернулся",
       "Малыш и Карлсон, который живёт на крыше",
     ],
-    value: 200,
+    value: 100,
     hint: "советский мультфильм",
   },
   {
     file: "49f1f2601b6ecafa568e",
     answer: "Иван Васильевич меняет профессию",
     variants: ["Иван Васильевич"],
-    value: 300,
+    value: 100,
     hint: "советский фильм",
   },
   {
     file: "4088cc6e2c337b834f58",
     answer: "Бриллиантовая рука",
     variants: ["Брильянтовая рука"],
-    value: 300,
+    value: 100,
     hint: "советский фильм",
   },
   {
     file: "7b8249597052341130b3",
     answer: "Ирония судьбы, или С лёгким паром!",
     variants: ["Ирония судьбы", "С лёгким паром"],
-    value: 300,
+    value: 100,
     hint: "советский фильм",
   },
   {
     file: "51513175aebac726844c",
     answer: "Парк юрского периода",
     variants: ["Jurassic Park", "Мир юрского периода"],
-    value: 300,
+    value: 100,
     hint: "фильм",
   },
   {
     file: "6622442964aa611d623c",
     answer: "В поисках Немо",
     variants: ["Finding Nemo", "Немо"],
-    value: 300,
+    value: 100,
     hint: "мультфильм",
   },
   {
     file: "753d72d006cbe8375041",
     answer: "Звёздные войны",
     variants: ["Звездные войны", "Star Wars"],
-    value: 300,
+    value: 200,
     hint: "фильм",
   },
   {
     file: "b50b592bafc8549b546b",
     answer: "Аватар",
     variants: ["Avatar"],
-    value: 300,
+    value: 100,
     hint: "фильм",
   },
   {
     file: "159911d9dd186044b2f2",
     answer: "Брат",
     variants: ["Брат 2"],
-    value: 400,
+    value: 100,
     hint: "российский фильм",
   },
   {
     file: "46c754cf6c02403f5d0f",
     answer: "Движение вверх",
     variants: [],
-    value: 500,
+    value: 200,
     hint: "российский фильм о спорте",
   },
 ];

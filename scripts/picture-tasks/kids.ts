@@ -4,7 +4,11 @@
  * надписей и логотипов, не копируют постер) и лежат в public/pictures/k/
  * под случайными именами — имя файла не выдаёт ответ.
  *
- *   npx tsx scripts/picture-tasks/kids.ts [out.sql]
+ *   npx tsx scripts/picture-tasks/kids.ts [1|2] [out.sql]
+ *
+ * 1 — первая волна (миграция 20261030010000_picture_kids.sql, номиналы
+ * затем поправлены 20261030011000_picture_kids_values.sql), 2 — вторая волна
+ * (20261030021000_picture_kids_wave2.sql).
  */
 import { writeFileSync } from "node:fs";
 import {
@@ -213,6 +217,178 @@ export const KIDS: Kid[] = [
   },
 ];
 
+/**
+ * Вторая волна — совсем минималистичные «каракули» (2–5 линий/фигур, одна
+ * ключевая деталь), поэтому дороже: 300–500. Нумерация продолжает первую (№ 26+).
+ */
+export const KIDS_WAVE2: Kid[] = [
+  {
+    file: "47f16be0a06130bc86c0",
+    answer: "Вверх",
+    variants: ["Up"],
+    value: 300,
+    hint: "мультфильм",
+  },
+  {
+    file: "93f9bae8524241f249b2",
+    answer: "Аладдин",
+    variants: ["Aladdin", "Аладин"],
+    value: 300,
+    hint: "мультфильм",
+  },
+  {
+    file: "87fd892ce18247af33b8",
+    answer: "Золушка",
+    variants: ["Cinderella"],
+    value: 300,
+    hint: "мультфильм",
+  },
+  {
+    file: "de5ddc4f7da1c8c4e72d",
+    answer: "История игрушек",
+    variants: ["Toy Story"],
+    value: 300,
+    hint: "мультфильм",
+  },
+  {
+    file: "516f57587857e8fc8e19",
+    answer: "Корпорация монстров",
+    variants: ["Monsters, Inc.", "Корпорация Монстров"],
+    value: 300,
+    hint: "мультфильм",
+  },
+  {
+    file: "a4b919d1fbdf7c62d1a6",
+    answer: "Мадагаскар",
+    variants: ["Madagascar", "Пингвины Мадагаскара"],
+    value: 300,
+    hint: "мультфильм",
+  },
+  {
+    file: "1152a749f9897a1e8661",
+    answer: "Кунг-фу Панда",
+    variants: ["Кунг-фу панда", "Kung Fu Panda"],
+    value: 300,
+    hint: "мультфильм",
+  },
+  {
+    file: "8e513ecc3745d169fa52",
+    answer: "Бременские музыканты",
+    variants: [],
+    value: 300,
+    hint: "мультфильм",
+  },
+  {
+    file: "892b4cc71316d40add27",
+    answer: "Приключения Буратино",
+    variants: [
+      "Буратино",
+      "Золотой ключик",
+      "Золотой ключик, или Приключения Буратино",
+    ],
+    value: 300,
+    hint: "фильм / мультфильм",
+  },
+  {
+    file: "3f6fc685903631a1eada",
+    answer: "Властелин колец",
+    variants: ["The Lord of the Rings", "Властелин колец: Братство кольца"],
+    value: 400,
+    hint: "фильм",
+  },
+  {
+    file: "46d9aa817d1633e78030",
+    answer: "Матрица",
+    variants: ["The Matrix"],
+    value: 400,
+    hint: "фильм",
+  },
+  {
+    file: "40f3940b72fd1f0326cc",
+    answer: "Челюсти",
+    variants: ["Jaws"],
+    value: 400,
+    hint: "фильм",
+  },
+  {
+    file: "164641ce78796926374d",
+    answer: "Красавица и Чудовище",
+    variants: ["Красавица и чудовище", "Beauty and the Beast"],
+    value: 400,
+    hint: "мультфильм / фильм",
+  },
+  {
+    file: "6ab45f795c04ee047253",
+    answer: "ВАЛЛ-И",
+    variants: ["ВАЛЛИ", "Валли", "WALL-E"],
+    value: 400,
+    hint: "мультфильм",
+  },
+  {
+    file: "0135b92e570f7d77e46a",
+    answer: "Кинг-Конг",
+    variants: ["Кинг Конг", "King Kong"],
+    value: 400,
+    hint: "фильм",
+  },
+  {
+    file: "fc55d4fa3c3e740ff686",
+    answer: "Инопланетянин",
+    variants: ["E.T.", "Пришелец", "Инопланетянин E.T."],
+    value: 400,
+    hint: "фильм",
+  },
+  {
+    file: "bfaa4eae5eee9b03b381",
+    answer: "Форрест Гамп",
+    variants: ["Forrest Gump"],
+    value: 400,
+    hint: "фильм",
+  },
+  {
+    file: "9a5cb21852bcdbec58d8",
+    answer: "Ёжик в тумане",
+    variants: ["Ежик в тумане"],
+    value: 400,
+    hint: "мультфильм",
+  },
+  {
+    file: "ea4c5d2e7f295e62083b",
+    answer: "Терминатор 2",
+    variants: ["Терминатор", "Terminator", "Терминатор 2: Судный день"],
+    value: 500,
+    hint: "фильм",
+  },
+  {
+    file: "c4d1ed2376f60fc93765",
+    answer: "Назад в будущее",
+    variants: ["Back to the Future"],
+    value: 500,
+    hint: "фильм",
+  },
+  {
+    file: "26ddb264324e3e9167f3",
+    answer: "Хатико",
+    variants: ["Хатико: Самый верный друг", "Hachiko"],
+    value: 500,
+    hint: "фильм",
+  },
+  {
+    file: "c9a1f0d31d3814be4123",
+    answer: "Белое солнце пустыни",
+    variants: [],
+    value: 500,
+    hint: "советский фильм",
+  },
+  {
+    file: "5341fbfe79222c3e20b0",
+    answer: "Пёс Барбос и необычный кросс",
+    variants: ["Пес Барбос и необычный кросс", "Пёс Барбос"],
+    value: 500,
+    hint: "советский фильм",
+  },
+];
+
 function sql(value: unknown): string {
   if (value === null || value === undefined) return "null";
   if (typeof value === "number") return String(value);
@@ -224,28 +400,39 @@ function sqlArray(values: string[]): string {
   return `array[${values.map(sql).join(", ")}]::text[]`;
 }
 
-export function kidsRows(): Array<PictureDraft & { value: number }> {
-  return KIDS.map((item, index) => ({
-    category: PICTURE_CATEGORY.kids,
-    prompt: `Детский рисунок № ${index + 1}: ${item.hint}.`,
-    answer: item.answer,
-    variants: item.variants,
-    value: item.value,
-    kind: "image",
-    picture: "kids",
-    picture_spec: { effect: "blur" },
-    reveal_seconds: DEFAULT_REVEAL.kids,
-    image_url: `/pictures/k/${item.file}.jpg`,
-    image_credit: KIDS_CREDIT,
-    image_license: "ИИ-рисунок (фан-арт)",
-    image_page: null,
-  }));
+export type KidsWave = 1 | 2;
+
+/** Все задания формата: волна 1 — № 1–25, волна 2 — № 26 и дальше. */
+export function kidsRows(
+  waves: KidsWave[] = [1, 2],
+): Array<PictureDraft & { value: number }> {
+  return [...KIDS, ...KIDS_WAVE2]
+    .map((item, index) => ({
+      category: PICTURE_CATEGORY.kids,
+      prompt: `Детский рисунок № ${index + 1}: ${item.hint}.`,
+      answer: item.answer,
+      variants: item.variants,
+      value: item.value,
+      kind: "image" as const,
+      picture: "kids" as const,
+      picture_spec: { effect: "blur" as const },
+      reveal_seconds: DEFAULT_REVEAL.kids,
+      image_url: `/pictures/k/${item.file}.jpg`,
+      image_credit: KIDS_CREDIT,
+      image_license: "ИИ-рисунок (фан-арт)",
+      image_page: null,
+    }))
+    .filter((_row, index) => waves.includes(index < KIDS.length ? 1 : 2));
 }
 
 async function main() {
+  const wave: KidsWave = process.argv[2] === "2" ? 2 : 1;
   const out =
-    process.argv[2] ?? "supabase/migrations/20261030010000_picture_kids.sql";
-  const rows = kidsRows();
+    process.argv[3] ??
+    (wave === 2
+      ? "supabase/migrations/20261030021000_picture_kids_wave2.sql"
+      : "supabase/migrations/20261030010000_picture_kids.sql");
+  const rows = kidsRows([wave]);
   const failed: string[] = [];
   for (const row of rows) {
     const { problems } = await checkPictureDraft(row);
@@ -274,7 +461,14 @@ async function main() {
         sql(row.image_page),
       ].join(", ")})`,
   );
-  const text = `-- Формат «Детский рисунок» (собран scripts/picture-tasks/kids.ts).
+  const header =
+    wave === 2
+      ? `-- «Детский рисунок», вторая волна (собрана scripts/picture-tasks/kids.ts 2).
+-- Совсем минималистичные ИИ-рисунки (2–5 линий/фигур, одна ключевая деталь),
+-- без текста и логотипов; номиналы 300–500 — start_game ставит их на дорогие клетки.
+-- Аддитивно: добавляем ${rows.length} заданий (enabled = true).
+`
+      : `-- Формат «Детский рисунок» (собран scripts/picture-tasks/kids.ts).
 -- Наивные рисунки по мотивам известных фильмов и мультфильмов нарисованы ИИ,
 -- без текста и логотипов; файлы — public/pictures/k/<случайное имя>.jpg.
 -- Аддитивно: расширяем список форматов и добавляем ${rows.length} заданий (enabled = true).
@@ -282,7 +476,8 @@ async function main() {
 alter table public.question_bank drop constraint if exists question_bank_picture_check;
 alter table public.question_bank add constraint question_bank_picture_check
   check (picture is null or picture in ('rebus', 'emoji', 'fragment', 'hidden', 'blur', 'logo', 'kids'));
-
+`;
+  const text = `${header}
 insert into public.question_bank (category, prompt, answer, variants, kind, image_url, curtain, value, picture, picture_spec, reveal_seconds, image_credit, image_license, image_page) values
 ${values.join(",\n")}
 on conflict (category, prompt) do nothing;

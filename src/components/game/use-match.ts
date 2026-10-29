@@ -21,6 +21,11 @@ export type GameRow = {
   revealed_answer: string | null;
 };
 
+export type BuzzMark = {
+  question_id: string;
+  player_id: string;
+};
+
 export type MatchState =
   | { status: "loading" }
   | { status: "invalid" }
@@ -33,6 +38,7 @@ export type MatchState =
       players: PlayerRow[];
       game: GameRow;
       board: BoardCell[];
+      buzzes: BuzzMark[];
     };
 
 const gameColumns =
@@ -50,31 +56,42 @@ export function useMatch(code: string): MatchState {
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
     async function load(room: RoomRow) {
-      const [playersResult, gameResult, boardResult] = await Promise.all([
-        supabase
-          .from("players")
-          .select("id, nickname, role, score, joined_at")
-          .eq("room_id", room.id)
-          .order("joined_at", { ascending: true }),
-        supabase
-          .from("game_states")
-          .select(gameColumns)
-          .eq("room_id", room.id)
-          .single(),
-        supabase
-          .from("question_board")
-          .select(
-            "id, round, category, value, row_index, col_index, status, prompt, special, assigned_player_id, revealed_answer, kind, youtube_id, vk_url, rutube_url, image_url, start_seconds, end_seconds, curtain",
-          )
-          .eq("room_id", room.id),
-      ]);
-      if (playersResult.error || gameResult.error || boardResult.error) {
+      const [playersResult, gameResult, boardResult, buzzResult] =
+        await Promise.all([
+          supabase
+            .from("players")
+            .select("id, nickname, role, score, joined_at")
+            .eq("room_id", room.id)
+            .order("joined_at", { ascending: true }),
+          supabase
+            .from("game_states")
+            .select(gameColumns)
+            .eq("room_id", room.id)
+            .single(),
+          supabase
+            .from("question_board")
+            .select(
+              "id, round, category, value, row_index, col_index, status, prompt, special, assigned_player_id, revealed_answer, kind, youtube_id, vk_url, rutube_url, image_url, start_seconds, end_seconds, curtain",
+            )
+            .eq("room_id", room.id),
+          supabase
+            .from("buzzes")
+            .select("question_id, player_id")
+            .eq("room_id", room.id),
+        ]);
+      if (
+        playersResult.error ||
+        gameResult.error ||
+        boardResult.error ||
+        buzzResult.error
+      ) {
         throw new Error("load");
       }
       return {
         players: (playersResult.data ?? []) as PlayerRow[],
         game: gameResult.data as GameRow,
         board: (boardResult.data ?? []) as BoardCell[],
+        buzzes: (buzzResult.data ?? []) as BuzzMark[],
       };
     }
 
@@ -133,6 +150,23 @@ export function useMatch(code: string): MatchState {
             event: "*",
             schema: "public",
             table: "game_states",
+            filter: `room_id=eq.${room.id}`,
+          },
+          () => {
+            void load(room)
+              .then((snapshot) => {
+                if (!cancelled)
+                  setState({ status: "ready", room, ...snapshot });
+              })
+              .catch(() => undefined);
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "buzzes",
             filter: `room_id=eq.${room.id}`,
           },
           () => {

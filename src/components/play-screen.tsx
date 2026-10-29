@@ -352,6 +352,11 @@ function PlayTurn({
   const waiting =
     game.phase === "question" ||
     (game.phase === "buzzing" && session.role !== "player");
+  const alreadyBuzzed = match.buzzes.some(
+    (buzz) =>
+      buzz.question_id === game.current_question_id &&
+      buzz.player_id === session.playerId,
+  );
 
   return (
     <div
@@ -464,14 +469,14 @@ function PlayTurn({
       {game.phase === "buzzing" && session.role === "player" ? (
         <button
           type="button"
-          disabled={pending}
+          disabled={pending || alreadyBuzzed}
           onClick={() => {
             navigator.vibrate?.(30);
             void rpc("buzz", { p_code: code, p_player_token: session.token });
           }}
-          className="buzz"
+          className={`buzz ${alreadyBuzzed ? "is-done" : ""}`}
         >
-          Ответить
+          {alreadyBuzzed ? "Вы уже нажимали" : "Ответить"}
         </button>
       ) : null}
 

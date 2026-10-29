@@ -745,6 +745,16 @@ label {
   transform: rotate(-1.5deg) scale(0.97);
 }
 
+.buzz:disabled,
+.buzz.is-done {
+  background: #d8d5cc;
+  color: #55534e;
+  font-size: clamp(22px, 5vw, 32px);
+  transform: none;
+  box-shadow: none;
+  opacity: 1;
+}
+
 .struck {
   text-decoration: line-through;
   text-decoration-thickness: 3px;

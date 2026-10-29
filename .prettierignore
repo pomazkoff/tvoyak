@@ -1,0 +1,10 @@
+.next
+supabase/migrations
+.env.example
+node_modules
+out
+coverage
+package-lock.json
+supabase/.temp
+supabase/.branches
+next-env.d.ts

@@ -15,6 +15,7 @@ import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
 import { StyledQr } from "@/components/styled-qr";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
+import { verdictLine } from "@/lib/game/verdict-speech";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { messageFor } from "@/lib/rooms/messages";
 import { readHostSecret, useHasHostSecret } from "@/lib/rooms/storage";
@@ -88,7 +89,8 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
 
   useEffect(() => {
     if (game?.phase !== "question") {
-      stopSpeech();
+      // На поле не обрываем: бот договаривает вердикт после вскрытия.
+      if (game?.phase !== "board" || !voiceOn) stopSpeech();
       return;
     }
     if (!questionPrompt || !normalized || !game.current_question_id) return;
@@ -118,6 +120,43 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     normalized,
     hostMode,
   ]);
+
+  // Бот-ведущий озвучивает вердикт. Очки и фаза приходят отдельными
+  // событиями, поэтому сравниваем очки чуть позже перехода.
+  const scores =
+    match.status === "ready"
+      ? Object.fromEntries(match.players.map((p) => [p.id, p.score]))
+      : {};
+  const scoresRef = useRef(scores);
+  const verdictFrom = useRef<{ phase: string; scores: Record<string, number> }>(
+    { phase: "", scores: {} },
+  );
+  const phaseNow = game?.phase ?? "";
+  const answerRef = useRef<string | null>(null);
+  const roundNow = game?.round ?? 0;
+  useEffect(() => {
+    const from = verdictFrom.current;
+    verdictFrom.current = { phase: phaseNow, scores: scoresRef.current };
+    if (!voiceOn || hostMode !== "bot" || roundNow === 3) return;
+    if (from.phase === phaseNow) return;
+    const timer = window.setTimeout(() => {
+      const line = verdictLine({
+        from: from.phase,
+        to: phaseNow,
+        before: from.scores,
+        after: scoresRef.current,
+        answer: answerRef.current,
+      });
+      if (line) speakRussian(line);
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [phaseNow, roundNow, voiceOn, hostMode]);
+  // После эффекта вердикта: там scoresRef ещё хранит очки прошлого рендера.
+  const revealedAnswer = game?.revealed_answer ?? null;
+  useEffect(() => {
+    scoresRef.current = scores;
+    answerRef.current = revealedAnswer;
+  });
 
   useEffect(() => {
     if (!normalized || !ownsRoom || !game || game.phase !== "judging") return;
@@ -432,7 +471,9 @@ function GameView({
         {game.phase === "board" ? (
           <p className="pick-prompt hand">
             Выбирает {chooserName} с телефона
-            {hostCanPick && hostMode !== "bot" ? " — или нажмите клетку за него" : ""}
+            {hostCanPick && hostMode !== "bot"
+              ? " — или нажмите клетку за него"
+              : ""}
           </p>
         ) : null}
         {game.phase === "board" || game.phase === "cat_pick" ? (

@@ -31,3 +31,26 @@ export function youtubeEmbedVars({
   if (origin) vars.origin = origin;
   return vars;
 }
+
+/**
+ * Ссылка на плеер VK/Rutube: старт с нужной секунды и автозапуск (кликнуть
+ * по ролику на ТВ нельзя — у iframe отключены указатели). Rutube умеет
+ * останавливаться сам (stopTime), VK — нет, его гасит таймер в MediaPlayer.
+ */
+export function fallbackSrc(
+  url: string,
+  provider: "vk" | "rutube",
+  start: number | null,
+  end: number | null,
+): string {
+  const params: string[] = [];
+  if (provider === "rutube") {
+    if (start) params.push(`t=${start}`);
+    if (end && end > (start ?? 0)) params.push(`stopTime=${end}`);
+    params.push("autoplay=1");
+  } else {
+    if (start) params.push(`t=${start}s`);
+    params.push("autoplay=1");
+  }
+  return `${url}${url.includes("?") ? "&" : "?"}${params.join("&")}`;
+}

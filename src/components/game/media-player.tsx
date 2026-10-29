@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import type { BoardCell } from "@/components/game/board";
-import { youtubeEmbedVars } from "@/lib/media/youtube";
+import { fallbackSrc, youtubeEmbedVars } from "@/lib/media/youtube";
 
 type Provider = "youtube" | "vk" | "rutube";
 
@@ -61,6 +61,8 @@ function loadYouTubeApi(): Promise<void> {
 /** Запас до края фрагмента: YouTube не должен успеть показать заставку конца. */
 const END_GUARD_SECONDS = 0.35;
 const YT_ENDED = 0;
+/** Сколько даём VK/Rutube на буферизацию после загрузки плеера. */
+const FALLBACK_LOAD_ALLOWANCE_MS = 1500;
 
 export function MediaPlayer({
   cell,
@@ -163,6 +165,21 @@ export function MediaPlayer({
     provider,
   ]);
 
+  // VK/Rutube из чужого окна не управляются: фрагмент гасим по таймеру
+  // от загрузки плеера (с запасом на буферизацию), чтобы ролик не шёл дальше.
+  const fallbackTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(fallbackTimer.current), []);
+  function stopFallbackLater() {
+    const start = cell.start_seconds ?? 0;
+    const end = cell.end_seconds ?? 0;
+    if (end <= start) return;
+    window.clearTimeout(fallbackTimer.current);
+    fallbackTimer.current = window.setTimeout(
+      () => setFinished(true),
+      (end - start) * 1000 + FALLBACK_LOAD_ALLOWANCE_MS,
+    );
+  }
+
   if (cell.kind === "image" && cell.image_url) {
     return (
       <div className="polaroid inline-block max-w-full">
@@ -201,14 +218,24 @@ export function MediaPlayer({
       >
         {provider === "youtube" ? (
           <div ref={hostRef} id={`yt-${reactId}`} className="media-embed" />
-        ) : fallback ? (
+        ) : fallback && finished ? (
+          <p className="media-missing hand">Фрагмент закончился.</p>
+        ) : fallback && playing ? (
           <iframe
             title="Видео вопроса"
-            src={withTimecode(fallback, provider, cell.start_seconds)}
+            src={fallbackSrc(
+              fallback,
+              provider === "vk" ? "vk" : "rutube",
+              cell.start_seconds,
+              cell.end_seconds,
+            )}
             className="media-embed"
             tabIndex={-1}
             allow="autoplay; encrypted-media; picture-in-picture"
+            onLoad={stopFallbackLater}
           />
+        ) : fallback ? (
+          <div className="media-embed" />
         ) : (
           <p className="media-missing hand">Ролик не открылся.</p>
         )}
@@ -232,15 +259,4 @@ export function MediaPlayer({
       </div>
     </div>
   );
-}
-
-function withTimecode(
-  url: string,
-  provider: Provider,
-  start: number | null,
-): string {
-  if (!start) return url;
-  const glue = url.includes("?") ? "&" : "?";
-  if (provider === "rutube") return `${url}${glue}t=${start}`;
-  return `${url}${glue}t=${start}s`;
 }

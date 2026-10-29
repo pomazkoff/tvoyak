@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { youtubeEmbedVars } from "@/lib/media/youtube";
+import { fallbackSrc, youtubeEmbedVars } from "@/lib/media/youtube";
 
 describe("встраивание YouTube", () => {
   it("прячет всё, что выдаёт ответ", () => {
@@ -21,5 +21,24 @@ describe("встраивание YouTube", () => {
     const vars = youtubeEmbedVars({ start: 30, end: 10, autoplay: false });
     expect(vars.end).toBeUndefined();
     expect(vars.autoplay).toBe(0);
+  });
+});
+
+describe("запасные плееры VK и Rutube", () => {
+  it("Rutube: старт, стоп и автозапуск", () => {
+    expect(
+      fallbackSrc("https://rutube.ru/play/embed/abc", "rutube", 30, 38),
+    ).toBe("https://rutube.ru/play/embed/abc?t=30&stopTime=38&autoplay=1");
+  });
+
+  it("VK: таймкод и автозапуск к уже имеющимся параметрам", () => {
+    expect(
+      fallbackSrc(
+        "https://vk.com/video_ext.php?oid=-1&id=2&hash=h",
+        "vk",
+        5,
+        12,
+      ),
+    ).toBe("https://vk.com/video_ext.php?oid=-1&id=2&hash=h&t=5s&autoplay=1");
   });
 });

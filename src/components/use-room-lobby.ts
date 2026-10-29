@@ -31,6 +31,7 @@ export function useRoomLobby(code: string): LobbyState {
     const supabase = getBrowserSupabase();
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let poll: ReturnType<typeof setInterval> | undefined;
 
     async function loadPlayers(roomId: string): Promise<PlayerRow[]> {
       const { data, error } = await supabase
@@ -96,6 +97,15 @@ export function useRoomLobby(code: string): LobbyState {
         )
         .subscribe();
 
+      // Страховка, если realtime не доставил событие: опрашиваем список.
+      poll = setInterval(() => {
+        void loadPlayers(room.id)
+          .then((players) => {
+            if (!cancelled) setState({ status: "ready", room, players });
+          })
+          .catch(() => undefined);
+      }, 3000);
+
       if (cancelled) {
         void supabase.removeChannel(nextChannel);
       } else {
@@ -105,6 +115,7 @@ export function useRoomLobby(code: string): LobbyState {
 
     return () => {
       cancelled = true;
+      if (poll) clearInterval(poll);
       if (channel) void supabase.removeChannel(channel);
     };
   }, [code]);

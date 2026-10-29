@@ -61,6 +61,10 @@ export function useMatch(code: string): MatchState {
     const supabase = getBrowserSupabase();
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    // Страховка, если realtime не доставил событие.
+    const poll = setInterval(() => {
+      void reloadRef.current?.().catch(() => undefined);
+    }, 4000);
 
     async function load(room: RoomRow) {
       const [playersResult, gameResult, boardResult, buzzResult] =
@@ -197,6 +201,7 @@ export function useMatch(code: string): MatchState {
 
     return () => {
       cancelled = true;
+      clearInterval(poll);
       reloadRef.current = null;
       if (channel) void supabase.removeChannel(channel);
     };

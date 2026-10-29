@@ -1,6 +1,5 @@
 "use client";
 
-import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Board, PlayerRail, type BoardCell } from "@/components/game/board";
 import { MediaPlayer } from "@/components/game/media-player";
@@ -12,6 +11,7 @@ import {
   type GameRow,
 } from "@/components/game/use-match";
 import { Panel, Shell } from "@/components/shell";
+import { StyledQr } from "@/components/styled-qr";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { messageFor } from "@/lib/rooms/messages";
@@ -252,27 +252,17 @@ function Lobby({
     <main className="lobby">
       <div>
         {playUrl ? (
-          <div
-            className="polaroid inline-block"
-            style={{ transform: "rotate(-2deg)" }}
-            role="img"
-            aria-label="QR-код"
-          >
-            <QRCodeSVG
-              value={playUrl}
-              size={220}
-              bgColor="#ffffff"
-              fgColor="#141414"
-              level="M"
-            />
+          <div className="qr-card">
+            <span className="tape hand" style={{ transform: "rotate(-3deg)" }}>
+              наведи камеру
+            </span>
+            <StyledQr value={playUrl} />
+            <div className="qr-aside">
+              <p className="hand qr-hand-code">{code}</p>
+              <p className="hand qr-hand-hint">наведи камеру</p>
+            </div>
           </div>
         ) : null}
-        <p
-          className="tape lobby-code poster"
-          style={{ transform: "rotate(2deg)" }}
-        >
-          {code}
-        </p>
         <button
           type="button"
           onClick={onCopy}
@@ -375,7 +365,7 @@ function GameView({
         />
         <p className="enter-code mono">войти: {code}</p>
       </div>
-      <div className="min-h-0">
+      <div className="stage-body">
         {error ? <p className="text-danger">{error}</p> : null}
         {game.phase === "board" || game.phase === "cat_pick" ? (
           <Board

@@ -52,9 +52,11 @@ export function HomeScreen() {
     <main className="home-grid">
       <div>
         <Logo className="home-logo" />
-        <div className="mt-2 flex flex-wrap items-center gap-3">
+        <div className="home-lead">
           <p className="torn-line hand">
-            Своя игра для компании. Ведущий на телевизоре, игроки с телефонов.
+            Своя игра для компании.
+            <br />
+            Ведущий на телевизоре, игроки с телефонов.
           </p>
           <Arrow />
         </div>

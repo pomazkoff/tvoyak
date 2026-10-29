@@ -62,7 +62,7 @@ export function HomeScreen() {
           <Arrow />
         </div>
       </div>
-      <div>
+      <div className="home-stack">
         <section className="sheet home-sheet">
           <span className="tape hand" style={{ transform: "rotate(-3deg)" }}>
             Новая комната
@@ -100,13 +100,21 @@ export function HomeScreen() {
           </button>
         </section>
         <section className="ticket home-ticket">
-          <p className="hand text-2xl">Уже есть код</p>
+          <span className="tape ticket-tape" aria-hidden />
+          <p className="hand home-ticket-title">Уже есть код</p>
           <label className="sr-only" htmlFor="room-code">
             Четыре латинские буквы
           </label>
           <div className="code-cells mono mt-2">
             {Array.from({ length: 4 }, (_, index) => (
-              <span key={index}>{code[index] ?? ""}</span>
+              <span
+                key={index}
+                className={
+                  index === Math.min(code.length, 3) ? "is-next" : undefined
+                }
+              >
+                {code[index] ?? ""}
+              </span>
             ))}
             <input
               id="room-code"
@@ -121,18 +129,19 @@ export function HomeScreen() {
               aria-label="Код комнаты"
             />
           </div>
-          <div className="mt-3 flex gap-2">
+          <p className="code-hint">Четыре буквы с экрана ведущего</p>
+          <div className="code-actions">
             <a
               href={normalizedCode ? `/play/${normalizedCode}` : undefined}
               aria-disabled={!normalizedCode}
-              className={`action flex-1 ${normalizedCode ? "" : "pointer-events-none opacity-40"}`}
+              className="action"
             >
               Игрок
             </a>
             <a
               href={normalizedCode ? `/host/${normalizedCode}` : undefined}
               aria-disabled={!normalizedCode}
-              className={`action flex-1 bg-ink ${normalizedCode ? "" : "pointer-events-none opacity-40"}`}
+              className="action is-ink"
             >
               Ведущий
             </a>
@@ -155,7 +164,7 @@ function ModeCard({
   sketch: ReactNode;
 }) {
   return (
-    <label className="mode-card">
+    <label className={`mode-card ${checked ? "is-picked" : ""}`}>
       <input
         type="radio"
         name="hostMode"
@@ -164,17 +173,8 @@ function ModeCard({
         className="sr-only"
       />
       {sketch}
-      <span className="hand mt-1 block text-center text-2xl">{label}</span>
-      {checked ? (
-        <svg
-          className="pick-ring"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          aria-hidden
-        >
-          <ellipse cx="50" cy="50" rx="47" ry="45" />
-        </svg>
-      ) : null}
+      <span className="hand mode-label">{label}</span>
+      {checked ? <span className="pick-ring" aria-hidden /> : null}
     </label>
   );
 }

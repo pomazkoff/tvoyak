@@ -241,11 +241,179 @@ label {
   font-family: var(--font-jetbrains), ui-monospace, monospace;
 }
 
-.sheet {
-  background: #f7f6f2;
+/* ---- Бумага ----
+   Все листы (.sheet, .ticket, .question-sheet, .qr-card, .torn-line, плитки
+   режима) рисуются одинаково: сам элемент прозрачный, бумага — ::before
+   (цвет + бесшовная текстура мятой бумаги, неровный «рваный» край через
+   clip-path), тень — ::after (обычный box-shadow, чуть утоплен под край, чтобы
+   clip-path его не срезал). Текст не трогаем — он остаётся резким, а
+   текстура — одна маленькая картинка без SVG-фильтров, дёшево для телефонов. */
+:root {
+  --paper-color: #f7f6f2;
+  --paper-texture: url("/paper/crumple.webp");
+  --edge-1: polygon(
+    0 2.3px,
+    3.3px 0,
+    6.6% 1px,
+    12.6% 1.7px,
+    27.5% 0px,
+    45.4% 1px,
+    49.6% 1.6px,
+    63.9% 0.5px,
+    74.3% 2.1px,
+    76.6% 2px,
+    80.9% 0.1px,
+    calc(100% - 2.1px) 0,
+    100% 2.9px,
+    calc(100% - 0.5px) 6.7%,
+    calc(100% - 0.5px) 23.9%,
+    calc(100% - 1px) 24.4%,
+    calc(100% - 0.6px) 25.4%,
+    calc(100% - 0px) 39.1%,
+    calc(100% - 1.8px) 42.8%,
+    calc(100% - 1.2px) 44.3%,
+    calc(100% - 1.4px) 49.6%,
+    calc(100% - 0.4px) 90.4%,
+    100% calc(100% - 3.5px),
+    calc(100% - 3.3px) 100%,
+    90.2% calc(100% - 1.3px),
+    80.4% calc(100% - 1.9px),
+    70.4% calc(100% - 1.9px),
+    69.4% calc(100% - 1.1px),
+    65.7% calc(100% - 1.3px),
+    42.8% calc(100% - 0.1px),
+    34.6% calc(100% - 0.5px),
+    31.9% calc(100% - 1.8px),
+    15.1% calc(100% - 0.9px),
+    2.3px 100%,
+    0 calc(100% - 2.9px),
+    0.1px 75.6%,
+    0.1px 68.7%,
+    1.5px 66.1%,
+    2.2px 51.9%,
+    1.3px 50.8%,
+    0.9px 49.1%,
+    0.4px 44.4%,
+    1.1px 40.2%,
+    2.2px 38.5%
+  );
+  --edge-2: polygon(
+    0 3.4px,
+    3.4px 0,
+    9.2% 0.3px,
+    11.8% 0.9px,
+    32.3% 0.9px,
+    57.5% 1.6px,
+    59.7% 2.2px,
+    59.8% 2.1px,
+    65.6% 1.2px,
+    71.7% 1px,
+    80.9% 0.6px,
+    calc(100% - 2.2px) 0,
+    100% 2.1px,
+    calc(100% - 0.3px) 6.2%,
+    calc(100% - 1.1px) 25.7%,
+    calc(100% - 2.2px) 33.3%,
+    calc(100% - 1.5px) 33.9%,
+    calc(100% - 0.4px) 39%,
+    calc(100% - 2px) 46.8%,
+    calc(100% - 1.8px) 52.4%,
+    calc(100% - 1.6px) 55.6%,
+    calc(100% - 2px) 86%,
+    100% calc(100% - 3.2px),
+    calc(100% - 3.2px) 100%,
+    94.2% calc(100% - 2px),
+    92.5% calc(100% - 1.1px),
+    73.4% calc(100% - 1.8px),
+    69.8% calc(100% - 0.8px),
+    52.8% calc(100% - 1.9px),
+    49.1% calc(100% - 2px),
+    46.4% calc(100% - 1px),
+    36.5% calc(100% - 1.2px),
+    18.8% calc(100% - 2px),
+    3.1px 100%,
+    0 calc(100% - 2.8px),
+    1.6px 92.1%,
+    1.1px 87.8%,
+    1.1px 87.5%,
+    1.4px 68.4%,
+    1.3px 33.9%,
+    0.7px 32.5%,
+    0.5px 28.7%,
+    1.1px 24.4%,
+    2.1px 19.3%
+  );
+}
+
+.sheet,
+.ticket,
+.question-sheet,
+.qr-card,
+.torn-line,
+.mode-card {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sheet::before,
+.ticket::before,
+.question-sheet::before,
+.qr-card::before,
+.torn-line::before,
+.mode-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--paper-color);
+  background-image:
+    radial-gradient(
+      140% 110% at var(--paper-light, 22% 12%),
+      rgba(255, 255, 255, 0.55),
+      rgba(255, 255, 255, 0) 55%
+    ),
+    var(--paper-texture);
+  background-position:
+    0 0,
+    var(--paper-shift, 0 0);
+  background-size:
+    100% 100%,
+    var(--paper-scale, 420px) auto;
+  background-blend-mode: normal, multiply;
+  clip-path: var(--paper-edge, var(--edge-1));
+}
+
+.sheet::after,
+.ticket::after,
+.question-sheet::after,
+.qr-card::after,
+.torn-line::after,
+.mode-card::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  z-index: -2;
+  pointer-events: none;
+  border-radius: 6px;
   box-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.06),
-    0 12px 22px -14px rgba(0, 0, 0, 0.4);
+    0 1px 2px rgba(40, 32, 18, 0.22),
+    0 6px 10px -4px rgba(40, 32, 18, 0.18),
+    0 18px 26px -14px rgba(40, 32, 18, 0.32);
+}
+
+.ticket,
+.qr-card,
+.mode-card:nth-child(2) {
+  --paper-edge: var(--edge-2);
+  --paper-shift: 160px 90px;
+}
+
+.question-sheet {
+  --paper-scale: 560px;
+  --paper-shift: 60px 220px;
 }
 
 .tape {
@@ -486,11 +654,7 @@ label {
   margin: 1vh auto 0;
   padding: 3.2vh 3.2vw 2.4vh;
   overflow: visible;
-  background: #f7f6f2;
   transform: rotate(-0.8deg);
-  box-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.06),
-    0 12px 22px -14px rgba(0, 0, 0, 0.4);
 }
 
 .question-sheet .tape-red {
@@ -761,17 +925,19 @@ label {
   text-decoration-color: #d7261e;
 }
 
-.ticket {
-  background: #f7f6f2;
+/* Билет: вырезы по бокам на середине высоты — только у бумаги (::before),
+   тень под ними прячем, утопив ::after по горизонтали глубже выреза. */
+.ticket::before {
   mask-image:
-    radial-gradient(circle at 0 12px, transparent 8px, #000 8.5px),
-    radial-gradient(circle at 100% 12px, transparent 8px, #000 8.5px);
+    radial-gradient(circle at 0 50%, transparent 9px, #000 9.5px),
+    radial-gradient(circle at 100% 50%, transparent 9px, #000 9.5px);
   mask-size: 51% 100%;
   mask-position: left, right;
   mask-repeat: no-repeat;
-  box-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.06),
-    0 12px 22px -14px rgba(0, 0, 0, 0.4);
+}
+
+.ticket::after {
+  inset: 3px 10px;
 }
 
 .home-grid {
@@ -809,112 +975,27 @@ label {
   min-width: 0;
   box-sizing: border-box;
   margin: 0;
-  background: #f7f6f2;
   padding: 0.55em 1.15em 0.7em;
   line-height: 1.15;
   font-size: clamp(22px, 1.7vw, 32px);
   transform: rotate(-1deg);
-  box-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.06),
-    0 12px 22px -14px rgba(0, 0, 0, 0.4);
+}
+
+.home-stack {
+  display: flex;
+  min-width: 0;
+  max-width: 34rem;
+  flex-direction: column;
 }
 
 .home-sheet {
-  position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   box-sizing: border-box;
-  padding: 1.5rem 1.25rem 1.35rem;
-  transform: rotate(0.8deg);
-}
-
-.home-ticket {
-  position: relative;
-  z-index: 2;
-  box-sizing: border-box;
-  width: calc(100% - 28px);
-  margin-top: -24px;
-  margin-left: 10px;
-  padding: 1rem 1.1rem 1.1rem;
-  transform: rotate(-1.2deg);
-}
-
-.code-cells {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.4rem;
-}
-
-.code-cells span {
-  display: grid;
-  height: 3.2rem;
-  place-items: center;
-  border: 1.5px solid #141414;
-  background: #fff;
-  font-size: 32px;
-}
-
-.code-cells input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: transparent;
-  caret-color: #141414;
-  font-size: 32px;
-}
-
-.mode-row {
-  display: grid;
-  width: 100%;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.mode-card {
-  position: relative;
-  box-sizing: border-box;
-  min-width: 0;
-  width: auto;
-  margin: 0;
-  background: #fff;
-  padding: 0.55rem 0.4rem 0.7rem;
-  cursor: pointer;
-  transform: rotate(var(--tilt));
-}
-
-.mode-card:first-child {
-  --tilt: -0.6deg;
-  z-index: 1;
-}
-
-.mode-card:last-child {
-  --tilt: 0.6deg;
-}
-
-/* Овал выбора рисуется внутри плитки: явные размеры, иначе SVG
-   растягивается по своему viewBox и вылезает за лист. */
-.pick-ring {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: calc(100% - 8px);
-  height: calc(100% - 8px);
-  overflow: visible;
-  pointer-events: none;
-}
-
-.pick-ring ellipse {
-  fill: none;
-  stroke: #d7261e;
-  stroke-width: 2.5;
-  vector-effect: non-scaling-stroke;
-  filter: url(#rough);
+  padding: 1.6rem 1.5rem 1.6rem;
+  transform: rotate(0.6deg);
 }
 
 .home-sheet > .tape {
@@ -928,15 +1009,227 @@ label {
 .home-sheet > .action {
   box-sizing: border-box;
   width: 100%;
-  margin-top: 1rem;
+  margin-top: 1.5rem;
+}
+
+/* Второй лист лежит под первым со сдвигом вправо и прихвачен скотчем —
+   без нахлёста на кнопку. */
+.home-ticket {
+  z-index: 2;
+  box-sizing: border-box;
+  width: calc(100% - 1.5rem);
+  margin-top: 1.1rem;
+  margin-left: 1.5rem;
+  padding: 1.15rem 1.6rem 1.3rem;
+  transform: rotate(-0.9deg);
+}
+
+.home-ticket > .ticket-tape {
+  position: absolute;
+  top: -0.85rem;
+  left: 1.6rem;
+  width: 4.6rem;
+  height: 1.35rem;
+  padding: 0;
+  transform: rotate(-5deg);
+}
+
+.home-ticket-title {
+  font-size: 1.6rem;
+}
+
+.code-cells {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+}
+
+.code-cells span {
+  display: grid;
+  height: 3.4rem;
+  place-items: center;
+  border: 1.5px solid rgba(20, 20, 20, 0.7);
+  border-radius: 7px 5px 8px 6px / 6px 8px 5px 7px;
+  background: rgba(255, 255, 255, 0.6);
+  font-size: 30px;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.code-cells span:nth-child(2n) {
+  border-radius: 5px 8px 6px 7px / 8px 5px 7px 6px;
+}
+
+.code-cells:focus-within span.is-next {
+  border-color: #d7261e;
+  box-shadow: 0 0 0 2px rgba(215, 38, 30, 0.18);
+}
+
+.code-cells input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 30px;
+  outline: none;
+}
+
+.code-hint {
+  margin: 0.45rem 0 0;
+  color: #77746c;
+  font-size: 14px;
+}
+
+.code-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+.code-actions .action {
+  min-height: 52px;
+}
+
+.action.is-ink {
+  background: #141414;
+}
+
+/* Пока кода нет — не розовые кнопки, а пунктирные «места» под них. */
+.action[aria-disabled="true"] {
+  border: 1.5px dashed rgba(20, 20, 20, 0.32);
+  background: transparent;
+  color: #8a877f;
+  pointer-events: none;
+}
+
+.mode-row {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.1rem;
+  margin-top: 1.25rem;
+}
+
+/* Плитка режима — маленький листок бумаги. */
+.mode-card {
+  --paper-color: #fbfaf6;
+  --paper-scale: 300px;
+  display: flex;
+  box-sizing: border-box;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  padding: 0.85rem 0.6rem 0.95rem;
+  cursor: pointer;
+  transform: rotate(var(--tilt));
+  transition: transform 160ms ease;
+}
+
+.mode-card:first-child {
+  --tilt: -0.8deg;
+}
+
+.mode-card:last-child {
+  --tilt: 0.9deg;
+}
+
+.mode-card:hover {
+  transform: rotate(var(--tilt)) translateY(-2px);
+}
+
+.mode-card:has(input:focus-visible) {
+  outline: 2px dashed #2b4a9a;
+  outline-offset: 4px;
+}
+
+.mode-card .sketch {
+  color: #141414;
+  opacity: 0.55;
+  transition: opacity 160ms ease;
+}
+
+.mode-card.is-picked .sketch {
+  opacity: 1;
+}
+
+.mode-label {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 1.5rem;
+  line-height: 1.05;
+  text-align: center;
+}
+
+/* Красная обводка выбора идёт вокруг всей плитки, снаружи её края:
+   скруглённая «петля от руки» не задевает ни иконку, ни подпись. Радиусы
+   подобраны так, чтобы углы плитки не вылезали за линию. */
+.pick-ring {
+  position: absolute;
+  inset: -9px -8px -10px -9px;
+  z-index: 3;
+  border: 2.5px solid #d7261e;
+  border-radius: 22px 18px 24px 19px / 19px 24px 18px 22px;
+  pointer-events: none;
+  transform: rotate(-1.2deg);
+  filter: url(#rough);
+}
+
+.pick-ring::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  right: 14%;
+  width: 26%;
+  height: 10px;
+  border-top: 2.5px solid #d7261e;
+  border-radius: 50%;
+  transform: rotate(-6deg);
 }
 
 .sketch {
+  display: block;
   width: 100%;
-  height: 4.2rem;
-  stroke: #141414;
+  height: 4.4rem;
+  stroke: currentColor;
   fill: none;
-  stroke-width: 1.6;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sketch .dot {
+  stroke-width: 3.6;
+}
+
+@media (max-width: 420px) {
+  .home-sheet {
+    padding: 1.35rem 1.15rem 1.35rem;
+  }
+
+  .home-ticket {
+    width: calc(100% - 0.9rem);
+    margin-left: 0.9rem;
+    padding: 1.05rem 1.15rem 1.15rem;
+  }
+
+  .mode-row {
+    gap: 0.9rem;
+  }
+
+  .mode-label {
+    font-size: 1.3rem;
+  }
+
+  .code-cells span {
+    height: 3.1rem;
+  }
 }
 
 .lobby {
@@ -962,11 +1255,7 @@ label {
   width: max-content;
   max-width: 100%;
   padding: 0.85rem 1rem 0.95rem;
-  background: #f7f6f2;
   transform: rotate(-1.4deg);
-  box-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.06),
-    0 12px 22px -14px rgba(0, 0, 0, 0.4);
 }
 
 .qr-card .tape {
@@ -1018,6 +1307,7 @@ label {
   justify-content: center;
   border: 0;
   background: #d7261e;
+  border-radius: 4px 3px 5px 3px;
   padding: 0 1.2rem;
   color: #f7f6f2;
   font-weight: 600;
@@ -1236,10 +1526,6 @@ button {
 
 .code-cells span {
   color: #141414;
-}
-
-.code-cells input {
-  caret-color: #d7261e;
 }
 
 .phone {

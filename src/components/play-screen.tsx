@@ -138,16 +138,22 @@ export function PlayScreen({ code }: { code: string }) {
             </button>
           )}
         </header>
-        {error ? <p className="px-3 text-danger">{error}</p> : null}
-        <PlayTurn
-          code={normalized}
-          session={session}
-          match={match}
-          now={now}
-          pending={pending}
-          setPending={setPending}
-          setError={setError}
-        />
+        <div className="phone-body">
+          {error ? (
+            <p className="px-3 text-danger" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <PlayTurn
+            code={normalized}
+            session={session}
+            match={match}
+            now={now}
+            pending={pending}
+            setPending={setPending}
+            setError={setError}
+          />
+        </div>
       </div>
     );
   }
@@ -271,7 +277,7 @@ function PlayTurn({
         return;
       }
       const result = data as { ok?: boolean; error?: string };
-      if (result.ok === false) setError(messageFor(result.error));
+      if (result.ok !== true) setError(messageFor(result.error));
     } catch {
       setError(messageFor("network"));
     } finally {
@@ -368,7 +374,9 @@ function PlayTurn({
       ) : null}
       {otherName ? <p className="name-sticker hand">{otherName}</p> : null}
       {chooser && game.phase === "board" ? (
-        <p className="hand text-2xl">выбирает {chooser.nickname}</p>
+        <p className="pick-prompt hand">
+          {iChoose ? "Ваш ход — выберите цену" : `Выбирает ${chooser.nickname}`}
+        </p>
       ) : null}
 
       {game.phase === "board" ? (
@@ -382,6 +390,13 @@ function PlayTurn({
               p_player_token: session.token,
               p_question_id: cell.id,
             })
+          }
+          onRefuse={() =>
+            setError(
+              chooser
+                ? `Выбирает ${chooser.nickname}.`
+                : messageFor("not_chooser"),
+            )
           }
         />
       ) : null}

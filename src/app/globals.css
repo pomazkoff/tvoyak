@@ -619,8 +619,48 @@ label {
 .phone {
   display: grid;
   min-height: 100dvh;
-  grid-template-rows: 56px auto minmax(0, 1fr);
+  grid-template-rows: 56px minmax(0, 1fr);
   background: #eceae4;
+}
+
+.phone-body {
+  min-height: 0;
+  overflow: auto;
+}
+
+.phone .board-grid {
+  height: auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.phone .nominal {
+  flex: none;
+  min-height: 56px;
+  font-size: 28px;
+}
+
+.pick-prompt {
+  margin: 0.2rem 0.4rem 0.45rem;
+  font-size: clamp(26px, 2.6vw, 44px);
+  line-height: 1;
+}
+
+.toast {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: 14vh;
+  max-width: min(92vw, 36rem);
+  translate: -50% 0;
+  background: #141414;
+  padding: 0.4em 0.7em;
+  color: #f7f6f2;
+  font-size: clamp(22px, 2.2vw, 34px);
+  line-height: 1.05;
+  pointer-events: none;
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.06),
+    0 12px 22px -14px rgba(0, 0, 0, 0.4);
 }
 
 .phone.is-mine {

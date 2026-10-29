@@ -20,6 +20,7 @@ const MESSAGES: Record<string, string> = {
   already_started: "Партия уже идёт.",
   bank_too_small: "В базе мало вопросов для поля.",
   not_chooser: "Сейчас выбирает другой игрок.",
+  pick_failed: "Не удалось открыть клетку.",
   bad_cell: "Эта ячейка уже недоступна.",
   cat_needs_other: "Кота отдают другому игроку.",
   cat_no_buzz: "На «кота в мешке» отвечает один игрок.",

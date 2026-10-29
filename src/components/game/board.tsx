@@ -34,12 +34,14 @@ export function Board({
   round,
   canPick,
   onPick,
+  onRefuse,
   activeId,
 }: {
   cells: BoardCell[];
   round: number;
   canPick: boolean;
   onPick?: (cell: BoardCell) => void;
+  onRefuse?: () => void;
   activeId?: string | null;
 }) {
   const roundCells = cells.filter(
@@ -66,8 +68,16 @@ export function Board({
               <button
                 key={cell.id}
                 type="button"
-                disabled={!canPick || spent}
-                onClick={() => onPick?.(cell)}
+                disabled={spent}
+                aria-disabled={!canPick || spent}
+                onClick={() => {
+                  if (spent) return;
+                  if (!canPick) {
+                    onRefuse?.();
+                    return;
+                  }
+                  onPick?.(cell);
+                }}
                 className={`nominal poster ${spent ? "is-spent" : ""} ${cell.id === activeId ? "is-open" : ""}`}
               >
                 {cell.value}

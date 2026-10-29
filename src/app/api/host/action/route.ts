@@ -6,6 +6,7 @@ export async function POST(request: Request) {
     code?: unknown;
     hostSecret?: unknown;
     correct?: unknown;
+    questionId?: unknown;
     decisions?: unknown;
   };
   try {
@@ -41,6 +42,8 @@ export async function POST(request: Request) {
       code: body.code,
       hostSecret: body.hostSecret,
       correct: body.correct === true,
+      questionId:
+        typeof body.questionId === "string" ? body.questionId : undefined,
       decisions,
     });
     const status = result.ok === false ? 400 : 200;

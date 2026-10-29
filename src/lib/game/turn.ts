@@ -211,6 +211,7 @@ export async function hostAction(input: {
   code: string;
   hostSecret: string;
   correct?: boolean;
+  questionId?: string;
   decisions?: Array<{ playerId: string; correct: boolean }>;
 }) {
   const auth = await requireHost(input.code, input.hostSecret);
@@ -246,6 +247,20 @@ export async function hostAction(input: {
       p_code: input.code,
       p_on: input.correct === true,
     });
+  }
+  if (input.action === "pick") {
+    if (auth.room.host_mode !== "bot") {
+      return { ok: false, error: "not_chooser" };
+    }
+    if (!input.questionId) return { ok: false, error: "bad_cell" };
+    const picked = await callRpc("host_pick_cell", {
+      p_code: input.code,
+      p_question_id: input.questionId,
+    });
+    if (picked.ok !== true && picked.error === "create_failed") {
+      return { ok: false, error: "pick_failed" };
+    }
+    return picked;
   }
   return { ok: false, error: "bad_phase" };
 }

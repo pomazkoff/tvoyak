@@ -43,6 +43,7 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
   const ownsRoom = useHasHostSecret(normalized);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [sheet, setSheet] = useState<HostSheet | null>(null);
   const [voiceChoice, setVoiceChoice] = useState<boolean | null>(null);
@@ -129,15 +130,28 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     return () => clearTimeout(timer);
   }, [game, normalized, ownsRoom]);
 
+  function showToast(text: string) {
+    setToast(text);
+    window.setTimeout(() => {
+      setToast((current) => (current === text ? null : current));
+    }, 2400);
+  }
+
   async function run(action: string, extra?: Record<string, unknown>) {
     if (!normalized) return;
     setPending(true);
     setError(null);
     try {
       const result = await callHost(normalized, action, extra);
-      if (result.ok === false) setError(messageFor(String(result.error ?? "")));
+      if (result.ok !== true) {
+        const text = messageFor(String(result.error ?? ""));
+        setError(text);
+        if (action === "pick") showToast(text);
+      }
     } catch {
-      setError(messageFor("network"));
+      const text = messageFor("network");
+      setError(text);
+      if (action === "pick") showToast(text);
     } finally {
       setPending(false);
     }
@@ -196,9 +210,20 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
         game={match.game}
         now={now}
         error={error}
+        pending={pending}
+        ownsRoom={ownsRoom}
         hostStartsMedia={match.room.host_starts_media}
         hostMode={match.room.host_mode}
+        onHostPick={(questionId) => void run("pick", { questionId })}
+        onBlockedPick={(nickname) =>
+          showToast(`Выбирает ${nickname} с телефона`)
+        }
       />
+      {toast ? (
+        <p className="toast hand" role="status">
+          {toast}
+        </p>
+      ) : null}
       <HostDesk
         open={desk}
         onToggle={() => setDeskChoice((value) => !(value ?? queryDesk))}
@@ -330,8 +355,12 @@ function GameView({
   game,
   now,
   error,
+  pending,
+  ownsRoom,
   hostStartsMedia,
   hostMode,
+  onHostPick,
+  onBlockedPick,
 }: {
   code: string;
   players: PlayerRow[];
@@ -339,8 +368,12 @@ function GameView({
   game: GameRow;
   now: number;
   error: string | null;
+  pending: boolean;
+  ownsRoom: boolean;
   hostStartsMedia: boolean;
   hostMode: "human" | "bot";
+  onHostPick: (questionId: string) => void;
+  onBlockedPick: (nickname: string) => void;
 }) {
   const current = board.find((cell) => cell.id === game.current_question_id);
   const chooser = players.find(
@@ -358,6 +391,9 @@ function GameView({
     Boolean(current?.prompt) &&
     !["board", "cat_pick", "finished", "lobby"].includes(game.phase);
   const hot = left !== null && left <= 5;
+  const chooserName = chooser?.nickname ?? "игрок";
+  const hostCanPick =
+    hostMode === "bot" && ownsRoom && game.phase === "board" && !pending;
 
   return (
     <main className="stage">
@@ -371,13 +407,24 @@ function GameView({
         <p className="enter-code mono">войти: {code}</p>
       </header>
       <div className="stage-body">
-        {error ? <p className="text-danger">{error}</p> : null}
+        {error ? (
+          <p className="text-danger" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {game.phase === "board" ? (
+          <p className="pick-prompt hand">Выбирает {chooserName} с телефона</p>
+        ) : null}
         {game.phase === "board" || game.phase === "cat_pick" ? (
           <Board
             cells={board}
             round={game.round}
-            canPick={false}
+            canPick={hostCanPick}
             activeId={game.current_question_id}
+            onPick={(cell) => onHostPick(cell.id)}
+            onRefuse={() => {
+              if (!pending) onBlockedPick(chooserName);
+            }}
           />
         ) : null}
         {game.phase === "cat_pick" ? (

@@ -74,3 +74,20 @@ describe("leakCheck для черновиков", () => {
     expect(honest.notes).toContain("часть ответа");
   });
 });
+
+describe("answerDuplicateIndexes", () => {
+  it("flags the same answer in the same category, not across categories", async () => {
+    const { answerDuplicateIndexes } = await import("@/lib/packs/review");
+    expect(
+      answerDuplicateIndexes(
+        [
+          { category: "Кино", answer: "Титаник" },
+          { category: "Кино", answer: "титаник!" },
+          { category: "Музыка", answer: "Титаник" },
+          { category: "Игры", answer: "Minecraft" },
+        ],
+        [{ category: "Игры", answer: "minecraft" }],
+      ),
+    ).toEqual([1, 3]);
+  });
+});

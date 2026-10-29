@@ -8,6 +8,7 @@ import {
 } from "@/lib/packs/openrouter";
 import {
   calibrateValue,
+  answerDuplicateIndexes,
   duplicateIndexes,
   leakCheck,
   safetyFlags,
@@ -17,6 +18,7 @@ import {
   GENERATION_SYSTEM,
   generationUser,
   reviewSystem,
+  themedGenerationUser,
   type ReviewPass,
 } from "@/lib/packs/prompts";
 import { collectTrends } from "@/lib/packs/trends";
@@ -47,16 +49,58 @@ export async function buildPack(): Promise<{
     if (!hasOpenRouter()) throw new OpenRouterMissingError();
 
     const drafts = await generateQuestions(trends.topics);
-    const existing = await loadExistingPrompts();
-    const duplicates = new Set(
-      duplicateIndexes(
-        drafts.map((item) => item.prompt),
-        existing,
-      ),
-    );
+    const survivors = await reviewDrafts(packId, drafts);
 
-    const survivors: DraftQuestion[] = [];
-    for (const [index, draft] of drafts.entries()) {
+    await supabase
+      .from("question_packs")
+      .update({
+        status: survivors ? "ready" : "failed",
+        error: survivors ? null : "empty_after_review",
+      })
+      .eq("id", packId);
+    return {
+      ok: survivors > 0,
+      packId,
+      error: survivors ? undefined : "empty_after_review",
+    };
+  } catch (caught) {
+    const reason =
+      caught instanceof OpenRouterMissingError
+        ? "openrouter_missing"
+        : "pipeline_failed";
+    await supabase
+      .from("question_packs")
+      .update({ status: "failed", error: reason })
+      .eq("id", packId);
+    return { ok: false, packId, error: reason };
+  }
+}
+
+/**
+ * Все проверки для готовых черновиков: безопасность, повторы (текст и
+ * эталон в той же теме — против банка и других черновиков), утечка ответа,
+ * затем LLM-проходы fact/freshness/difficulty и повторная проверка утечки.
+ * Возвращает, сколько черновиков дошло до статуса draft.
+ */
+export async function reviewDrafts(
+  packId: string,
+  drafts: DraftQuestion[],
+  options: { concurrency?: number; existing?: ExistingQuestion[] } = {},
+): Promise<number> {
+  const existing = options.existing ?? (await loadExisting());
+  const duplicates = new Set([
+    ...duplicateIndexes(
+      drafts.map((item) => item.prompt),
+      existing.map((item) => item.prompt),
+    ),
+    ...answerDuplicateIndexes(drafts, existing),
+  ]);
+  let survivors = 0;
+  let next = 0;
+  const worker = async () => {
+    while (next < drafts.length) {
+      const index = next++;
+      const draft = drafts[index]!;
       const flags = safetyFlags(`${draft.prompt} ${draft.answer}`);
       const leak = leakCheck(draft);
       if (flags.length || duplicates.has(index) || leak.blocking) {
@@ -110,32 +154,39 @@ export async function buildPack(): Promise<{
       for (const pass of reviewed.passes) {
         await addReview(packId, itemId, pass.pass, pass.status, pass.notes);
       }
-      if (!rejected) survivors.push(draft);
+      if (!rejected) survivors += 1;
     }
+  };
+  await Promise.all(
+    Array.from({ length: Math.max(1, options.concurrency ?? 1) }, worker),
+  );
+  return survivors;
+}
 
-    await supabase
-      .from("question_packs")
-      .update({
-        status: survivors.length ? "ready" : "failed",
-        error: survivors.length ? null : "empty_after_review",
-      })
-      .eq("id", packId);
-    return {
-      ok: survivors.length > 0,
-      packId,
-      error: survivors.length ? undefined : "empty_after_review",
-    };
-  } catch (caught) {
-    const reason =
-      caught instanceof OpenRouterMissingError
-        ? "openrouter_missing"
-        : "pipeline_failed";
-    await supabase
-      .from("question_packs")
-      .update({ status: "failed", error: reason })
-      .eq("id", packId);
-    return { ok: false, packId, error: reason };
-  }
+/** Черновики на одну тему (для пополнения банка по темам). */
+export async function generateForCategory(
+  category: string,
+  brief: string,
+  count: number,
+  avoidAnswers: string[],
+  trends: string[] = [],
+): Promise<DraftQuestion[]> {
+  const text = await completeOpenRouter(
+    GENERATION_SYSTEM,
+    themedGenerationUser(category, brief, count, avoidAnswers, trends),
+  );
+  return parseJson<DraftQuestion[]>(text)
+    .filter((item) => item && item.prompt && item.answer)
+    .slice(0, count)
+    .map((item) => ({
+      category,
+      prompt: String(item.prompt).trim(),
+      answer: String(item.answer).trim(),
+      variants: Array.isArray(item.variants) ? item.variants.map(String) : [],
+      value: calibrateValue(Number(item.value)),
+      kind: "text" as const,
+      curtain: false,
+    }));
 }
 
 async function generateQuestions(topics: string[]): Promise<DraftQuestion[]> {
@@ -210,13 +261,31 @@ async function reviewItem(draft: DraftQuestion): Promise<{
   return { value, answer, agentMark, passes };
 }
 
-async function loadExistingPrompts(): Promise<string[]> {
+export type ExistingQuestion = {
+  category: string;
+  prompt: string;
+  answer: string;
+};
+
+/** Банк и ещё не отклонённые черновики — чтобы пачки не повторяли друг друга. */
+export async function loadExisting(): Promise<ExistingQuestion[]> {
   const supabase = getServiceSupabase();
-  const { data } = await supabase
-    .from("question_bank")
-    .select("prompt")
-    .limit(2000);
-  return (data ?? []).map((row) => String((row as { prompt: string }).prompt));
+  const [bank, drafts] = await Promise.all([
+    supabase
+      .from("question_bank")
+      .select("category, prompt, answer")
+      .limit(5000),
+    supabase
+      .from("pack_items")
+      .select("category, prompt, answer")
+      .eq("status", "draft")
+      .limit(5000),
+  ]);
+  return [...(bank.data ?? []), ...(drafts.data ?? [])].map((row) => ({
+    category: String(row.category),
+    prompt: String(row.prompt),
+    answer: String(row.answer),
+  }));
 }
 
 async function insertItem(
@@ -276,7 +345,7 @@ export async function approvePack(
   const { data: items, error } = await supabase
     .from("pack_items")
     .select(
-      "id, category, prompt, answer, variants, kind, curtain, youtube_id, image_url, audio_url, start_seconds, end_seconds",
+      "id, category, prompt, answer, variants, value, kind, curtain, youtube_id, image_url, audio_url, start_seconds, end_seconds",
     )
     .eq("pack_id", packId)
     .eq("status", "draft");
@@ -313,6 +382,7 @@ export async function approvePack(
         youtube_id: row.youtube_id,
         image_url: row.image_url,
         audio_url: row.audio_url,
+        value: row.value,
         start_seconds: row.start_seconds,
         end_seconds: row.end_seconds,
         // Метка партии: откат — delete from question_bank where pack_id = …

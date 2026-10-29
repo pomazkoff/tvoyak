@@ -60,6 +60,26 @@ export function duplicateIndexes(
   return indexes;
 }
 
+/**
+ * Тот же эталон в той же теме — для игрока это повтор, даже если вопрос
+ * сформулирован иначе.
+ */
+export function answerDuplicateIndexes(
+  drafts: Array<Pick<DraftQuestion, "category" | "answer">>,
+  existing: Array<{ category: string; answer: string }> = [],
+): number[] {
+  const key = (item: { category: string; answer: string }) =>
+    `${normalize(item.category)}|${normalize(item.answer)}`;
+  const seen = new Set(existing.map(key));
+  const indexes: number[] = [];
+  drafts.forEach((draft, index) => {
+    const id = key(draft);
+    if (seen.has(id)) indexes.push(index);
+    else seen.add(id);
+  });
+  return indexes;
+}
+
 function normalize(value: string): string {
   return value
     .toLocaleLowerCase("ru-RU")

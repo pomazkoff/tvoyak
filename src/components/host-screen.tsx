@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useBackgroundMusic } from "@/components/game/background-music";
 import { Board, PlayerRail, type BoardCell } from "@/components/game/board";
 import { MediaPlayer } from "@/components/game/media-player";
+import { MusicToggle } from "@/components/game/music-toggle";
 import {
   prewarmSpeech,
   speakRussian,
@@ -20,6 +22,7 @@ import {
 import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
 import { StyledQr } from "@/components/styled-qr";
+import { mediaPlaysSound } from "@/lib/game/music-pause";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import { verdictLine } from "@/lib/game/verdict-speech";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
@@ -129,6 +132,18 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
       ? match.board.find((cell) => cell.id === game?.current_question_id)
           ?.prompt
       : null;
+
+  // Фоновая музыка: тихо в лобби и в игре, пауза на вопросах с видео и
+  // треком (до возврата на поле), под голосом ведущего — тише.
+  const currentCell =
+    match.status === "ready"
+      ? match.board.find((cell) => cell.id === game?.current_question_id)
+      : undefined;
+  useBackgroundMusic({
+    suppressed: Boolean(
+      game && currentCell && mediaPlaysSound(currentCell, game.phase),
+    ),
+  });
 
   // Прогрев на раунд: пока игроки выбирают клетку, сервер заранее
   // синтезирует вопросы раунда, и на открытии звук уже в кэше.
@@ -313,19 +328,22 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
 
   if (match.game.phase === "lobby") {
     return (
-      <Lobby
-        code={normalized}
-        players={match.players}
-        playUrl={playUrl}
-        copied={copied}
-        ownsRoom={ownsRoom}
-        pending={pending}
-        error={error}
-        onCopy={() => void copyLink()}
-        hostCopied={hostCopied}
-        onCopyHost={() => void copyHostLink()}
-        onStart={() => void run("start")}
-      />
+      <>
+        <MusicToggle credits />
+        <Lobby
+          code={normalized}
+          players={match.players}
+          playUrl={playUrl}
+          copied={copied}
+          ownsRoom={ownsRoom}
+          pending={pending}
+          error={error}
+          onCopy={() => void copyLink()}
+          hostCopied={hostCopied}
+          onCopyHost={() => void copyHostLink()}
+          onStart={() => void run("start")}
+        />
+      </>
     );
   }
 
@@ -352,6 +370,7 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
           {toast}
         </p>
       ) : null}
+      <MusicToggle raised />
       <HostDesk
         open={desk}
         onToggle={() => setDeskChoice((value) => !(value ?? queryDesk))}

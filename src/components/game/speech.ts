@@ -16,6 +16,27 @@ let activeUrl: string | null = null;
 // «Верно!» и «Неверно.» звучат много раз за игру — держим mp3 в памяти.
 const blobCache = new Map<string, Blob>();
 
+// Говорит ли сейчас ведущий — под голос приглушается фоновая музыка.
+let speaking = false;
+const speakingListeners = new Set<() => void>();
+
+function setSpeaking(value: boolean) {
+  if (speaking === value) return;
+  speaking = value;
+  for (const listener of speakingListeners) listener();
+}
+
+export function isSpeaking(): boolean {
+  return speaking;
+}
+
+export function subscribeSpeaking(listener: () => void): () => void {
+  speakingListeners.add(listener);
+  return () => {
+    speakingListeners.delete(listener);
+  };
+}
+
 function fetchSpeech(
   text: string,
   tts: TtsAuth,
@@ -46,7 +67,12 @@ function speakBrowser(text: string, onEnd?: () => void): boolean {
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "ru-RU";
   utterance.rate = 0.95;
-  if (onEnd) utterance.onend = onEnd;
+  utterance.onstart = () => setSpeaking(true);
+  utterance.onend = () => {
+    setSpeaking(false);
+    onEnd?.();
+  };
+  utterance.onerror = () => setSpeaking(false);
   window.speechSynthesis.speak(utterance);
   return true;
 }
@@ -61,6 +87,7 @@ function releaseAudio() {
     activeAudio.remove();
     activeAudio = null;
   }
+  setSpeaking(false);
   if (activeUrl) {
     URL.revokeObjectURL(activeUrl);
     activeUrl = null;
@@ -72,6 +99,7 @@ export function stopSpeech(): void {
   generation += 1;
   releaseAudio();
   window.speechSynthesis?.cancel();
+  setSpeaking(false);
 }
 
 export function speakRussian(
@@ -121,6 +149,7 @@ export function speakRussian(
       let playing = false;
       audio.onplaying = () => {
         playing = true;
+        setSpeaking(true);
       };
       audio.onended = () => {
         if (mine !== generation) return;

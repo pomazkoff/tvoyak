@@ -25,6 +25,13 @@ export type DraftQuestion = {
   value: number;
   kind: "text" | "image" | "video" | "music";
   curtain: boolean;
+  /** Медиа: ролик YouTube (проверен oEmbed), картинка Commons, превью iTunes. */
+  youtube_id?: string | null;
+  image_url?: string | null;
+  audio_url?: string | null;
+  start_seconds?: number | null;
+  end_seconds?: number | null;
+  media_note?: string | null;
 };
 
 export function calibrateValue(raw: number): number {

@@ -237,6 +237,12 @@ async function insertItem(
       value: draft.value,
       kind: draft.kind,
       curtain: draft.curtain,
+      youtube_id: draft.youtube_id ?? null,
+      image_url: draft.image_url ?? null,
+      audio_url: draft.audio_url ?? null,
+      start_seconds: draft.start_seconds ?? null,
+      end_seconds: draft.end_seconds ?? null,
+      media_note: draft.media_note ?? null,
       status,
       agent_mark: agentMark ?? null,
     })
@@ -269,7 +275,9 @@ export async function approvePack(
   const supabase = getServiceSupabase();
   const { data: items, error } = await supabase
     .from("pack_items")
-    .select("id, category, prompt, answer, variants, kind, curtain")
+    .select(
+      "id, category, prompt, answer, variants, kind, curtain, youtube_id, image_url, audio_url, start_seconds, end_seconds",
+    )
     .eq("pack_id", packId)
     .eq("status", "draft");
   if (error) return { ok: false, copied: 0, error: "create_failed" };
@@ -294,7 +302,7 @@ export async function approvePack(
     await addReview(packId, item.id, "leak", "failed", leak.notes);
   }
   if (rows.length) {
-    const { error: insertError } = await supabase.from("question_bank").insert(
+    const { error: insertError } = await supabase.from("question_bank").upsert(
       rows.map((row) => ({
         category: row.category,
         prompt: row.prompt,
@@ -302,7 +310,16 @@ export async function approvePack(
         variants: row.variants,
         kind: row.kind,
         curtain: row.curtain,
+        youtube_id: row.youtube_id,
+        image_url: row.image_url,
+        audio_url: row.audio_url,
+        start_seconds: row.start_seconds,
+        end_seconds: row.end_seconds,
+        // Метка партии: откат — delete from question_bank where pack_id = …
+        pack_id: packId,
       })),
+      // Повтор уже существующего вопроса не валит одобрение всей пачки.
+      { onConflict: "category,prompt", ignoreDuplicates: true },
     );
     if (insertError) return { ok: false, copied: 0, error: "create_failed" };
     await supabase

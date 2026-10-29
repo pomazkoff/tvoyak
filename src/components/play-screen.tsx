@@ -203,6 +203,7 @@ export function PlayScreen({ code }: { code: string }) {
               maxLength={24}
               required
               autoComplete="nickname"
+              enterKeyHint="go"
               placeholder="Анна"
               className="field mt-2"
             />
@@ -589,6 +590,9 @@ function PlayTurn({
               maxLength={300}
               required
               autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="send"
               autoFocus
               placeholder="Напишите ответ"
               className="field mt-2"
@@ -668,6 +672,7 @@ function PlayTurn({
             </p>
             <input
               inputMode="numeric"
+              enterKeyHint="done"
               value={wager}
               onChange={(event) =>
                 setWager(event.target.value.replace(/[^\d]/g, ""))

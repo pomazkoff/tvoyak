@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { AdminLogin } from "@/components/admin-login";
@@ -42,14 +43,21 @@ async function AdminBody() {
     .order("created_at", { ascending: false })
     .limit(20);
   const ids = (packs ?? []).map((pack) => pack.id as string);
-  const { data: items } = ids.length
-    ? await supabase
+  // По пачке за запрос: одна выборка на 20 больших пачек упирается в лимит
+  // строк PostgREST.
+  const perPack = await Promise.all(
+    ids.map((id) =>
+      supabase
         .from("pack_items")
         .select(
-          "id, pack_id, category, prompt, answer, value, status, agent_mark",
+          "id, pack_id, category, prompt, answer, value, status, agent_mark, kind, youtube_id, image_url, audio_url, start_seconds",
         )
-        .in("pack_id", ids)
-    : { data: [] };
+        .eq("pack_id", id)
+        .order("category")
+        .limit(1000),
+    ),
+  );
+  const items = perPack.flatMap((result) => result.data ?? []);
 
   return (
     <Shell width="max-w-3xl">
@@ -75,8 +83,16 @@ async function AdminBody() {
                     <span className="text-muted">
                       {item.value as number} · {item.status as string}
                     </span>{" "}
+                    <span className="text-muted">
+                      {item.category as string}:
+                    </span>{" "}
                     {item.prompt as string}
                     {item.agent_mark ? ` · ${item.agent_mark as string}` : ""}
+                    <span className="text-gold">
+                      {" "}
+                      → {item.answer as string}
+                    </span>
+                    <MediaLink item={item} />
                   </li>
                 ))}
               </ul>
@@ -91,6 +107,40 @@ async function AdminBody() {
         ) : null}
       </div>
     </Shell>
+  );
+}
+
+function MediaLink({
+  item,
+}: {
+  item: {
+    kind?: unknown;
+    youtube_id?: unknown;
+    image_url?: unknown;
+    audio_url?: unknown;
+    start_seconds?: unknown;
+  };
+}) {
+  const href = item.youtube_id
+    ? `https://www.youtube.com/watch?v=${String(item.youtube_id)}&t=${Number(item.start_seconds ?? 0)}`
+    : item.audio_url
+      ? String(item.audio_url)
+      : item.image_url
+        ? String(item.image_url)
+        : null;
+  if (!href) return null;
+  return (
+    <>
+      {" "}
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="text-sm underline"
+      >
+        [{String(item.kind)}]
+      </a>
+    </>
   );
 }
 
@@ -119,4 +169,5 @@ async function approve(formData: FormData) {
     return;
   const { approvePack } = await import("@/lib/packs/pipeline");
   await approvePack(packId);
+  revalidatePath("/admin");
 }

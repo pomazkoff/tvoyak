@@ -195,6 +195,18 @@ export function MediaPlayer({
 
   if (cell.kind !== "video" && cell.kind !== "music") return null;
 
+  if (cell.audio_url && !cell.youtube_id && !cell.vk_url && !cell.rutube_url) {
+    return (
+      <AudioPreview
+        src={cell.audio_url}
+        start={cell.start_seconds ?? 0}
+        end={cell.end_seconds}
+        autoplay={autoplay}
+        revealed={revealed}
+      />
+    );
+  }
+
   const fallback =
     provider === "vk"
       ? cell.vk_url
@@ -256,6 +268,80 @@ export function MediaPlayer({
             </p>
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Музыкальный вопрос по 30-секундному превью (iTunes): только звук под
+ * «пластинкой», название трека не показываем до ответа.
+ */
+function AudioPreview({
+  src,
+  start,
+  end,
+  autoplay,
+  revealed,
+}: {
+  src: string;
+  start: number;
+  end: number | null;
+  autoplay: boolean;
+  revealed: boolean;
+}) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [needsTap, setNeedsTap] = useState(!autoplay);
+  const [finished, setFinished] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  function play() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.currentTime < start) audio.currentTime = start;
+    setNeedsTap(false);
+    // Браузер может запретить автозапуск — тогда остаётся кнопка.
+    audio.play().catch(() => setNeedsTap(true));
+  }
+
+  useEffect(() => {
+    if (autoplay) play();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src]);
+
+  return (
+    <div className="media-block">
+      {needsTap && !finished ? (
+        <button type="button" onClick={play} className="action media-start">
+          Включить трек
+        </button>
+      ) : null}
+      <div className={`media-frame is-audio${revealed ? " is-revealed" : ""}`}>
+        <audio
+          ref={audioRef}
+          src={src}
+          preload="auto"
+          onError={() => setFailed(true)}
+          onTimeUpdate={(event) => {
+            const audio = event.currentTarget;
+            if (end && end > start && audio.currentTime >= end) {
+              audio.pause();
+              setFinished(true);
+            }
+          }}
+          onEnded={() => setFinished(true)}
+        />
+        <div className="media-audio">
+          <span className="media-disc" aria-hidden="true" />
+          <p className="media-audio-label hand">
+            {failed
+              ? "Трек не открылся"
+              : finished
+                ? "Трек закончился"
+                : "Слушаем"}
+          </p>
+          <p className="media-audio-note poster">музыкальный вопрос</p>
+        </div>
       </div>
     </div>
   );

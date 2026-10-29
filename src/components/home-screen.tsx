@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { Arrow, BotSketch, HostSketch, Logo } from "@/components/marks";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { messageFor } from "@/lib/rooms/messages";
+import { companyId } from "@/lib/rooms/company";
 import { hostPath } from "@/lib/rooms/host-link";
 import { saveHostSecret } from "@/lib/rooms/storage";
 import type { HostMode } from "@/lib/supabase/types";
@@ -24,7 +25,10 @@ export function HomeScreen() {
       const response = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hostMode }),
+        body: JSON.stringify({
+          hostMode,
+          companyId: companyId(safeStorage()) ?? undefined,
+        }),
       });
       const payload = (await response.json()) as {
         code?: string;
@@ -180,4 +184,12 @@ function ModeCard({
       {checked ? <span className="pick-ring" aria-hidden /> : null}
     </label>
   );
+}
+
+function safeStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
 }

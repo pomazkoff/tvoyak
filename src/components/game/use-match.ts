@@ -106,7 +106,7 @@ export function useMatch(code: string): MatchState {
           supabase
             .from("question_board")
             .select(
-              "id, round, category, value, row_index, col_index, status, prompt, special, assigned_player_id, revealed_answer, kind, youtube_id, vk_url, rutube_url, image_url, start_seconds, end_seconds, curtain",
+              "id, round, category, value, row_index, col_index, status, prompt, special, assigned_player_id, revealed_answer, kind, youtube_id, vk_url, rutube_url, image_url, audio_url, start_seconds, end_seconds, curtain",
             )
             .eq("room_id", room.id),
           supabase

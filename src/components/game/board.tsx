@@ -22,6 +22,8 @@ export type BoardCell = {
   vk_url: string | null;
   rutube_url: string | null;
   image_url: string | null;
+  /** Превью трека (iTunes) для музыкальных вопросов без видео. */
+  audio_url?: string | null;
   start_seconds: number | null;
   end_seconds: number | null;
   curtain: boolean;

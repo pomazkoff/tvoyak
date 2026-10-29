@@ -19,3 +19,12 @@ describe("промпты пачек", () => {
     }
   });
 });
+
+describe("leak review wording", () => {
+  it("tells reviewers that answer/variants are the reference, not a leak", () => {
+    for (const pass of ["fact", "freshness", "difficulty"] as const) {
+      expect(reviewSystem(pass)).toMatch(/answer и variants — это эталон/);
+      expect(reviewSystem(pass)).toMatch(/media_note/);
+    }
+  });
+});

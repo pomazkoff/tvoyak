@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <language>ru</language>
+    <title>Lenta.ru : Новости : Культура</title>
+    <description>Новости, статьи, фотографии, видео. Семь дней в неделю, 24 часа в сутки.</description>
+    <link>https://lenta.ru</link>
+    <image>
+      <url>https://lenta.ru/images/small_logo.png</url>
+      <title>Lenta.ru</title>
+      <link>https://lenta.ru</link>
+      <width>134</width>
+      <height>22</height>
+    </image>
+    <atom:link rel="self" type="application/rss+xml" href="http://lenta.ru/rss/news/culture"/>
+<item>
+  <guid>https://lenta.ru/news/2026/10/29/yarushin-nachal-prosit-dengi-za-vystuplenie-v-obraze-iz-klipa-zombie/</guid>
+  <author>Ольга Коровина</author>
+  <title>Ярушин начал просить деньги за выступление в образе из клипа Zombie</title>
+  <link>https://lenta.ru/news/2026/10/29/yarushin-nachal-prosit-dengi-za-vystuplenie-v-obraze-iz-klipa-zombie/</link>
+  <description>
+    <![CDATA[]]>
+  </description>
+  <pubDate>Thu, 29 Oct 2026 14:18:59 +0300</pubDate>
+  <enclosure url="https://icdn.lenta.ru/images/2026/10/29/13/20261029130621822/pic_b21f55b07afcc028c15bf962778511d8.jpg" type="image/jpeg" length="21561"/>
+  <category>Культура</category>
+</item><item>
+  <guid>https://lenta.ru/news/2026/10/29/zvezda-desyati-negrityat-umerla-v-los-andzhelese/</guid>
+  <author>Ольга Коровина</author>
+  <title>Звезда «Десяти негритят» умерла в Лос-Анджелесе</title>
+  <link>https://lenta.ru/news/2026/10/29/zvezda-desyati-negrityat-umerla-v-los-andzhelese/</link>
+  <description>
+    <![CDATA[]]>
+  </description>
+  <pubDate>Thu, 29 Oct 2026 12:12:00 +0300</pubDate>
+  <enclosure url="https://icdn.lenta.ru/images/2026/10/29/12/20261029121901457/pic_60eb0191fc42e322c9de7261a9f6ae18.jpg" type="image/jpeg" length="27816"/>
+  <category>Культура</category>
+</item><item>
+  <guid>https://lenta.ru/news/2026/10/29/v-rossii-potrebovali-zaschitit-artistov-ot-memov/</guid>
+  <author>Ольга Коровина</author>
+  <title>В России потребовали защитить артистов от мемов</title>
+  <link>https://lenta.ru/news/2026/10/29/v-rossii-potrebovali-zaschitit-artistov-ot-memov/</link>
+  <description>
+    <![CDATA[]]>
+  </description>
+  <pubDate>Thu, 29 Oct 2026 10:59:00 +0300</pubDate>
+  <enclosure url="https://icdn.lenta.ru/images/2026/10/29/11/20261029110030246/pic_fe1b394d6e20082fd520125fc90d4462.jpg" type="image/jpeg" length="12320"/>
+  <category>Культура</category>
+</item><item>
+  <guid>https://lenta.ru/news/2026/10/29/lidiyu-fedoseevu-shukshinu-ofitsialno-priznali-neizlechimo-bolnoy/</guid>
+  <author>Ольга Коровина</author>
+  <title>Лидию Федосееву-Шукшину официально признали неизлечимо больной</title>
+  <link>https://lenta.ru/news/2026/10/29/lidiyu-fedoseevu-shukshinu-ofitsialno-priznali-neizlechimo-bolnoy/</link>
+  <description>
+    <![CDATA[]]>
+  </description>
+  <pubDate>Thu, 29 Oct 2026 10:04:00 +0300</pubDate>
+  <enclosure url="https://icdn.lenta.ru/images/2026/10/29/10/20261029100224348/pic_5dcbdb14bb9bb6b219efeb5b19e69897.jpg" type="image/jpeg" length="13288"/>
+  <category>Культура</category>
+</item></channel></rss>

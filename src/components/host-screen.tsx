@@ -7,6 +7,7 @@ import { Board, PlayerRail, type BoardCell } from "@/components/game/board";
 import { MediaPlayer } from "@/components/game/media-player";
 import { MusicToggle } from "@/components/game/music-toggle";
 import {
+  armSpeechUnlock,
   prewarmSpeech,
   speakRussian,
   stopSpeech,
@@ -144,6 +145,12 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
       game && currentCell && mediaPlaysSound(currentCell, game.phase),
     ),
   });
+
+  // Голос ведущего разблокируется на первом клике/кнопке пульта: без этого
+  // телевизоры (Android WebView) не пускают mp3 Марины без свежего жеста.
+  useEffect(() => {
+    armSpeechUnlock();
+  }, []);
 
   // Прогрев на раунд: пока игроки выбирают клетку, сервер заранее
   // синтезирует вопросы раунда, и на открытии звук уже в кэше.

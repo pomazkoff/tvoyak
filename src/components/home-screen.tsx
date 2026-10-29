@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useBackgroundMusic } from "@/components/game/background-music";
+import { armSpeechUnlock } from "@/components/game/speech";
 import { MusicToggle } from "@/components/game/music-toggle";
 import { Arrow, BotSketch, HostSketch, Logo } from "@/components/marks";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
@@ -22,6 +23,10 @@ export function HomeScreen() {
   // Тихий фон и на главной: браузер включит его с первого клика или
   // клавиши, а после «Создать комнату» музыка продолжится на экране ведущего.
   useBackgroundMusic({ suppressed: false });
+  // Тот же первый клик разблокирует и голос ведущего для /host.
+  useEffect(() => {
+    armSpeechUnlock();
+  }, []);
 
   async function createRoom() {
     setPending(true);

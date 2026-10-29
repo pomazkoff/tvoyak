@@ -25,6 +25,7 @@ export type GameRow = {
   chooser_player_id: string | null;
   deadline: string | null;
   revealed_answer: string | null;
+  updated_at: string | null;
 };
 
 export type BuzzMark = {
@@ -48,7 +49,7 @@ export type MatchState =
     };
 
 const gameColumns =
-  "room_id, version, phase, round, current_question_id, buzz_winner_player_id, chooser_player_id, deadline, revealed_answer";
+  "room_id, version, phase, round, current_question_id, buzz_winner_player_id, chooser_player_id, deadline, revealed_answer, updated_at";
 
 /** Попросить все открытые экраны партии перечитать состояние сейчас. */
 export function requestMatchReload(): void {
@@ -233,7 +234,8 @@ export function useMatch(code: string): MatchState {
   // это спасает от сна вкладки, потерянного realtime и расхождения часов.
   const clockGame = state.status === "ready" ? state.game : null;
   const clockId = clockGame ? clockKey(clockGame) : null;
-  const clockDue = clockGame ? clockDueAt(clockGame) : null;
+  const clockMode = state.status === "ready" ? state.room.host_mode : undefined;
+  const clockDue = clockGame ? clockDueAt(clockGame, clockMode) : null;
   const clockVersion = clockGame?.version ?? null;
   useEffect(() => {
     if (clockId === null || clockDue === null || clockVersion === null) return;

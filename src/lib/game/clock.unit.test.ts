@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BOT_READ_LIMIT_MS,
   CLOCK_GRACE_MS,
   clockDueAt,
   clockKey,
@@ -17,6 +18,20 @@ describe("клиентские часы", () => {
     const deadline = "2026-10-29T10:00:00.000Z";
     expect(clockDueAt({ phase: "answering", version: 4, deadline })).toBe(
       new Date(deadline).getTime() + CLOCK_GRACE_MS,
+    );
+  });
+
+  it("у бота открывают кнопку, если чтение вопроса затянулось", () => {
+    const updated = "2026-10-29T10:00:00.000Z";
+    const game = {
+      phase: "question",
+      version: 7,
+      deadline: null,
+      updated_at: updated,
+    };
+    expect(clockDueAt(game, "human")).toBe(null);
+    expect(clockDueAt(game, "bot")).toBe(
+      new Date(updated).getTime() + BOT_READ_LIMIT_MS + CLOCK_GRACE_MS,
     );
   });
 

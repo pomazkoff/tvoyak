@@ -248,7 +248,9 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
         onOpenBuzz={() => void run("open_buzz")}
         onPass={() => void run("pass")}
         onContinue={() => void run("continue")}
-        onJudge={(correct) => void run("judge", { correct })}
+        onJudge={(correct) =>
+          void run("judge", { correct, playerId: answererId(match) })
+        }
         onFinalPick={(playerId, correct) =>
           setFinalPicks((current) => ({ ...current, [playerId]: correct }))
         }
@@ -729,4 +731,19 @@ async function callHost(
     body: JSON.stringify({ action, code, hostSecret, ...extra }),
   });
   return (await response.json()) as { ok?: boolean; error?: string };
+}
+
+/** Кого судит ведущий: отвечающий по кнопке или адресат «кота». */
+function answererId(match: {
+  game: GameRow;
+  board: BoardCell[];
+}): string | undefined {
+  const current = match.board.find(
+    (cell) => cell.id === match.game.current_question_id,
+  );
+  const id =
+    current?.special === "cat"
+      ? current.assigned_player_id
+      : match.game.buzz_winner_player_id;
+  return id ?? undefined;
 }

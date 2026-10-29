@@ -88,6 +88,7 @@ export async function submitPlayerAnswer(
         p_code: code,
         p_correct: verdict.correct,
         p_method: verdict.method,
+        p_player_id: begun.player_id ?? null,
       });
       return { ok: applied.ok !== false, error: applied.error, resolved: true };
     }
@@ -216,6 +217,7 @@ export async function hostAction(input: {
   hostSecret: string;
   correct?: boolean;
   questionId?: string;
+  playerId?: string;
   decisions?: Array<{ playerId: string; correct: boolean }>;
 }) {
   const auth = await requireHost(input.code, input.hostSecret);
@@ -246,6 +248,7 @@ export async function hostAction(input: {
       p_code: input.code,
       p_correct: input.correct === true,
       p_method: "host",
+      p_player_id: input.playerId ?? null,
     });
   }
   if (input.action === "finalize") {

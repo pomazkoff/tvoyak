@@ -7,6 +7,7 @@ export async function POST(request: Request) {
     hostSecret?: unknown;
     correct?: unknown;
     questionId?: unknown;
+    playerId?: unknown;
     decisions?: unknown;
   };
   try {
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
       correct: body.correct === true,
       questionId:
         typeof body.questionId === "string" ? body.questionId : undefined,
+      playerId: typeof body.playerId === "string" ? body.playerId : undefined,
       decisions,
     });
     const status = result.ok === false ? 400 : 200;

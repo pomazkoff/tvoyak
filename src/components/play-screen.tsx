@@ -2,7 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import { Board } from "@/components/game/board";
-import { secondsLeft, useMatch, useNow } from "@/components/game/use-match";
+import {
+  requestMatchReload,
+  secondsLeft,
+  useMatch,
+  useNow,
+} from "@/components/game/use-match";
 import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
@@ -297,6 +302,7 @@ function PlayTurn({
       setError(messageFor("network"));
     } finally {
       setPending(false);
+      requestMatchReload();
     }
   }
 
@@ -334,6 +340,7 @@ function PlayTurn({
       setError(messageFor("network"));
     } finally {
       setPending(false);
+      requestMatchReload();
     }
   }
 

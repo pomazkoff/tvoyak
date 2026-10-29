@@ -50,6 +50,15 @@ export type MatchState =
 const gameColumns =
   "room_id, version, phase, round, current_question_id, buzz_winner_player_id, chooser_player_id, deadline, revealed_answer";
 
+/** Попросить все открытые экраны партии перечитать состояние сейчас. */
+export function requestMatchReload(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(MATCH_RELOAD_EVENT));
+}
+
+const MATCH_RELOAD_EVENT = "tvoyak:match-reload";
+const POLL_MS = 3000;
+
 export function useMatch(code: string): MatchState {
   const [state, setState] = useState<MatchState>({ status: "loading" });
   const reloadRef = useRef<(() => Promise<void>) | null>(null);
@@ -61,10 +70,24 @@ export function useMatch(code: string): MatchState {
     const supabase = getBrowserSupabase();
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
-    // Страховка, если realtime не доставил событие.
-    const poll = setInterval(() => {
-      void reloadRef.current?.().catch(() => undefined);
-    }, 4000);
+    let roomId: string | null = null;
+    // Ответы могут прийти не по порядку: применяем только самый свежий
+    // запрос и никогда не откатываем версию партии назад.
+    let requested = 0;
+    let applied = 0;
+    let shownVersion = -1;
+    let ready = false;
+    let lastFingerprint = "";
+
+    async function readRoom(): Promise<RoomRow | null | "error"> {
+      const { data, error } = await supabase
+        .from("rooms")
+        .select("id, code, status, host_mode, host_starts_media, created_at")
+        .eq("code", normalized)
+        .maybeSingle();
+      if (error) return "error";
+      return (data as RoomRow | null) ?? null;
+    }
 
     async function load(room: RoomRow) {
       const [playersResult, gameResult, boardResult, buzzResult] =
@@ -106,32 +129,29 @@ export function useMatch(code: string): MatchState {
       };
     }
 
-    void (async () => {
-      const { data, error } = await supabase
-        .from("rooms")
-        .select("id, code, status, host_mode, host_starts_media, created_at")
-        .eq("code", normalized)
-        .maybeSingle();
+    // Каждый раз перечитываем и комнату (статус, режим ведущего, «трек
+    // включает ведущий»), и партию целиком.
+    async function refresh() {
+      const ticket = ++requested;
+      const room = await readRoom();
       if (cancelled) return;
-      if (error) {
-        setState({ status: "error", message: "Не удалось прочитать комнату." });
+      if (room === "error" || room === null) {
+        if (!ready && ticket > applied) {
+          applied = ticket;
+          setState(
+            room === null
+              ? { status: "missing" }
+              : { status: "error", message: "Не удалось прочитать комнату." },
+          );
+        }
         return;
       }
-      if (!data) {
-        setState({ status: "missing" });
-        return;
-      }
-      const room = data as RoomRow;
+      let snapshot: Awaited<ReturnType<typeof load>>;
       try {
-        const snapshot = await load(room);
-        if (cancelled) return;
-        setState({ status: "ready", room, ...snapshot });
-        reloadRef.current = async () => {
-          const fresh = await load(room);
-          if (!cancelled) setState({ status: "ready", room, ...fresh });
-        };
+        snapshot = await load(room);
       } catch {
-        if (!cancelled) {
+        if (!cancelled && !ready && ticket > applied) {
+          applied = ticket;
           setState({
             status: "error",
             message: "Не удалось загрузить партию.",
@@ -139,69 +159,69 @@ export function useMatch(code: string): MatchState {
         }
         return;
       }
+      if (cancelled || ticket < applied) return;
+      if (snapshot.game.version < shownVersion) return;
+      applied = ticket;
+      shownVersion = snapshot.game.version;
+      ready = true;
+      // Опрос каждые 3 с: без изменений не перерисовываем экраны.
+      const fingerprint = JSON.stringify([room, snapshot]);
+      if (fingerprint === lastFingerprint) return;
+      lastFingerprint = fingerprint;
+      setState({ status: "ready", room, ...snapshot });
+      if (!roomId) {
+        roomId = room.id;
+        subscribe(room.id);
+      }
+    }
 
-      const nextChannel = supabase
-        .channel(`match:${room.id}`)
-        .on(
+    function subscribe(id: string) {
+      const onChange = () => void refresh().catch(() => undefined);
+      const nextChannel = supabase.channel(`match:${id}`);
+      for (const table of ["players", "game_states", "buzzes"]) {
+        nextChannel.on(
           "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "players",
-            filter: `room_id=eq.${room.id}`,
-          },
-          () => {
-            void load(room)
-              .then((snapshot) => {
-                if (!cancelled)
-                  setState({ status: "ready", room, ...snapshot });
-              })
-              .catch(() => undefined);
-          },
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "game_states",
-            filter: `room_id=eq.${room.id}`,
-          },
-          () => {
-            void load(room)
-              .then((snapshot) => {
-                if (!cancelled)
-                  setState({ status: "ready", room, ...snapshot });
-              })
-              .catch(() => undefined);
-          },
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "buzzes",
-            filter: `room_id=eq.${room.id}`,
-          },
-          () => {
-            void load(room)
-              .then((snapshot) => {
-                if (!cancelled)
-                  setState({ status: "ready", room, ...snapshot });
-              })
-              .catch(() => undefined);
-          },
-        )
-        .subscribe();
-
+          { event: "*", schema: "public", table, filter: `room_id=eq.${id}` },
+          onChange,
+        );
+      }
+      nextChannel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "rooms", filter: `id=eq.${id}` },
+        onChange,
+      );
+      // После переподключения сокета могли пропустить события — перечитываем.
+      nextChannel.subscribe((status) => {
+        if (status === "SUBSCRIBED") onChange();
+      });
       if (cancelled) void supabase.removeChannel(nextChannel);
       else channel = nextChannel;
-    })();
+    }
+
+    reloadRef.current = refresh;
+    void refresh().catch(() => undefined);
+
+    // Страховка, если realtime не доставил событие или сокет уснул.
+    const poll = setInterval(() => {
+      void refresh().catch(() => undefined);
+    }, POLL_MS);
+    const onWake = () => {
+      if (document.visibilityState === "visible")
+        void refresh().catch(() => undefined);
+    };
+    const onRequest = () => void refresh().catch(() => undefined);
+    window.addEventListener(MATCH_RELOAD_EVENT, onRequest);
+    window.addEventListener("focus", onRequest);
+    window.addEventListener("online", onRequest);
+    document.addEventListener("visibilitychange", onWake);
 
     return () => {
       cancelled = true;
       clearInterval(poll);
+      window.removeEventListener(MATCH_RELOAD_EVENT, onRequest);
+      window.removeEventListener("focus", onRequest);
+      window.removeEventListener("online", onRequest);
+      document.removeEventListener("visibilitychange", onWake);
       reloadRef.current = null;
       if (channel) void supabase.removeChannel(channel);
     };

@@ -5,6 +5,7 @@ import { Board, PlayerRail, type BoardCell } from "@/components/game/board";
 import { MediaPlayer } from "@/components/game/media-player";
 import { speakRussian, stopSpeech } from "@/components/game/speech";
 import {
+  requestMatchReload,
   secondsLeft,
   useMatch,
   useNow,
@@ -90,20 +91,25 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
       stopSpeech();
       return;
     }
-    if (!voiceOn || !questionPrompt || !normalized || !game.current_question_id)
-      return;
-    if (spoken.current === game.current_question_id) return;
-    spoken.current = game.current_question_id;
-    const started = speakRussian(questionPrompt, () => {
-      if (hostMode === "bot") void callHost(normalized, "open_buzz");
-    });
-    if (!started && hostMode === "bot") {
-      const timer = setTimeout(
-        () => void callHost(normalized, "open_buzz"),
-        8000,
-      );
-      return () => clearTimeout(timer);
+    if (!questionPrompt || !normalized || !game.current_question_id) return;
+    const openBuzz = () =>
+      void callHost(normalized, "open_buzz").then(() => requestMatchReload());
+    let started = false;
+    if (voiceOn && spoken.current !== game.current_question_id) {
+      spoken.current = game.current_question_id;
+      started = speakRussian(questionPrompt, () => {
+        if (hostMode === "bot") openBuzz();
+      });
     }
+    if (hostMode !== "bot") return;
+    // Бот открывает кнопку и без голоса: голос выключен, синтеза нет или
+    // onend так и не пришёл. Срок — примерно время чтения вслух.
+    const readMs = Math.min(
+      30000,
+      Math.max(6000, questionPrompt.length * 70 + 2500),
+    );
+    const timer = setTimeout(openBuzz, started ? readMs + 4000 : readMs);
+    return () => clearTimeout(timer);
   }, [
     game?.phase,
     game?.current_question_id,
@@ -140,6 +146,9 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     setError(null);
     try {
       const result = await callHost(normalized, action, extra);
+      // Не ждём realtime: сразу перечитываем партию, иначе экран (и кнопки
+      // ведущего) ещё секунды показывают старую фазу.
+      requestMatchReload();
       // «Дальше» и «Никто не берёт» могли опередить серверные часы — это не ошибка.
       const raced =
         (action === "continue" || action === "pass") &&

@@ -146,11 +146,11 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   }
 
   return (
-    <Shell width="max-w-6xl">
+    <Shell width="max-w-7xl">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-sm text-muted">Экран ведущего</p>
-          <h1 className="mt-1 font-mono text-4xl font-semibold tracking-[0.28em] text-gold sm:text-5xl">
+          <p className="kicker text-[11px] text-muted">Экран ведущего</p>
+          <h1 className="code-mark mt-1 text-4xl sm:text-5xl">
             {normalized ?? code}
           </h1>
         </div>
@@ -442,11 +442,11 @@ function GameView({
 
       {publicPrompt && game.phase !== "finished" ? (
         <Panel>
-          <p className="text-sm text-gold">
+          <p className="kicker text-xs text-gold">
             {current?.category} · {current?.value || "финал"}
             {current?.special === "cat" ? " · кот в мешке" : ""}
           </p>
-          <h2 className="prompt mt-3 text-3xl leading-tight sm:text-5xl">
+          <h2 className="prompt mt-3 text-4xl leading-tight sm:text-6xl">
             {publicPrompt}
           </h2>
           {current && current.kind !== "text" ? (
@@ -623,7 +623,7 @@ function Results({ players }: { players: PlayerRow[] }) {
         {table.map((player, index) => (
           <li
             key={player.id}
-            className="flex items-center justify-between rounded-2xl bg-navy px-4 py-3"
+            className="flex items-center justify-between border border-line bg-white px-4 py-3"
           >
             <span>
               {index + 1}. {player.nickname}

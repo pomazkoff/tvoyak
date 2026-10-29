@@ -12,12 +12,9 @@ export function Shell({
     <div
       className={`mx-auto flex w-full flex-1 flex-col px-4 py-6 sm:px-8 sm:py-10 ${width}`}
     >
-      <Link
-        href="/"
-        className="mb-6 flex items-baseline gap-3 text-xs tracking-[0.42em] text-muted uppercase"
-      >
-        <span className="text-gold">Твояк</span>
-        <span className="h-px flex-1 bg-line" />
+      <Link href="/" className="mb-6 flex items-end gap-4">
+        <span className="brush text-4xl sm:text-5xl">Твояк</span>
+        <span className="kicker mb-1 text-[10px] text-muted">партия</span>
       </Link>
       {children}
     </div>
@@ -39,11 +36,5 @@ export function Panel({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <section
-      className={`border border-line bg-panel p-5 sm:p-6 ${className}`}
-    >
-      {children}
-    </section>
-  );
+  return <section className={`sheet ${className}`}>{children}</section>;
 }

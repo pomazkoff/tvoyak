@@ -38,13 +38,12 @@ export function ScoreStrip({ players }: { players: PlayerRow[] }) {
   return (
     <ul className="flex gap-2 overflow-x-auto pb-1">
       {table.map((player) => (
-        <li
-          key={player.id}
-          className="min-w-28 rounded-2xl border border-line bg-panel px-3 py-2"
-        >
-          <p className="truncate text-sm">{player.nickname}</p>
+        <li key={player.id} className="slip min-w-32 px-3 pt-3 pb-2">
+          <p className="kicker truncate text-[10px] text-muted">
+            {player.nickname}
+          </p>
           <p
-            className={`text-2xl font-semibold tabular-nums ${player.score < 0 ? "text-danger" : "text-ink"}`}
+            className={`num mt-1 text-3xl ${player.score < 0 ? "text-danger" : "text-ink"}`}
           >
             <CountUp value={player.score} />
           </p>
@@ -81,7 +80,7 @@ export function Board({
           key={column[0]?.category ?? index}
           className="grid gap-1.5 sm:gap-2"
         >
-          <p className="flex min-h-12 items-end justify-center px-1 pb-1 text-center text-[11px] tracking-[0.14em] text-muted uppercase sm:min-h-14 sm:text-xs">
+          <p className="kicker flex min-h-8 items-end justify-center px-1 pb-1 text-center text-[11px] text-ink sm:min-h-10 sm:text-sm">
             {column[0]?.category ?? ""}
           </p>
           {column.map((cell) => {
@@ -92,7 +91,7 @@ export function Board({
                 type="button"
                 disabled={!canPick || spent}
                 onClick={() => onPick?.(cell)}
-                className="cell h-16 border border-line bg-[#1c1c1c] text-xl font-semibold text-ink hover:border-[#c4c4c4] disabled:cursor-default sm:h-20 sm:text-2xl lg:h-24 lg:text-3xl"
+                className="cell disabled:cursor-default"
               >
                 <span className={`cell-inner ${spent ? "is-spent" : ""}`}>
                   <span className="cell-face cell-front">{cell.value}</span>

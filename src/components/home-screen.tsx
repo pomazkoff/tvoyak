@@ -52,10 +52,8 @@ export function HomeScreen() {
   return (
     <Shell width="max-w-xl">
       <div className="mb-8">
-        <p className="text-xs tracking-[0.42em] text-muted uppercase">01 / партия</p>
-        <h1 className="mt-3 text-5xl font-semibold tracking-tight text-ink sm:text-7xl">
-          Твояк
-        </h1>
+        <p className="kicker text-[11px] text-muted">01 / партия</p>
+        <h1 className="brush mt-3 text-7xl sm:text-8xl">Твояк</h1>
         <p className="mt-4 max-w-md text-lg leading-7 text-muted">
           Своя игра для компании. Ведущий на телевизоре, игроки с телефонов. Без
           установки и без аккаунтов.
@@ -63,7 +61,7 @@ export function HomeScreen() {
       </div>
 
       <Panel>
-        <h2 className="text-xl font-semibold">Новая комната</h2>
+        <h2 className="kicker text-sm">Новая комната</h2>
         <p className="mt-2 text-sm leading-6 text-muted">
           Ведущий не играет. На экране будет код и QR, за стол сядут до десяти
           человек.
@@ -104,7 +102,7 @@ export function HomeScreen() {
       </Panel>
 
       <Panel className="mt-4">
-        <h2 className="text-xl font-semibold">Уже есть код</h2>
+        <h2 className="kicker text-sm">Уже есть код</h2>
         <label className="mt-4 block text-sm text-muted" htmlFor="room-code">
           Четыре латинские буквы
         </label>
@@ -117,7 +115,7 @@ export function HomeScreen() {
           autoCorrect="off"
           spellCheck={false}
           placeholder="ABCD"
-          className="mt-2 w-full rounded-2xl border border-line bg-navy px-4 py-3 font-mono text-2xl tracking-[0.3em] text-gold uppercase outline-none focus:border-gold"
+          className="code-mark mt-2 w-full border border-line bg-navy px-4 py-3 text-3xl uppercase outline-none focus:border-gold"
         />
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <a

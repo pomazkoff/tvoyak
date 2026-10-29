@@ -107,10 +107,8 @@ export function PlayScreen({ code }: { code: string }) {
 
   return (
     <Shell width="max-w-xl">
-      <p className="text-sm text-muted">Комната</p>
-      <h1 className="mt-1 font-mono text-4xl tracking-[0.28em] text-gold">
-        {normalized}
-      </h1>
+      <p className="kicker text-[11px] text-muted">Комната</p>
+      <h1 className="code-mark mt-1 text-5xl">{normalized}</h1>
       {match.status === "ready" ? (
         <div className="mt-4">
           <ScoreStrip players={match.players} />
@@ -376,20 +374,22 @@ function PlayTurn({
       game.phase !== "board" &&
       game.phase !== "cat_pick" ? (
         <Panel>
-          <p className="text-sm text-gold">
+          <p className="kicker text-[11px] text-gold">
             {current.category}
             {current.special === "cat" ? " · кот в мешке" : ""}
           </p>
-          <h2 className="prompt mt-2 text-2xl leading-snug sm:text-3xl">
+          <h2 className="prompt mt-2 text-3xl leading-snug">
             {current.prompt}
           </h2>
           {current.kind === "image" && current.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={current.image_url}
-              alt=""
-              className="mt-4 max-h-64 w-full object-contain"
-            />
+            <div className="polaroid">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={current.image_url}
+                alt=""
+                className="max-h-64 w-full object-contain"
+              />
+            </div>
           ) : null}
           {current.kind === "video" || current.kind === "music" ? (
             <p className="mt-3 text-sm text-muted">
@@ -406,7 +406,7 @@ function PlayTurn({
           onClick={() =>
             void rpc("buzz", { p_code: code, p_player_token: session.token })
           }
-          className="flex min-h-40 items-center justify-center rounded-[2rem] bg-gold text-4xl font-black text-navy disabled:opacity-60"
+          className="buzzer disabled:opacity-60"
         >
           Ответить
         </button>

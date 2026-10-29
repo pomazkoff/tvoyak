@@ -66,7 +66,8 @@ export function MediaPlayer({
   const [playing, setPlaying] = useState(autoplay);
 
   useEffect(() => {
-    if (cell.kind === "image" || provider !== "youtube" || !cell.youtube_id) return;
+    if (cell.kind === "image" || provider !== "youtube" || !cell.youtube_id)
+      return;
     let stopped = false;
     let timer = 0;
     void loadYouTubeApi().then(() => {
@@ -122,19 +123,25 @@ export function MediaPlayer({
 
   if (cell.kind === "image" && cell.image_url) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={cell.image_url}
-        alt=""
-        className="max-h-[50vh] w-full bg-black object-contain"
-      />
+      <div className="polaroid inline-block max-w-full">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={cell.image_url}
+          alt=""
+          className="max-h-[50vh] w-full object-contain"
+        />
+      </div>
     );
   }
 
   if (cell.kind !== "video" && cell.kind !== "music") return null;
 
   const fallback =
-    provider === "vk" ? cell.vk_url : provider === "rutube" ? cell.rutube_url : null;
+    provider === "vk"
+      ? cell.vk_url
+      : provider === "rutube"
+        ? cell.rutube_url
+        : null;
 
   return (
     <div className="grid gap-3">
@@ -147,32 +154,40 @@ export function MediaPlayer({
           Включить трек
         </button>
       ) : null}
-      <div className="relative aspect-video bg-black">
-        {provider === "youtube" ? (
-          <div ref={hostRef} id={`yt-${reactId}`} className="h-full w-full" />
-        ) : fallback ? (
-          <iframe
-            title="Видео вопроса"
-            src={withTimecode(fallback, provider, cell.start_seconds)}
-            className="h-full w-full"
-            allow="autoplay; encrypted-media; picture-in-picture"
-            allowFullScreen
-          />
-        ) : (
-          <p className="p-6 text-sm text-muted">Ролик не открылся.</p>
-        )}
-        {cell.curtain ? (
-          <div className="absolute inset-0 bg-[#070707]" aria-hidden="true" />
-        ) : null}
+      <div className="polaroid">
+        <div className="relative aspect-video bg-black">
+          {provider === "youtube" ? (
+            <div ref={hostRef} id={`yt-${reactId}`} className="h-full w-full" />
+          ) : fallback ? (
+            <iframe
+              title="Видео вопроса"
+              src={withTimecode(fallback, provider, cell.start_seconds)}
+              className="h-full w-full"
+              allow="autoplay; encrypted-media; picture-in-picture"
+              allowFullScreen
+            />
+          ) : (
+            <p className="p-6 text-sm text-muted">Ролик не открылся.</p>
+          )}
+          {cell.curtain ? (
+            <div className="absolute inset-0 bg-[#1a1916]" aria-hidden="true" />
+          ) : null}
+        </div>
       </div>
       {cell.curtain ? (
-        <p className="text-sm text-muted">Шторка: картинки не видно, только звук.</p>
+        <p className="text-sm text-muted">
+          Шторка: картинки не видно, только звук.
+        </p>
       ) : null}
     </div>
   );
 }
 
-function withTimecode(url: string, provider: Provider, start: number | null): string {
+function withTimecode(
+  url: string,
+  provider: Provider,
+  start: number | null,
+): string {
   if (!start) return url;
   const glue = url.includes("?") ? "&" : "?";
   if (provider === "rutube") return `${url}${glue}t=${start}`;

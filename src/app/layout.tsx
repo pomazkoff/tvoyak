@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Literata, Manrope } from "next/font/google";
+import { Manrope, Rubik_Spray_Paint, Unbounded } from "next/font/google";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -8,10 +8,18 @@ const manrope = Manrope({
   variable: "--font-manrope",
 });
 
-const literata = Literata({
+const unbounded = Unbounded({
   subsets: ["cyrillic", "latin"],
+  weight: ["300", "700"],
   display: "swap",
-  variable: "--font-literata",
+  variable: "--font-unbounded",
+});
+
+const spray = Rubik_Spray_Paint({
+  subsets: ["cyrillic", "latin"],
+  weight: "400",
+  display: "swap",
+  variable: "--font-spray",
 });
 
 export const metadata: Metadata = {
@@ -21,15 +29,20 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#070707",
+  themeColor: "#e6e0d4",
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ru" className={`${manrope.variable} ${literata.variable} h-full`}>
-      <body className={`${manrope.className} flex min-h-full flex-col antialiased`}>
+    <html
+      lang="ru"
+      className={`${manrope.variable} ${unbounded.variable} ${spray.variable} h-full`}
+    >
+      <body
+        className={`${manrope.className} flex min-h-full flex-col antialiased`}
+      >
         {children}
       </body>
     </html>

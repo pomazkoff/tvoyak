@@ -2,9 +2,28 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import type { BoardCell } from "@/components/game/board";
+import {
+  parseVkVideo,
+  VK_PLAYER_API,
+  vkPlayerSrc,
+  vkSegment,
+} from "@/lib/media/vk";
 import { fallbackSrc, youtubeEmbedVars } from "@/lib/media/youtube";
 
-type Provider = "youtube" | "vk" | "rutube";
+type Provider = "youtube" | "vk" | "rutube" | "none";
+
+type VkPlayer = {
+  on: (event: string, cb: (data?: unknown) => void) => void;
+  off?: (event: string, cb: (data?: unknown) => void) => void;
+  play: () => void;
+  pause: () => void;
+  seek: (seconds: number) => void;
+  unmute?: () => void;
+  setVolume?: (volume: number) => void;
+  getCurrentTime: () => number;
+  getDuration: () => number;
+  destroy?: () => void;
+};
 
 type YTPlayer = {
   playVideo: () => void;
@@ -36,7 +55,54 @@ declare global {
       ) => YTPlayer;
     };
     onYouTubeIframeAPIReady?: () => void;
+    VK?: { VideoPlayer?: (iframe: HTMLIFrameElement) => VkPlayer };
   }
+}
+
+let vkApi: Promise<void> | null = null;
+
+function loadVkApi(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (window.VK?.VideoPlayer) return Promise.resolve();
+  if (vkApi) return vkApi;
+  vkApi = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = VK_PLAYER_API;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      vkApi = null;
+      reject(new Error("vk api"));
+    };
+    document.body.appendChild(script);
+  });
+  return vkApi;
+}
+
+/** VK с хешем — основной источник; без хеша встраивание не откроется. */
+function hasVk(cell: BoardCell): boolean {
+  return Boolean(cell.vk_url && parseVkVideo(cell.vk_url)?.hash);
+}
+
+/** Куда уходить, если источник не открылся: VK → YouTube → Rutube. */
+function nextProvider(cell: BoardCell, failed: Provider): Provider {
+  const order: Provider[] = ["vk", "youtube", "rutube"];
+  const has = (p: Provider) =>
+    p === "vk"
+      ? hasVk(cell)
+      : p === "youtube"
+        ? Boolean(cell.youtube_id)
+        : p === "rutube"
+          ? Boolean(cell.rutube_url)
+          : false;
+  for (const p of order.slice(order.indexOf(failed) + 1)) if (has(p)) return p;
+  return "none";
+}
+
+function firstProvider(cell: BoardCell): Provider {
+  if (hasVk(cell)) return "vk";
+  if (cell.youtube_id) return "youtube";
+  return cell.rutube_url ? "rutube" : "none";
 }
 
 let youtubeApi: Promise<void> | null = null;
@@ -61,8 +127,12 @@ function loadYouTubeApi(): Promise<void> {
 /** Запас до края фрагмента: YouTube не должен успеть показать заставку конца. */
 const END_GUARD_SECONDS = 0.35;
 const YT_ENDED = 0;
-/** Сколько даём VK/Rutube на буферизацию после загрузки плеера. */
+/** Сколько даём Rutube на буферизацию после загрузки плеера. */
 const FALLBACK_LOAD_ALLOWANCE_MS = 1500;
+/** Через сколько VK-плееру разрешаем клики (VK может спросить «вы не робот?»). */
+const VK_CHALLENGE_MS = 6000;
+/** Если VK так и не заиграл — переходим на YouTube. */
+const VK_GIVE_UP_MS = 15000;
 
 export function MediaPlayer({
   cell,
@@ -76,9 +146,9 @@ export function MediaPlayer({
   const reactId = useId().replace(/:/g, "");
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
-  const [provider, setProvider] = useState<Provider>(
-    cell.youtube_id ? "youtube" : cell.vk_url ? "vk" : "rutube",
-  );
+  const vkFrameRef = useRef<HTMLIFrameElement>(null);
+  const [provider, setProvider] = useState<Provider>(() => firstProvider(cell));
+  const [vkClickable, setVkClickable] = useState(false);
   const [playing, setPlaying] = useState(autoplay);
   const [finished, setFinished] = useState(false);
   const audioOnly = cell.kind === "music" || cell.curtain;
@@ -113,10 +183,7 @@ export function MediaPlayer({
           origin: window.location.origin,
         }),
         events: {
-          onError: () => {
-            if (cell.vk_url) setProvider("vk");
-            else if (cell.rutube_url) setProvider("rutube");
-          },
+          onError: () => setProvider(nextProvider(cell, "youtube")),
           onReady: (event) => {
             const frame = event.target.getIframe?.();
             if (frame) {
@@ -154,6 +221,7 @@ export function MediaPlayer({
       playerRef.current?.destroy();
       playerRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     cell.end_seconds,
     cell.kind,
@@ -164,6 +232,91 @@ export function MediaPlayer({
     playing,
     provider,
   ]);
+
+  // VK Видео: iframe с js_api=1 и VK.VideoPlayer — старт с нужной секунды
+  // (t= в ссылке и seek после inited), стоп по таймкоду, как у YouTube.
+  useEffect(() => {
+    if (provider !== "vk" || !playing || !cell.vk_url) return;
+    const frame = vkFrameRef.current;
+    if (!frame) return;
+    const { start, end } = vkSegment(cell);
+    let disposed = false;
+    let started = false;
+    let poll = 0;
+    let player: VkPlayer | null = null;
+    const fail = () => {
+      if (disposed) return;
+      disposed = true;
+      setProvider(nextProvider(cell, "vk"));
+    };
+    const clickable = window.setTimeout(() => {
+      if (!started) setVkClickable(true);
+    }, VK_CHALLENGE_MS);
+    const giveUp = window.setTimeout(() => {
+      if (!started) fail();
+    }, VK_GIVE_UP_MS);
+
+    const finish = () => {
+      try {
+        player?.pause();
+      } catch {}
+      window.clearInterval(poll);
+      setFinished(true);
+    };
+    const onTime = () => {
+      if (!player || disposed) return;
+      let now = 0;
+      try {
+        now = player.getCurrentTime();
+      } catch {
+        return;
+      }
+      if (now > 0) {
+        if (!started) {
+          started = true;
+          setVkClickable(false);
+        }
+      }
+      const stopAt = end ?? player.getDuration() ?? 0;
+      if (stopAt > 0 && now >= stopAt - END_GUARD_SECONDS) finish();
+    };
+
+    loadVkApi()
+      .then(() => {
+        if (disposed || !window.VK?.VideoPlayer) return;
+        player = window.VK.VideoPlayer(frame);
+        player.on("inited", () => {
+          try {
+            player?.unmute?.();
+            player?.setVolume?.(1);
+            if (
+              start &&
+              Math.abs((player?.getCurrentTime() ?? 0) - start) > 1.5
+            )
+              player?.seek(start);
+            player?.play();
+          } catch {}
+        });
+        player.on("timeupdate", onTime);
+        player.on("started", onTime);
+        player.on("ended", finish);
+        player.on("error", fail);
+        poll = window.setInterval(onTime, 250);
+      })
+      .catch(fail);
+
+    return () => {
+      disposed = true;
+      window.clearTimeout(clickable);
+      window.clearTimeout(giveUp);
+      window.clearInterval(poll);
+      try {
+        player?.pause();
+        player?.destroy?.();
+      } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cell.vk_url, playing, provider]);
 
   // VK/Rutube из чужого окна не управляются: фрагмент гасим по таймеру
   // от загрузки плеера (с запасом на буферизацию), чтобы ролик не шёл дальше.
@@ -195,7 +348,7 @@ export function MediaPlayer({
 
   if (cell.kind !== "video" && cell.kind !== "music") return null;
 
-  if (cell.audio_url && !cell.youtube_id && !cell.vk_url && !cell.rutube_url) {
+  if (cell.audio_url && provider === "none") {
     return (
       <AudioPreview
         src={cell.audio_url}
@@ -207,12 +360,11 @@ export function MediaPlayer({
     );
   }
 
-  const fallback =
-    provider === "vk"
-      ? cell.vk_url
-      : provider === "rutube"
-        ? cell.rutube_url
-        : null;
+  const fallback = provider === "rutube" ? cell.rutube_url : null;
+  const vkSrc =
+    provider === "vk" && cell.vk_url
+      ? vkPlayerSrc(cell.vk_url, vkSegment(cell).start)
+      : null;
 
   return (
     <div className="media-block">
@@ -230,6 +382,19 @@ export function MediaPlayer({
       >
         {provider === "youtube" ? (
           <div ref={hostRef} id={`yt-${reactId}`} className="media-embed" />
+        ) : vkSrc && playing ? (
+          <iframe
+            ref={vkFrameRef}
+            title="Видео вопроса"
+            src={vkSrc}
+            className="media-embed"
+            data-provider="vk"
+            tabIndex={-1}
+            style={vkClickable ? { pointerEvents: "auto" } : undefined}
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture; screen-wake-lock"
+          />
+        ) : vkSrc ? (
+          <div className="media-embed" />
         ) : fallback && finished ? (
           <p className="media-missing hand">Фрагмент закончился.</p>
         ) : fallback && playing ? (
@@ -237,7 +402,7 @@ export function MediaPlayer({
             title="Видео вопроса"
             src={fallbackSrc(
               fallback,
-              provider === "vk" ? "vk" : "rutube",
+              "rutube",
               cell.start_seconds,
               cell.end_seconds,
             )}

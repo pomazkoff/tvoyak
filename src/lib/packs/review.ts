@@ -27,6 +27,14 @@ export type DraftQuestion = {
   curtain: boolean;
   /** Медиа: ролик YouTube (проверен oEmbed), картинка Commons, превью iTunes. */
   youtube_id?: string | null;
+  /** VK Видео — основной плеер: video_ext.php-ссылка с hash. */
+  vk_url?: string | null;
+  /** Свой фрагмент VK-копии, если он не совпадает с YouTube. */
+  vk_start_seconds?: number | null;
+  vk_end_seconds?: number | null;
+  /** Запрос для поиска копии на VK (video.search) и ожидаемая длина ролика. */
+  vk_query?: string | null;
+  vk_duration?: number | null;
   image_url?: string | null;
   audio_url?: string | null;
   start_seconds?: number | null;

@@ -34,6 +34,7 @@ import {
   type PictureFormat,
 } from "@/lib/pictures/types";
 import { checkPictureDraft } from "@/lib/pictures/validate";
+import { needsMediaReview, reviewMedia } from "@/lib/packs/media-check";
 
 export async function buildPack(): Promise<{
   ok: boolean;
@@ -121,6 +122,14 @@ export async function reviewDrafts(
         draft = checked.draft;
         pictureNotes = checked.problems;
       }
+      // Видео: сначала VK (поиск копии, доступность встраивания), YouTube —
+      // запасной. Ролик, который нигде не откроется, в банк не идёт.
+      let media: Awaited<ReturnType<typeof reviewMedia>> | null = null;
+      if (needsMediaReview(draft)) {
+        media = await reviewMedia(draft);
+        draft = media.draft;
+        if (media.status === "failed") pictureNotes.push(media.notes);
+      }
       const flags = safetyFlags(`${draft.prompt} ${draft.answer}`);
       const leak = leakCheck(draft);
       if (
@@ -164,6 +173,9 @@ export async function reviewDrafts(
             pictureNotes.join("; "),
           );
         }
+        if (media) {
+          await addReview(packId, itemId, "media", media.status, media.notes);
+        }
         continue;
       }
       const reviewed = await reviewItem(draft);
@@ -190,6 +202,9 @@ export async function reviewDrafts(
       }
       if (draft.picture) {
         await addReview(packId, itemId, "picture", "passed", "");
+      }
+      if (media) {
+        await addReview(packId, itemId, "media", media.status, media.notes);
       }
       if (!rejected) survivors += 1;
     }
@@ -381,6 +396,9 @@ async function insertItem(
       kind: draft.kind,
       curtain: draft.curtain,
       youtube_id: draft.youtube_id ?? null,
+      vk_url: draft.vk_url ?? null,
+      vk_start_seconds: draft.vk_start_seconds ?? null,
+      vk_end_seconds: draft.vk_end_seconds ?? null,
       image_url: draft.image_url ?? null,
       audio_url: draft.audio_url ?? null,
       start_seconds: draft.start_seconds ?? null,
@@ -425,7 +443,7 @@ export async function approvePack(
   const { data: items, error } = await supabase
     .from("pack_items")
     .select(
-      "id, category, prompt, answer, variants, value, kind, curtain, youtube_id, image_url, audio_url, start_seconds, end_seconds, picture, picture_spec, reveal_seconds, image_credit, image_license, image_page",
+      "id, category, prompt, answer, variants, value, kind, curtain, youtube_id, vk_url, vk_start_seconds, vk_end_seconds, image_url, audio_url, start_seconds, end_seconds, picture, picture_spec, reveal_seconds, image_credit, image_license, image_page",
     )
     .eq("pack_id", packId)
     .eq("status", "draft");
@@ -460,6 +478,10 @@ export async function approvePack(
         kind: row.kind,
         curtain: row.curtain,
         youtube_id: row.youtube_id,
+        vk_url: row.vk_url,
+        vk_start_seconds: row.vk_start_seconds,
+        vk_end_seconds: row.vk_end_seconds,
+        vk_checked_at: row.vk_url ? new Date().toISOString() : null,
         image_url: row.image_url,
         audio_url: row.audio_url,
         value: row.value,

@@ -26,6 +26,9 @@ export type BoardCell = {
   audio_url?: string | null;
   start_seconds: number | null;
   end_seconds: number | null;
+  /** Свой фрагмент для VK-копии (если не совпадает с YouTube). */
+  vk_start_seconds?: number | null;
+  vk_end_seconds?: number | null;
   curtain: boolean;
   /** Картиночное задание: rebus | emoji | fragment | hidden | blur | logo. */
   picture?: string | null;

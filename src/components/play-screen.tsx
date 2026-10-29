@@ -259,6 +259,12 @@ function PlayTurn({
     questionId: string;
     value: number;
   } | null>(null);
+  // Принятая ставка и ответ финала: форма прячется, телефон пишет «принято».
+  const [accepted, setAccepted] = useState<{
+    questionId: string;
+    wager?: number;
+    answer?: string;
+  } | null>(null);
   const me = players.find((player) => player.id === session.playerId);
   const chooser = players.find(
     (player) => player.id === game.chooser_player_id,
@@ -275,7 +281,10 @@ function PlayTurn({
         : game.buzz_winner_player_id === session.playerId)) ||
       (game.phase === "final_answer" && (me?.score ?? 0) > 0));
 
-  async function rpc(name: string, args: Record<string, unknown>) {
+  async function rpc(
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<boolean> {
     setPending(true);
     setError(null);
     try {
@@ -292,14 +301,16 @@ function PlayTurn({
       }
       if (error || !data) {
         setError(messageFor("network"));
-        return;
+        return false;
       }
       const result = data as { ok?: boolean; error?: string; won?: boolean };
       if (result.ok !== true) setError(messageFor(result.error));
       else if (name === "buzz" && result.won === false)
         setError(messageFor("lost_race"));
+      return result.ok === true;
     } catch {
       setError(messageFor("network"));
+      return false;
     } finally {
       setPending(false);
       requestMatchReload();
@@ -335,7 +346,18 @@ function PlayTurn({
         } else {
           setError(messageFor(result.error));
         }
-      } else setText("");
+      } else {
+        if (game.phase === "final_answer" && game.current_question_id) {
+          const questionId = game.current_question_id;
+          const answer = text.trim();
+          setAccepted((prev) => ({
+            ...(prev?.questionId === questionId ? prev : {}),
+            questionId,
+            answer,
+          }));
+        }
+        setText("");
+      }
     } catch {
       setError(messageFor("network"));
     } finally {
@@ -391,6 +413,11 @@ function PlayTurn({
   }
   const timedOut =
     late !== null && late.questionId === game.current_question_id;
+  const acceptedHere =
+    accepted !== null && accepted.questionId === game.current_question_id
+      ? accepted
+      : null;
+  const finalSent = game.round === 3 && acceptedHere?.answer !== undefined;
   const otherName =
     game.phase === "answering" && !iAnswer
       ? players.find((player) =>
@@ -538,7 +565,9 @@ function PlayTurn({
         </button>
       ) : null}
 
-      {iAnswer && !(timedOut && game.phase === "answering") ? (
+      {iAnswer &&
+      !(timedOut && game.phase === "answering") &&
+      !(game.phase === "final_answer" && finalSent) ? (
         <Panel className="answer-panel">
           <form onSubmit={(event) => void sendAnswer(event)}>
             <div className="flex items-baseline justify-between gap-2">
@@ -575,8 +604,33 @@ function PlayTurn({
         </Panel>
       ) : null}
 
+      {game.round === 3 &&
+      acceptedHere &&
+      ["wager", "final_answer", "judging"].includes(game.phase) ? (
+        <div role="status">
+          <Panel className="accepted-panel">
+            <p className="hand text-3xl">Принято ✓</p>
+            {acceptedHere.wager !== undefined ? (
+              <p className="mt-2">Ваша ставка: {acceptedHere.wager}</p>
+            ) : null}
+            {acceptedHere.answer !== undefined ? (
+              <p className="mt-1">Ваш ответ: «{acceptedHere.answer || "—"}»</p>
+            ) : null}
+            <p className="mt-2 text-sm text-muted">
+              {game.phase === "judging"
+                ? "Проверяем ответы."
+                : "Ждём остальных игроков."}
+            </p>
+          </Panel>
+        </div>
+      ) : null}
+
       {game.phase === "judging" ? (
-        <p className="text-muted">Ведущий проверяет ответ.</p>
+        <p className="text-muted">
+          {game.round === 3
+            ? "Ведущий проверяет ответы."
+            : "Ведущий проверяет ответ."}
+        </p>
       ) : null}
 
       {game.phase === "reveal" ? (
@@ -590,15 +644,20 @@ function PlayTurn({
 
       {game.phase === "wager" &&
       session.role === "player" &&
-      (me?.score ?? 0) > 0 ? (
+      (me?.score ?? 0) > 0 &&
+      acceptedHere?.wager === undefined ? (
         <Panel>
           <form
             onSubmit={(event) => {
               event.preventDefault();
+              const questionId = game.current_question_id;
+              const value = Number(wager);
               void rpc("place_wager", {
                 p_code: code,
                 p_player_token: session.token,
-                p_wager: Number(wager),
+                p_wager: value,
+              }).then((ok) => {
+                if (ok && questionId) setAccepted({ questionId, wager: value });
               });
             }}
           >

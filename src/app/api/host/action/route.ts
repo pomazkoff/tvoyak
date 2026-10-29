@@ -1,4 +1,8 @@
+import { after } from "next/server";
+import { requireHost } from "@/lib/game/host-auth";
 import { hostAction } from "@/lib/game/turn";
+import { roomPhrases } from "@/lib/tts/room-phrases";
+import { isTtsConfigured, prewarmSpeech } from "@/lib/tts/speechkit";
 
 export async function POST(request: Request) {
   let body: {
@@ -48,6 +52,26 @@ export async function POST(request: Request) {
       playerId: typeof body.playerId === "string" ? body.playerId : undefined,
       decisions,
     });
+    if (body.action === "start" && result.ok === true && isTtsConfigured()) {
+      // Поле готово — заранее озвучиваем вопросы первого раунда голосом
+      // Марины, чтобы на открытии вопроса звук уже был в кэше.
+      const code = body.code;
+      const secret = body.hostSecret;
+      after(async () => {
+        try {
+          const auth = await requireHost(code, secret);
+          if (!auth.ok || auth.room.host_mode !== "bot") return;
+          const phrases = await roomPhrases(auth.supabase, auth.room.id);
+          await prewarmSpeech(auth.supabase, [
+            "Верно!",
+            "Неверно.",
+            ...phrases.upcoming,
+          ]);
+        } catch {
+          console.error("tts_prewarm_start");
+        }
+      });
+    }
     const status = result.ok === false ? 400 : 200;
     return Response.json(result, { status });
   } catch (error) {

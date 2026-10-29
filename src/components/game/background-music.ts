@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * Фоновая музыка на экране ведущего (/host/КОД): тихий чилл-хаус в лобби и
- * во время игры. Треки лежат у нас в /public/music (CC BY 4.0, см.
+ * Фоновая музыка на главной и на экране ведущего (/host/КОД): тихий
+ * чилл-хаус до создания комнаты, в лобби и во время игры. Телефоны игроков
+ * (/play) молчат. Треки лежат у нас в /public/music (CC BY 4.0, см.
  * public/music/CREDITS.md) — никаких внешних CDN, всё с нашего домена.
  *
  * Один <audio> на страницу. Громкость плавно уходит в ноль, когда:
@@ -271,9 +272,17 @@ export function useMusicState(): MusicSnapshot {
   return useSyncExternalStore(subscribe, getSnapshot, () => SERVER_SNAPSHOT);
 }
 
+/** Пауза между страницами: успевает смонтироваться следующий экран. */
+const HANDOFF_MS = 1500;
+let users = 0;
+let releaseTimer = 0;
+
 /**
- * Включает фон на время жизни компонента. `suppressed` — на экране вопрос с
- * видео или треком: музыка плавно уходит на паузу и возвращается потом.
+ * Включает фон на время жизни компонента (главная и экран ведущего).
+ * `suppressed` — на экране вопрос с видео или треком: музыка плавно уходит
+ * на паузу и возвращается потом. Плеер один на вкладку и переживает
+ * клиентский переход «главная → /host», поэтому музыка не обрывается.
+ * На страницах без этого хука (телефоны игроков) музыка гаснет.
  */
 export function useBackgroundMusic({
   suppressed: hold,
@@ -281,28 +290,36 @@ export function useBackgroundMusic({
   suppressed: boolean;
 }) {
   useEffect(() => {
+    users += 1;
+    window.clearTimeout(releaseTimer);
     active = true;
-    stopSpeakingSub = subscribeSpeaking(() => {
-      if (audio && !audio.paused) fadeTo(goal());
-    });
+    if (!stopSpeakingSub) {
+      stopSpeakingSub = subscribeSpeaking(() => {
+        if (audio && !audio.paused) fadeTo(goal());
+      });
+    }
     apply();
     return () => {
-      active = false;
-      stopSpeakingSub?.();
-      stopSpeakingSub = null;
-      window.cancelAnimationFrame(fadeFrame);
-      if (audio) {
-        audio.pause();
-        audio.remove();
-        audio = null;
-      }
-      queue = [];
-      publish();
+      users -= 1;
+      window.clearTimeout(releaseTimer);
+      releaseTimer = window.setTimeout(() => {
+        if (users > 0) return;
+        active = false;
+        suppressed = false;
+        stopSpeakingSub?.();
+        stopSpeakingSub = null;
+        apply();
+      }, HANDOFF_MS);
     };
   }, []);
 
   useEffect(() => {
     suppressed = hold;
     apply();
+    return () => {
+      if (hold) {
+        suppressed = false;
+      }
+    };
   }, [hold]);
 }

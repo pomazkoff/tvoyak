@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { useBackgroundMusic } from "@/components/game/background-music";
+import { MusicToggle } from "@/components/game/music-toggle";
 import { Arrow, BotSketch, HostSketch, Logo } from "@/components/marks";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { messageFor } from "@/lib/rooms/messages";
@@ -17,6 +19,9 @@ export function HomeScreen() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const normalizedCode = normalizeRoomCode(code);
+  // Тихий фон и на главной: браузер включит его с первого клика или
+  // клавиши, а после «Создать комнату» музыка продолжится на экране ведущего.
+  useBackgroundMusic({ suppressed: false });
 
   async function createRoom() {
     setPending(true);
@@ -155,6 +160,7 @@ export function HomeScreen() {
           </div>
         </section>
       </div>
+      <MusicToggle credits />
     </main>
   );
 }

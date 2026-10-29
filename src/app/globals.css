@@ -1102,3 +1102,62 @@ label {
     stroke-dashoffset: 0;
   }
 }
+
+/* Серверные сроки: таймер телефона и «Время вышло». */
+.phone-clock {
+  min-width: 2ch;
+  font-size: 44px;
+  line-height: 1;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.phone-clock.is-hot {
+  color: #d7261e;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.is-mine .phone-clock,
+.is-mine .phone-clock.is-hot {
+  color: #f7f6f2;
+}
+
+.is-mine .phone-clock.is-hot {
+  text-decoration: underline;
+  text-decoration-thickness: 3px;
+}
+
+.answer-clock {
+  font-size: 30px;
+  line-height: 1;
+  color: #141414;
+  font-variant-numeric: tabular-nums;
+}
+
+.answer-clock.is-hot {
+  color: #d7261e;
+}
+
+.time-up {
+  display: inline-block;
+  align-self: flex-start;
+  margin: 0.6rem 0;
+  background: #141414;
+  padding: 0.12em 0.5em;
+  color: #f7f6f2;
+  font-size: clamp(30px, 3vw, 56px);
+  line-height: 1.05;
+  transform: rotate(-2deg);
+  animation: slap 180ms ease;
+}
+
+.question-sheet .time-up {
+  position: absolute;
+  right: 1.25rem;
+  bottom: 18%;
+  z-index: 3;
+}
+
+.phone-time-up {
+  font-size: 34px;
+}

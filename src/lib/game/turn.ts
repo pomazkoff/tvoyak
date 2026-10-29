@@ -37,9 +37,9 @@ async function callRpc(
   const { data, error } = await supabase.rpc(name, args);
   if (error) {
     console.error(name, error.code ?? "rpc");
-    return { ok: false, error: "create_failed" };
+    return { ok: false, error: "rpc_failed" };
   }
-  return (data ?? { ok: false, error: "create_failed" }) as Rpc;
+  return (data ?? { ok: false, error: "rpc_failed" }) as Rpc;
 }
 
 function asVariants(value: unknown): string[] {
@@ -100,7 +100,11 @@ export async function submitPlayerAnswer(
   }
 
   if (begun.error !== "bad_phase" && begun.error !== "not_your_turn") {
-    return { ok: false, error: begun.error ?? "create_failed" };
+    return {
+      ok: false,
+      error: begun.error ?? "rpc_failed",
+      delta: typeof begun.delta === "number" ? begun.delta : undefined,
+    };
   }
 
   const finalAnswer = await callRpc("begin_final_answer", {
@@ -167,7 +171,7 @@ export async function settleFinal(
 ) {
   const loaded = await loadFinalDecisions(code);
   if (!loaded.ok) {
-    return { ok: false, error: loaded.error ?? "create_failed" };
+    return { ok: false, error: loaded.error ?? "rpc_failed" };
   }
   const { sheet, decisions } = loaded;
   if (sheet.phase !== "judging") {
@@ -217,6 +221,11 @@ export async function hostAction(input: {
   const auth = await requireHost(input.code, input.hostSecret);
   if (!auth.ok) return { ok: false, error: auth.error };
 
+  // Ленивый шаг серверных часов: просроченный срок закрывается до хода ведущего.
+  if (input.action !== "start" && input.action !== "clue") {
+    await callRpc("advance_clock", { p_code: input.code });
+  }
+
   if (input.action === "start") {
     return callRpc("start_game", { p_code: input.code });
   }
@@ -257,7 +266,7 @@ export async function hostAction(input: {
       p_code: input.code,
       p_question_id: input.questionId,
     });
-    if (picked.ok !== true && picked.error === "create_failed") {
+    if (picked.ok !== true && picked.error === "rpc_failed") {
       return { ok: false, error: "pick_failed" };
     }
     return picked;

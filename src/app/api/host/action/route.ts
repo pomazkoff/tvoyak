@@ -54,6 +54,6 @@ export async function POST(request: Request) {
       return Response.json({ error: "not_configured" }, { status: 500 });
     }
     console.error("host_action");
-    return Response.json({ error: "create_failed" }, { status: 502 });
+    return Response.json({ error: "rpc_failed" }, { status: 502 });
   }
 }

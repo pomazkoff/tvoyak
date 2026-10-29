@@ -124,11 +124,8 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     void callHost(normalized, "finalize");
   }, [game, match, normalized, ownsRoom]);
 
-  useEffect(() => {
-    if (!normalized || !ownsRoom || !game || game.phase !== "reveal") return;
-    const timer = setTimeout(() => void callHost(normalized, "continue"), 7000);
-    return () => clearTimeout(timer);
-  }, [game, normalized, ownsRoom]);
+  // Переход reveal → поле делают серверные часы (advance_clock в useMatch):
+  // через 4 секунды после вскрытия ответа, даже если телевизор закрыт.
 
   function showToast(text: string) {
     setToast(text);
@@ -143,7 +140,11 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     setError(null);
     try {
       const result = await callHost(normalized, action, extra);
-      if (result.ok !== true) {
+      // «Дальше» и «Никто не берёт» могли опередить серверные часы — это не ошибка.
+      const raced =
+        (action === "continue" || action === "pass") &&
+        result.error === "bad_phase";
+      if (result.ok !== true && !raced) {
         const text = messageFor(String(result.error ?? ""));
         setError(text);
         if (action === "pick") showToast(text);
@@ -453,6 +454,12 @@ function GameView({
             (game.phase === "answering" || game.phase === "judging") ? (
               <p key={answering.id} className="name-sticker hand">
                 {answering.nickname}
+              </p>
+            ) : null}
+            {left === 0 &&
+            (game.phase === "answering" || game.phase === "buzzing") ? (
+              <p className="time-up hand" role="status">
+                Время вышло
               </p>
             ) : null}
             {left !== null && game.phase !== "reveal" ? (

@@ -7,7 +7,11 @@ const MESSAGES: Record<string, string> = {
   room_finished: "Эта комната уже закрыта.",
   spectators_cannot_buzz: "Зрители не отвечают.",
   no_active_question: "Вопрос ещё не открыт.",
-  too_late: "Кто-то нажал раньше.",
+  too_late: "Время вышло — ответ не принят.",
+  answer_late: "Время вышло — ответ не принят.",
+  buzz_closed: "Время на кнопку вышло.",
+  lost_race: "Кто-то нажал раньше.",
+  rpc_failed: "Сервер не ответил. Попробуйте ещё раз.",
   already_buzzed: "Вы уже нажимали на этот вопрос.",
   player_not_found: "Сессия не найдена. Войдите снова.",
   bad_host_mode: "Неизвестный режим ведущего.",
@@ -32,6 +36,12 @@ const MESSAGES: Record<string, string> = {
   not_host: "Это может сделать только ведущий этой комнаты.",
   judging: "Ответ у ведущего.",
 };
+
+/** «Время вышло — −N» для отвечавшего, чей срок истёк. */
+export function lateAnswerMessage(value: number): string {
+  const penalty = Math.abs(value);
+  return penalty > 0 ? `Время вышло — −${penalty}` : "Время вышло";
+}
 
 export function messageFor(code: string | undefined): string {
   if (!code) return "Не получилось. Попробуйте ещё раз.";

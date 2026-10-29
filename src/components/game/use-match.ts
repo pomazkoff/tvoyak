@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BoardCell } from "@/components/game/board";
+import {
+  CLOCK_MAX_ATTEMPTS,
+  clockDueAt,
+  clockKey,
+  clockRetryDelay,
+} from "@/lib/game/clock";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import {
   getBrowserSupabase,
@@ -46,6 +52,7 @@ const gameColumns =
 
 export function useMatch(code: string): MatchState {
   const [state, setState] = useState<MatchState>({ status: "loading" });
+  const reloadRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     const normalized = normalizeRoomCode(code);
@@ -115,6 +122,10 @@ export function useMatch(code: string): MatchState {
         const snapshot = await load(room);
         if (cancelled) return;
         setState({ status: "ready", room, ...snapshot });
+        reloadRef.current = async () => {
+          const fresh = await load(room);
+          if (!cancelled) setState({ status: "ready", room, ...fresh });
+        };
       } catch {
         if (!cancelled) {
           setState({
@@ -186,23 +197,51 @@ export function useMatch(code: string): MatchState {
 
     return () => {
       cancelled = true;
+      reloadRef.current = null;
       if (channel) void supabase.removeChannel(channel);
     };
   }, [code]);
 
+  // Серверные сроки: когда локальный таймер дошёл до нуля, просим сервер
+  // сдвинуть партию (advance_clock идемпотентна и сверяет версию), потом
+  // перечитываем состояние. Пока версия та же — повторяем с растущей паузой:
+  // это спасает от сна вкладки, потерянного realtime и расхождения часов.
+  const clockGame = state.status === "ready" ? state.game : null;
+  const clockId = clockGame ? clockKey(clockGame) : null;
+  const clockDue = clockGame ? clockDueAt(clockGame) : null;
+  const clockVersion = clockGame?.version ?? null;
   useEffect(() => {
-    if (state.status !== "ready" || !state.game.deadline) return;
+    if (clockId === null || clockDue === null || clockVersion === null) return;
     const normalized = normalizeRoomCode(code);
     if (!normalized || !isSupabaseConfigured()) return;
-    const delay = new Date(state.game.deadline).getTime() - Date.now() + 400;
-    const timer = setTimeout(
-      () => {
-        void getBrowserSupabase().rpc("advance_clock", { p_code: normalized });
-      },
-      Math.max(0, delay),
-    );
-    return () => clearTimeout(timer);
-  }, [state, code]);
+    let attempt = 0;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function fire() {
+      if (stopped) return;
+      try {
+        await getBrowserSupabase().rpc("advance_clock", {
+          p_code: normalized,
+          p_version: clockVersion,
+        });
+        await reloadRef.current?.();
+      } catch {
+        // Сеть мигнула — попробуем ещё раз.
+      }
+      if (stopped) return;
+      attempt += 1;
+      if (attempt < CLOCK_MAX_ATTEMPTS) {
+        timer = setTimeout(() => void fire(), clockRetryDelay(attempt - 1));
+      }
+    }
+
+    timer = setTimeout(() => void fire(), Math.max(0, clockDue - Date.now()));
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [clockId, clockDue, clockVersion, code]);
 
   const normalized = normalizeRoomCode(code);
   if (!normalized) return { status: "invalid" };

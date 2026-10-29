@@ -7,7 +7,7 @@ import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
-import { messageFor } from "@/lib/rooms/messages";
+import { lateAnswerMessage, messageFor } from "@/lib/rooms/messages";
 import {
   clearPlayer,
   savePlayer,
@@ -250,6 +250,10 @@ function PlayTurn({
   const { game, players, board } = match;
   const [text, setText] = useState("");
   const [wager, setWager] = useState("");
+  const [late, setLate] = useState<{
+    questionId: string;
+    value: number;
+  } | null>(null);
   const me = players.find((player) => player.id === session.playerId);
   const chooser = players.find(
     (player) => player.id === game.chooser_player_id,
@@ -271,13 +275,24 @@ function PlayTurn({
     setError(null);
     try {
       const supabase = getBrowserSupabase();
-      const { data, error } = await supabase.rpc(name, args);
+      let { data, error } = await supabase.rpc(name, args);
+      // Ход мог упереться в просроченный срок: сдвигаем серверные часы и
+      // пробуем ещё раз — один раз.
+      if (
+        !error &&
+        (data as { error?: string } | null)?.error === "bad_phase"
+      ) {
+        await supabase.rpc("advance_clock", { p_code: code });
+        ({ data, error } = await supabase.rpc(name, args));
+      }
       if (error || !data) {
         setError(messageFor("network"));
         return;
       }
-      const result = data as { ok?: boolean; error?: string };
+      const result = data as { ok?: boolean; error?: string; won?: boolean };
       if (result.ok !== true) setError(messageFor(result.error));
+      else if (name === "buzz" && result.won === false)
+        setError(messageFor("lost_race"));
     } catch {
       setError(messageFor("network"));
     } finally {
@@ -299,9 +314,22 @@ function PlayTurn({
         ok?: boolean;
         error?: string;
         judging?: boolean;
+        delta?: number;
       };
-      if (result.ok === false) setError(messageFor(result.error));
-      else setText("");
+      if (result.ok === false) {
+        if (
+          (result.error === "answer_late" || result.error === "too_late") &&
+          game.current_question_id
+        ) {
+          setLate({
+            questionId: game.current_question_id,
+            value: Math.abs(result.delta ?? current?.value ?? 0),
+          });
+          setError(messageFor("answer_late"));
+        } else {
+          setError(messageFor(result.error));
+        }
+      } else setText("");
     } catch {
       setError(messageFor("network"));
     } finally {
@@ -341,6 +369,21 @@ function PlayTurn({
   }
 
   const mine = game.phase === "answering" && iAnswer;
+  // Срок ответа истёк у этого телефона: прячем поле и пишем штраф. Сервер
+  // тем временем применит −цену (advance_clock из useMatch).
+  if (
+    mine &&
+    left === 0 &&
+    game.current_question_id &&
+    late?.questionId !== game.current_question_id
+  ) {
+    setLate({
+      questionId: game.current_question_id,
+      value: current?.value ?? 0,
+    });
+  }
+  const timedOut =
+    late !== null && late.questionId === game.current_question_id;
   const otherName =
     game.phase === "answering" && !iAnswer
       ? players.find((player) =>
@@ -366,8 +409,11 @@ function PlayTurn({
         <p className="poster text-[40px]">
           {current?.category ?? (game.round === 3 ? "Финал" : "")}
         </p>
-        {left !== null ? (
-          <p className={`poster text-[40px] ${left <= 5 ? "text-danger" : ""}`}>
+        {left !== null && game.phase !== "reveal" ? (
+          <p
+            className={`poster phone-clock ${left <= 5 ? "is-hot" : ""}`}
+            aria-label={`Осталось ${left} с`}
+          >
             {left}
           </p>
         ) : null}
@@ -480,19 +526,37 @@ function PlayTurn({
         </button>
       ) : null}
 
-      {iAnswer ? (
-        <Panel>
+      {timedOut && game.phase !== "reveal" ? (
+        <p className="time-up hand phone-time-up" role="status">
+          {lateAnswerMessage(late?.value ?? 0)}
+        </p>
+      ) : null}
+
+      {iAnswer && !(timedOut && game.phase === "answering") ? (
+        <Panel className="answer-panel">
           <form onSubmit={(event) => void sendAnswer(event)}>
-            <label htmlFor="answer" className="text-sm text-muted">
-              Ваш ответ
-            </label>
+            <div className="flex items-baseline justify-between gap-2">
+              <label htmlFor="answer" className="text-sm text-muted">
+                Ваш ответ
+              </label>
+              {left !== null && game.phase === "answering" ? (
+                <span
+                  className={`poster answer-clock ${left <= 5 ? "is-hot" : ""}`}
+                >
+                  {left} с
+                </span>
+              ) : null}
+            </div>
             <input
               id="answer"
               value={text}
               onChange={(event) => setText(event.target.value)}
               maxLength={300}
               required
-              className="mt-2 w-full rounded-2xl border border-line bg-navy px-4 py-3 text-lg outline-none focus:border-gold"
+              autoComplete="off"
+              autoFocus
+              placeholder="Напишите ответ"
+              className="field mt-2"
             />
             <button
               type="submit"

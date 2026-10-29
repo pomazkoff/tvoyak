@@ -535,12 +535,16 @@ function PlayTurn({
       ) : null}
 
       {current &&
-      (current.kind === "video" || current.kind === "music") &&
+      (current.kind === "video" ||
+        current.kind === "music" ||
+        current.picture) &&
       game.phase !== "board" ? (
         <p className="mt-2 text-[17px]">Смотрите экран ведущего.</p>
       ) : null}
+      {/* Картиночные задания (ребус, размытие…) — только на экране ведущего. */}
       {current?.kind === "image" &&
       current.image_url &&
+      !current.picture &&
       game.phase !== "board" ? (
         <div className="polaroid mt-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -8,6 +8,7 @@ export function isLlmCheckEnabled(): boolean {
 export async function judgeWithOpenRouter(
   given: string,
   expected: string,
+  note?: string | null,
 ): Promise<boolean> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   const model = process.env.OPENROUTER_MODEL;
@@ -31,7 +32,8 @@ export async function judgeWithOpenRouter(
           {
             role: "system",
             content:
-              'Ты проверяешь ответ в викторине «Своя игра». Сравни ответ игрока с эталоном по смыслу. Опечатки и другой порядок слов допустимы. Лишние подробности не делают ответ неверным, если суть совпала. Ответь только JSON: {"correct": true} или {"correct": false}.',
+              'Ты проверяешь ответ в викторине «Своя игра». Сравни ответ игрока с эталоном по смыслу. Опечатки и другой порядок слов допустимы. Лишние подробности не делают ответ неверным, если суть совпала. Ответь только JSON: {"correct": true} или {"correct": false}.' +
+              (note ? `\n${note}` : ""),
           },
           {
             role: "user",

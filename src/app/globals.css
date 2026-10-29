@@ -1808,3 +1808,243 @@ button {
   color: #55534e;
   text-decoration: underline;
 }
+
+/* ---- Картиночные задания на ТВ ---- */
+.picture-task {
+  display: grid;
+  justify-items: center;
+  gap: 0.8vh;
+  width: 100%;
+  margin: 1.2vh 0 0;
+}
+
+.picture-kind {
+  font-size: clamp(18px, 1.6vw, 34px);
+  opacity: 0.75;
+}
+
+.picture-frame {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  background: #fff;
+  /* Рамка — border: overflow режет по padding-box, и zoom не залезает на неё. */
+  border: 0.6rem solid #fff;
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.06),
+    0 12px 22px -14px rgba(0, 0, 0, 0.4);
+}
+
+.picture-media {
+  display: block;
+  max-width: min(88vw, 1400px);
+  max-height: 58vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  transition:
+    filter 120ms linear,
+    transform 120ms linear;
+}
+
+.picture-task.is-generated .picture-media {
+  min-width: min(60vw, 900px);
+  max-height: 56vh;
+}
+
+.picture-emoji .picture-media {
+  min-width: min(70vw, 1100px);
+}
+
+.picture-tiles {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  gap: 3px;
+  pointer-events: none;
+}
+
+.picture-tile {
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(
+    45deg,
+    #2b4a9a,
+    #2b4a9a 10px,
+    #24407f 10px,
+    #24407f 20px
+  );
+  color: rgba(255, 255, 255, 0.55);
+  font-family: var(--font-poster, inherit);
+  font-size: clamp(16px, 2vw, 40px);
+  transition: opacity 400ms ease;
+}
+
+.picture-tile.is-open {
+  opacity: 0;
+}
+
+.picture-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.picture-progress > span {
+  display: block;
+  height: 100%;
+  background: #c8372d;
+}
+
+.picture-credit {
+  max-width: min(88vw, 1400px);
+  font-size: clamp(11px, 0.8vw, 15px);
+  opacity: 0.65;
+  text-align: center;
+}
+
+.picture-credit a {
+  text-decoration: underline;
+}
+
+/* Страница ревью картиночных заданий (/admin/pictures). */
+.review-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0 8px;
+  padding: 10px 0;
+  background: var(--color-paper);
+  border-bottom: 1px solid var(--color-shade);
+}
+
+.review-filters,
+.review-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.review-chip,
+.review-action {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-sheet);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.review-chip.is-active,
+.review-action {
+  background: var(--color-ink);
+  color: var(--color-sheet);
+}
+
+.review-action.is-ghost {
+  background: var(--color-sheet);
+  color: var(--color-ink);
+}
+
+.review-action:disabled {
+  opacity: 0.5;
+}
+
+.review-count {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.review-group {
+  margin-top: 28px;
+}
+
+.review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.review-card {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-sheet);
+}
+
+.review-card.is-off {
+  opacity: 0.45;
+  border-style: dashed;
+}
+
+.review-image {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.review-image > img {
+  display: block;
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+}
+
+.review-image .picture-task {
+  margin: 0;
+}
+
+.review-image .picture-kind,
+.review-image .picture-credit {
+  display: none;
+}
+
+.review-image .picture-media,
+.review-image .picture-task.is-generated .picture-media,
+.review-image .picture-emoji .picture-media {
+  min-width: 0;
+  max-width: 100%;
+  max-height: 240px;
+}
+
+.review-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.review-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.review-switch input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-ink);
+}
+
+.review-link {
+  font-size: 13px;
+  text-decoration: underline;
+}

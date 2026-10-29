@@ -1,7 +1,14 @@
 import { NO_LEAK_RULE } from "@/lib/packs/review";
 
 export type ReviewPass =
-  "safety" | "fact" | "freshness" | "difficulty" | "duplicates" | "leak";
+  | "safety"
+  | "fact"
+  | "freshness"
+  | "difficulty"
+  | "duplicates"
+  | "leak"
+  | "picture"
+  | "media";
 
 export const GENERATION_SYSTEM = `Ты составитель «Своей игры» для компании в России. Пиши по-русски. Без политики, войны, выборов и тем 18+. Если человек — иноагент, добавь в формулировку пометку «(иноагент)». ${NO_LEAK_RULE} Перед ответом перечитай каждый вопрос и перепиши тот, что нарушает правило. Верни только JSON-массив.`;
 

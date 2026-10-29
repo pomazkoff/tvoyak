@@ -34,11 +34,15 @@ export async function POST(request: Request) {
       return Response.json({ error: result.error }, { status: 400 });
     }
 
-    if (company && result.room_id) {
-      // Не критично: без компании игра просто не учитывает прошлые вопросы.
+    if (result.room_id) {
+      // Не критично: без компании игра просто не учитывает прошлые вопросы,
+      // без флага — не берёт картиночные задания (их рисует только этот клиент).
+      const pictures = process.env.PICTURE_TASKS !== "0";
+      const update: Record<string, unknown> = { picture_tasks: pictures };
+      if (company) update.company_id = company;
       const { error: companyError } = await supabase
         .from("room_secrets")
-        .update({ company_id: company })
+        .update(update)
         .eq("room_id", result.room_id);
       if (companyError) console.error("room_company", companyError.code);
     }

@@ -4,6 +4,13 @@ const ALLOWED_HOSTS = new Set([
   "upload.wikimedia.org",
 ]);
 
+/** Свои картинки (детские рисунки) лежат в public/pictures/k/. */
+const SELF_HOSTED = /^\/pictures\/k\/[0-9a-f]{16,40}\.jpg$/;
+
+export function isSelfHostedImage(raw: string | null | undefined): boolean {
+  return typeof raw === "string" && SELF_HOSTED.test(raw);
+}
+
 export function isQuestionId(value: string): boolean {
   return UUID.test(value);
 }

@@ -22,6 +22,19 @@ import {
   type ReviewPass,
 } from "@/lib/packs/prompts";
 import { collectTrends } from "@/lib/packs/trends";
+import {
+  PICTURE_GENERATION_SYSTEM,
+  PICTURE_REVIEW_RULE,
+  pictureGenerationUser,
+} from "@/lib/pictures/generate";
+import {
+  DEFAULT_REVEAL,
+  PICTURE_CATEGORY,
+  isPictureFormat,
+  type PictureFormat,
+} from "@/lib/pictures/types";
+import { checkPictureDraft } from "@/lib/pictures/validate";
+import { needsMediaReview, reviewMedia } from "@/lib/packs/media-check";
 
 export async function buildPack(): Promise<{
   ok: boolean;
@@ -100,10 +113,31 @@ export async function reviewDrafts(
   const worker = async () => {
     while (next < drafts.length) {
       const index = next++;
-      const draft = drafts[index]!;
+      let draft = drafts[index]!;
+      // Картинки: формат, однозначность ребуса, эмодзи в Twemoji, свободная
+      // лицензия и ответ 200 у ссылки — до любых LLM-проходов.
+      let pictureNotes: string[] = [];
+      if (draft.picture) {
+        const checked = await checkPictureDraft(draft);
+        draft = checked.draft;
+        pictureNotes = checked.problems;
+      }
+      // Видео: сначала VK (поиск копии, доступность встраивания), YouTube —
+      // запасной. Ролик, который нигде не откроется, в банк не идёт.
+      let media: Awaited<ReturnType<typeof reviewMedia>> | null = null;
+      if (needsMediaReview(draft)) {
+        media = await reviewMedia(draft);
+        draft = media.draft;
+        if (media.status === "failed") pictureNotes.push(media.notes);
+      }
       const flags = safetyFlags(`${draft.prompt} ${draft.answer}`);
       const leak = leakCheck(draft);
-      if (flags.length || duplicates.has(index) || leak.blocking) {
+      if (
+        flags.length ||
+        duplicates.has(index) ||
+        leak.blocking ||
+        pictureNotes.length
+      ) {
         const itemId = await insertItem(
           packId,
           { ...draft, value: calibrateValue(draft.value) },
@@ -130,6 +164,18 @@ export async function reviewDrafts(
           leak.blocking ? "failed" : "passed",
           leak.notes,
         );
+        if (draft.picture) {
+          await addReview(
+            packId,
+            itemId,
+            "picture",
+            pictureNotes.length ? "failed" : "passed",
+            pictureNotes.join("; "),
+          );
+        }
+        if (media) {
+          await addReview(packId, itemId, "media", media.status, media.notes);
+        }
         continue;
       }
       const reviewed = await reviewItem(draft);
@@ -153,6 +199,12 @@ export async function reviewDrafts(
       );
       for (const pass of reviewed.passes) {
         await addReview(packId, itemId, pass.pass, pass.status, pass.notes);
+      }
+      if (draft.picture) {
+        await addReview(packId, itemId, "picture", "passed", "");
+      }
+      if (media) {
+        await addReview(packId, itemId, "media", media.status, media.notes);
       }
       if (!rejected) survivors += 1;
     }
@@ -186,6 +238,40 @@ export async function generateForCategory(
       value: calibrateValue(Number(item.value)),
       kind: "text" as const,
       curtain: false,
+    }));
+}
+
+/** Черновики картиночных заданий одного формата (проверяет reviewDrafts). */
+export async function generatePictureDrafts(
+  format: PictureFormat,
+  count: number,
+  avoidAnswers: string[],
+): Promise<DraftQuestion[]> {
+  const text = await completeOpenRouter(
+    PICTURE_GENERATION_SYSTEM,
+    pictureGenerationUser(format, count, avoidAnswers),
+  );
+  return parseJson<DraftQuestion[]>(text)
+    .filter((item) => item && item.prompt && item.answer && item.picture_spec)
+    .slice(0, count)
+    .map((item) => ({
+      category: PICTURE_CATEGORY[format],
+      prompt: String(item.prompt).trim(),
+      answer: String(item.answer).trim(),
+      variants: Array.isArray(item.variants) ? item.variants.map(String) : [],
+      value: calibrateValue(Number(item.value)),
+      kind: "image" as const,
+      curtain: false,
+      picture: format,
+      picture_spec: item.picture_spec,
+      image_url:
+        typeof item.image_url === "string" && item.image_url
+          ? item.image_url
+          : null,
+      reveal_seconds:
+        typeof item.reveal_seconds === "number"
+          ? item.reveal_seconds
+          : DEFAULT_REVEAL[format],
     }));
 }
 
@@ -233,8 +319,11 @@ async function reviewItem(draft: DraftQuestion): Promise<{
 
   for (const pass of ["fact", "freshness", "difficulty"] as const) {
     try {
+      const pictureRule = isPictureFormat(draft.picture)
+        ? ` ${PICTURE_REVIEW_RULE[draft.picture]}`
+        : "";
       const text = await completeOpenRouter(
-        reviewSystem(pass),
+        reviewSystem(pass) + pictureRule,
         JSON.stringify(draft),
       );
       const verdict = parseJson<{
@@ -307,11 +396,20 @@ async function insertItem(
       kind: draft.kind,
       curtain: draft.curtain,
       youtube_id: draft.youtube_id ?? null,
+      vk_url: draft.vk_url ?? null,
+      vk_start_seconds: draft.vk_start_seconds ?? null,
+      vk_end_seconds: draft.vk_end_seconds ?? null,
       image_url: draft.image_url ?? null,
       audio_url: draft.audio_url ?? null,
       start_seconds: draft.start_seconds ?? null,
       end_seconds: draft.end_seconds ?? null,
       media_note: draft.media_note ?? null,
+      picture: draft.picture ?? null,
+      picture_spec: draft.picture_spec ?? null,
+      reveal_seconds: draft.reveal_seconds || null,
+      image_credit: draft.image_credit ?? null,
+      image_license: draft.image_license ?? null,
+      image_page: draft.image_page ?? null,
       status,
       agent_mark: agentMark ?? null,
     })
@@ -345,7 +443,7 @@ export async function approvePack(
   const { data: items, error } = await supabase
     .from("pack_items")
     .select(
-      "id, category, prompt, answer, variants, value, kind, curtain, youtube_id, image_url, audio_url, start_seconds, end_seconds",
+      "id, category, prompt, answer, variants, value, kind, curtain, youtube_id, vk_url, vk_start_seconds, vk_end_seconds, image_url, audio_url, start_seconds, end_seconds, picture, picture_spec, reveal_seconds, image_credit, image_license, image_page",
     )
     .eq("pack_id", packId)
     .eq("status", "draft");
@@ -380,11 +478,21 @@ export async function approvePack(
         kind: row.kind,
         curtain: row.curtain,
         youtube_id: row.youtube_id,
+        vk_url: row.vk_url,
+        vk_start_seconds: row.vk_start_seconds,
+        vk_end_seconds: row.vk_end_seconds,
+        vk_checked_at: row.vk_url ? new Date().toISOString() : null,
         image_url: row.image_url,
         audio_url: row.audio_url,
         value: row.value,
         start_seconds: row.start_seconds,
         end_seconds: row.end_seconds,
+        picture: row.picture,
+        picture_spec: row.picture_spec,
+        reveal_seconds: row.reveal_seconds || null,
+        image_credit: row.image_credit,
+        image_license: row.image_license,
+        image_page: row.image_page,
         // Метка партии: откат — delete from question_bank where pack_id = …
         pack_id: packId,
       })),

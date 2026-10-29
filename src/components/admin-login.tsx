@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-export function AdminLogin() {
+export function AdminLogin({ title = "Пачки" }: { title?: string }) {
   const router = useRouter();
   const [token, setToken] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export function AdminLogin() {
 
   return (
     <form onSubmit={(event) => void submit(event)} className="grid gap-3">
-      <h1 className="text-3xl font-semibold">Пачки</h1>
+      <h1 className="text-3xl font-semibold">{title}</h1>
       <label htmlFor="admin-token" className="text-sm text-muted">
         Токен администратора
       </label>

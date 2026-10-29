@@ -8,14 +8,26 @@
  * OPENROUTER_MODEL):
  *   npx tsx --conditions=react-server scripts/grow-bank.ts [media.json ...]
  * Переменная GROW_ONLY="Кино,Игры" ограничивает темы.
+ * GROW_PICTURES="rebus,emoji,hidden,fragment,blur,logo" — вместо тем пополнить
+ * картиночные задания (каждый формат — своя пачка, те же проверки плюс
+ * проход picture: ребус однозначен, эмодзи есть, лицензия свободная, 200).
+ *
+ * Видео (media.json): основной плеер — VK Видео. У черновика vk_url
+ * (video_ext.php с hash) или vk_query (+ vk_duration) — тогда с VK_API_TOKEN
+ * копия ищется через video.search. Проход media проверяет, что встраивание
+ * VK доступно; если нет — остаётся YouTube (youtube_id), без обоих — отказ.
+ * Без токена ролики ищет scripts/vk-video/find.mjs (vkvideo.ru в Chrome),
+ * встраивание проверяет scripts/vk-video/check.mjs.
  */
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import {
   generateForCategory,
+  generatePictureDrafts,
   loadExisting,
   reviewDrafts,
 } from "@/lib/packs/pipeline";
+import { PICTURE_CATEGORY, isPictureFormat } from "@/lib/pictures/types";
 import type { DraftQuestion } from "@/lib/packs/review";
 import { calibrateValue } from "@/lib/packs/review";
 import { collectTrendSources, topicsFrom } from "@/lib/packs/trend-sources";
@@ -197,6 +209,49 @@ async function main() {
     .filter(Boolean);
   const trends = topicsFrom(await collectTrendSources());
   const mediaFiles = process.argv.slice(2);
+
+  const pictureFormats = (process.env.GROW_PICTURES ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(isPictureFormat)
+    // Детские рисунки готовятся вручную (scripts/picture-tasks/kids.ts).
+    .filter((format) => format !== "kids");
+  if (pictureFormats.length) {
+    for (const format of pictureFormats) {
+      const category = PICTURE_CATEGORY[format];
+      const packId = await createPack(
+        `Пополнение — картинки (${format}): ${category}`,
+      );
+      let total = 0;
+      for (let call = 0; call < MAX_CALLS; call += 1) {
+        const existing = await loadExisting();
+        const mine = existing.filter((item) => item.category === category);
+        if (mine.length >= TARGET) break;
+        let drafts: DraftQuestion[] = [];
+        try {
+          drafts = await generatePictureDrafts(
+            format,
+            Math.min(PER_CALL, TARGET - mine.length + 4),
+            mine.map((item) => item.answer),
+          );
+        } catch (error) {
+          console.log(`  ${category}: generation failed`, String(error));
+          continue;
+        }
+        const ok = await reviewDrafts(packId, drafts, {
+          concurrency: 4,
+          existing,
+        });
+        total += ok;
+        console.log(
+          `  ${category}: had ${mine.length}, +${ok}/${drafts.length}`,
+        );
+      }
+      await finish(packId, total);
+      console.log(`picture pack ${packId}: +${total}`);
+    }
+    return;
+  }
 
   if (mediaFiles.length) {
     // Одна пачка на файл: в /admin удобнее принимать музыку, картинки и

@@ -26,7 +26,20 @@ export type BoardCell = {
   audio_url?: string | null;
   start_seconds: number | null;
   end_seconds: number | null;
+  /** Свой фрагмент для VK-копии (если не совпадает с YouTube). */
+  vk_start_seconds?: number | null;
+  vk_end_seconds?: number | null;
   curtain: boolean;
+  /** Картиночное задание: rebus | emoji | fragment | hidden | blur | logo. */
+  picture?: string | null;
+  /** Как раскрывать картинку (без содержимого, оно выдало бы ответ). */
+  picture_fx?: Record<string, unknown> | null;
+  reveal_seconds?: number | null;
+  opened_at?: string | null;
+  image_license?: string | null;
+  /** Автор и страница файла — только после ответа. */
+  image_credit?: string | null;
+  image_page?: string | null;
 };
 
 const COL_TILT = [-0.8, 1.1, -1.4, 0.7, -1.2, 1.5];

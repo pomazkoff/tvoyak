@@ -27,11 +27,26 @@ export type DraftQuestion = {
   curtain: boolean;
   /** Медиа: ролик YouTube (проверен oEmbed), картинка Commons, превью iTunes. */
   youtube_id?: string | null;
+  /** VK Видео — основной плеер: video_ext.php-ссылка с hash. */
+  vk_url?: string | null;
+  /** Свой фрагмент VK-копии, если он не совпадает с YouTube. */
+  vk_start_seconds?: number | null;
+  vk_end_seconds?: number | null;
+  /** Запрос для поиска копии на VK (video.search) и ожидаемая длина ролика. */
+  vk_query?: string | null;
+  vk_duration?: number | null;
   image_url?: string | null;
   audio_url?: string | null;
   start_seconds?: number | null;
   end_seconds?: number | null;
   media_note?: string | null;
+  /** Картиночное задание: формат, как собрать/раскрыть, подпись к фото. */
+  picture?: string | null;
+  picture_spec?: unknown;
+  reveal_seconds?: number | null;
+  image_credit?: string | null;
+  image_license?: string | null;
+  image_page?: string | null;
 };
 
 export function calibrateValue(raw: number): number {

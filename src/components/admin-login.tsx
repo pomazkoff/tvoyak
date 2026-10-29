@@ -34,7 +34,7 @@ export function AdminLogin() {
         type="password"
         value={token}
         onChange={(event) => setToken(event.target.value)}
-        className="border border-line bg-navy px-4 py-3 outline-none focus:border-gold"
+        className="field"
       />
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       <button type="submit" className="h-12 bg-gold font-semibold text-navy">

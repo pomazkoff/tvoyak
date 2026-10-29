@@ -199,7 +199,7 @@ export function PlayScreen({ code }: { code: string }) {
               required
               autoComplete="nickname"
               placeholder="Анна"
-              className="mt-2 w-full rounded-2xl border border-line bg-navy px-4 py-3 text-lg outline-none focus:border-gold"
+              className="field mt-2"
             />
             <fieldset className="mt-4">
               <legend className="text-sm text-muted">Роль</legend>
@@ -424,6 +424,11 @@ function PlayTurn({
         </p>
       ) : null}
       {otherName ? <p className="name-sticker hand">{otherName}</p> : null}
+      {timedOut && game.phase !== "reveal" ? (
+        <p className="time-up hand phone-time-up" role="status">
+          {lateAnswerMessage(late?.value ?? 0)}
+        </p>
+      ) : null}
       {chooser && game.phase === "board" ? (
         <p className="pick-prompt hand">
           {iChoose ? "Ваш ход — выберите цену" : `Выбирает ${chooser.nickname}`}
@@ -526,12 +531,6 @@ function PlayTurn({
         </button>
       ) : null}
 
-      {timedOut && game.phase !== "reveal" ? (
-        <p className="time-up hand phone-time-up" role="status">
-          {lateAnswerMessage(late?.value ?? 0)}
-        </p>
-      ) : null}
-
       {iAnswer && !(timedOut && game.phase === "answering") ? (
         <Panel className="answer-panel">
           <form onSubmit={(event) => void sendAnswer(event)}>
@@ -607,7 +606,9 @@ function PlayTurn({
                 setWager(event.target.value.replace(/[^\d]/g, ""))
               }
               required
-              className="mt-3 w-full rounded-2xl border border-line bg-navy px-4 py-3 text-lg outline-none focus:border-gold"
+              placeholder={`0–${me?.score ?? 0}`}
+              aria-label="Ставка"
+              className="field mt-3"
             />
             <button
               type="submit"

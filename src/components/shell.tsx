@@ -33,5 +33,5 @@ export function Panel({
   children: ReactNode;
   className?: string;
 }) {
-  return <section className={`sheet ${className}`}>{children}</section>;
+  return <section className={`sheet panel ${className}`}>{children}</section>;
 }

@@ -3,6 +3,7 @@ import {
   calibrateValue,
   duplicateIndexes,
   safetyFlags,
+  leakCheck,
 } from "@/lib/packs/review";
 
 describe("проверка пачки", () => {
@@ -27,5 +28,49 @@ describe("проверка пачки", () => {
       ["Новый вопрос"],
     );
     expect(indexes).toEqual([1, 2]);
+  });
+});
+
+describe("leakCheck для черновиков", () => {
+  it("отклоняет вопрос с ответом в тексте, теме или транслитом", () => {
+    expect(
+      leakCheck({
+        category: "Блогеры",
+        prompt: "Кто ведёт игровой канал Kuplinov Play?",
+        answer: "Дмитрий Куплинов",
+        variants: ["Куплинов"],
+      }).blocking,
+    ).toBe(true);
+    expect(
+      leakCheck({
+        category: "Чарты",
+        prompt: "Как называется подборка самых популярных треков?",
+        answer: "Чарт",
+        variants: [],
+      }).blocking,
+    ).toBe(true);
+  });
+
+  it("ловит неправильный вариант, который совпадает с текстом", () => {
+    const result = leakCheck({
+      category: "Мультфильмы",
+      prompt:
+        "Какой мультфильм рассказывает о львёнке Симбе — не «Мадагаскар» ли?",
+      answer: "Король Лев",
+      variants: ["Мадагаскар"],
+    });
+    expect(result.blocking).toBe(true);
+    expect(result.notes).toContain("Мадагаскар");
+  });
+
+  it("пропускает честный вопрос, частичные совпадения только помечает", () => {
+    const honest = leakCheck({
+      category: "Технологии",
+      prompt: "Какой браузер Google узнают по цветному кругу?",
+      answer: "Chrome",
+      variants: ["Google Chrome"],
+    });
+    expect(honest.blocking).toBe(false);
+    expect(honest.notes).toContain("часть ответа");
   });
 });

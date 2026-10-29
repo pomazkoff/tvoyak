@@ -9,12 +9,17 @@ import {
 import {
   calibrateValue,
   duplicateIndexes,
+  leakCheck,
   safetyFlags,
   type DraftQuestion,
 } from "@/lib/packs/review";
+import {
+  GENERATION_SYSTEM,
+  generationUser,
+  reviewSystem,
+  type ReviewPass,
+} from "@/lib/packs/prompts";
 import { collectTrends } from "@/lib/packs/trends";
-
-type ReviewPass = "safety" | "fact" | "freshness" | "difficulty" | "duplicates";
 
 export async function buildPack(): Promise<{
   ok: boolean;
@@ -53,7 +58,8 @@ export async function buildPack(): Promise<{
     const survivors: DraftQuestion[] = [];
     for (const [index, draft] of drafts.entries()) {
       const flags = safetyFlags(`${draft.prompt} ${draft.answer}`);
-      if (flags.length || duplicates.has(index)) {
+      const leak = leakCheck(draft);
+      if (flags.length || duplicates.has(index) || leak.blocking) {
         const itemId = await insertItem(
           packId,
           { ...draft, value: calibrateValue(draft.value) },
@@ -73,10 +79,27 @@ export async function buildPack(): Promise<{
           duplicates.has(index) ? "failed" : "passed",
           duplicates.has(index) ? "повтор" : "",
         );
+        await addReview(
+          packId,
+          itemId,
+          "leak",
+          leak.blocking ? "failed" : "passed",
+          leak.notes,
+        );
         continue;
       }
       const reviewed = await reviewItem(draft);
       const value = calibrateValue(reviewed.value ?? draft.value);
+      // Факт-чекер мог поправить эталон — утечку проверяем ещё раз по итоговому.
+      const finalLeak = leakCheck({
+        ...draft,
+        answer: reviewed.answer || draft.answer,
+      });
+      reviewed.passes.push({
+        pass: "leak",
+        status: finalLeak.blocking ? "failed" : "passed",
+        notes: finalLeak.notes,
+      });
       const rejected = reviewed.passes.some((pass) => pass.status === "failed");
       const itemId = await insertItem(
         packId,
@@ -117,8 +140,8 @@ export async function buildPack(): Promise<{
 
 async function generateQuestions(topics: string[]): Promise<DraftQuestion[]> {
   const text = await completeOpenRouter(
-    "Ты составитель «Своей игры» для компании в России. Пиши по-русски. Без политики, войны, выборов и тем 18+. Если человек — иноагент, добавь в формулировку пометку «(иноагент)». Верни только JSON-массив.",
-    `Темы: ${topics.join("; ")}. Составь 8 коротких вопросов. Поля: category, prompt, answer, variants (массив строк), value (100–1000), kind ("text").`,
+    GENERATION_SYSTEM,
+    generationUser(topics),
   );
   const parsed = parseJson<DraftQuestion[]>(text);
   return parsed
@@ -187,16 +210,6 @@ async function reviewItem(draft: DraftQuestion): Promise<{
   return { value, answer, agentMark, passes };
 }
 
-function reviewSystem(pass: ReviewPass): string {
-  if (pass === "fact") {
-    return 'Проверь факт. Верни JSON {"ok": true|false, "notes": "", "answer": "эталон если надо поправить"}.';
-  }
-  if (pass === "freshness") {
-    return 'Вопрос должен быть понятен сейчас, не про вчерашнюю новость-однодневку и не про политику. Верни JSON {"ok": true|false, "notes": ""}.';
-  }
-  return 'Оцени сложность для компании. value только 100, 200, 300, 400, 500, 600, 800 или 1000. Верни JSON {"ok": true, "value": 300, "notes": ""}. Если человек иноагент, добавь agent_mark.';
-}
-
 async function loadExistingPrompts(): Promise<string[]> {
   const supabase = getServiceSupabase();
   const { data } = await supabase
@@ -256,11 +269,30 @@ export async function approvePack(
   const supabase = getServiceSupabase();
   const { data: items, error } = await supabase
     .from("pack_items")
-    .select("category, prompt, answer, variants, kind, curtain")
+    .select("id, category, prompt, answer, variants, kind, curtain")
     .eq("pack_id", packId)
     .eq("status", "draft");
   if (error) return { ok: false, copied: 0, error: "create_failed" };
-  const rows = items ?? [];
+  // Последний рубеж: вопрос с ответом в тексте в банк не попадает,
+  // даже если его вписали в черновик руками.
+  const rows: NonNullable<typeof items> = [];
+  for (const item of items ?? []) {
+    const leak = leakCheck({
+      category: item.category,
+      prompt: item.prompt,
+      answer: item.answer,
+      variants: item.variants ?? [],
+    });
+    if (!leak.blocking) {
+      rows.push(item);
+      continue;
+    }
+    await supabase
+      .from("pack_items")
+      .update({ status: "rejected" })
+      .eq("id", item.id);
+    await addReview(packId, item.id, "leak", "failed", leak.notes);
+  }
   if (rows.length) {
     const { error: insertError } = await supabase.from("question_bank").insert(
       rows.map((row) => ({

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Logo } from "@/components/marks";
 
 export function Shell({
   children,
@@ -9,6 +10,9 @@ export function Shell({
 }) {
   return (
     <div className={`mx-auto flex w-full flex-1 flex-col px-4 py-8 ${width}`}>
+      <header className="app-header">
+        <Logo compact />
+      </header>
       {children}
     </div>
   );

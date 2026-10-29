@@ -3,7 +3,7 @@ import {
   Caveat,
   Golos_Text,
   JetBrains_Mono,
-  Rubik_Marker_Hatch,
+  Oswald,
   Sofia_Sans_Extra_Condensed,
 } from "next/font/google";
 import { RoughDefs } from "@/components/marks";
@@ -30,11 +30,11 @@ const caveat = Caveat({
   variable: "--font-caveat",
 });
 
-const marker = Rubik_Marker_Hatch({
+const oswald = Oswald({
   subsets: ["cyrillic", "latin"],
-  weight: "400",
+  weight: "700",
   display: "swap",
-  variable: "--font-marker",
+  variable: "--font-oswald",
 });
 
 const mono = JetBrains_Mono({
@@ -60,7 +60,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="ru"
-      className={`${golos.variable} ${sofia.variable} ${caveat.variable} ${marker.variable} ${mono.variable} h-full`}
+      className={`${golos.variable} ${sofia.variable} ${caveat.variable} ${oswald.variable} ${mono.variable} h-full`}
     >
       <body
         className={`${golos.className} flex min-h-full flex-col antialiased`}

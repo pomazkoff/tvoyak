@@ -15,24 +15,21 @@ export function RoughDefs() {
   );
 }
 
-export function Logo({ className = "" }: { className?: string }) {
+export function Logo({
+  compact = false,
+  className = "",
+}: {
+  compact?: boolean;
+  className?: string;
+}) {
+  const variant = compact ? "logo-compact" : "";
   return (
-    <svg
-      className={className}
-      viewBox="0 0 820 240"
-      role="img"
-      aria-label="Твояк"
-    >
-      <text
-        x="8"
-        y="190"
-        fill="#141414"
-        fontFamily="var(--font-marker), cursive"
-        fontSize="190"
-      >
-        Твояк
-      </text>
-    </svg>
+    <span className={`logo-lockup ${variant} ${className}`.trim()}>
+      <span className="tape" aria-hidden />
+      <span className={`logo ${variant}`.trim()}>
+        ТВО<span className="logo-ya">Я</span>К
+      </span>
+    </span>
   );
 }
 

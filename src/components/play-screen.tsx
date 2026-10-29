@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Board } from "@/components/game/board";
 import { secondsLeft, useMatch, useNow } from "@/components/game/use-match";
+import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
@@ -113,7 +114,8 @@ export function PlayScreen({ code }: { code: string }) {
     return (
       <div className="phone">
         <header className="phone-bar">
-          <p className="hand text-[22px]">
+          <Logo compact />
+          <p className="hand phone-who">
             {session.nickname} · {meScore}
           </p>
           <p className="mono text-xs">{normalized}</p>

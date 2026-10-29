@@ -10,6 +10,7 @@ import {
   useNow,
   type GameRow,
 } from "@/components/game/use-match";
+import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
 import { StyledQr } from "@/components/styled-qr";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
@@ -251,6 +252,9 @@ function Lobby({
   return (
     <main className="lobby">
       <div>
+        <header className="app-header">
+          <Logo compact />
+        </header>
         {playUrl ? (
           <div className="qr-card">
             <span className="tape hand" style={{ transform: "rotate(-3deg)" }}>
@@ -357,14 +361,15 @@ function GameView({
 
   return (
     <main className="stage">
-      <div className="flex min-h-0 items-end gap-4">
+      <header className="stage-head">
+        <Logo compact />
         <PlayerRail
           players={players}
           activeId={game.chooser_player_id}
           note={game.phase === "board" ? "выбирает" : undefined}
         />
         <p className="enter-code mono">войти: {code}</p>
-      </div>
+      </header>
       <div className="stage-body">
         {error ? <p className="text-danger">{error}</p> : null}
         {game.phase === "board" || game.phase === "cat_pick" ? (

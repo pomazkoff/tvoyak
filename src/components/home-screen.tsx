@@ -50,8 +50,9 @@ export function HomeScreen() {
 
   return (
     <main className="home-grid">
-      <div>
-        <Logo className="home-logo" />
+      <div className="home-brand">
+        <Logo />
+        <p className="logo-caption hand">своя игра для своих</p>
         <div className="home-lead">
           <p className="torn-line hand">
             Своя игра для компании.
@@ -165,13 +166,8 @@ function ModeCard({
       {sketch}
       <span className="hand mt-1 block text-center text-2xl">{label}</span>
       {checked ? (
-        <svg
-          className="hand-ring"
-          viewBox="0 0 200 120"
-          preserveAspectRatio="none"
-          aria-hidden
-        >
-          <ellipse cx="100" cy="60" rx="92" ry="50" />
+        <svg className="pick-ring" viewBox="0 0 100 120" aria-hidden>
+          <ellipse cx="50" cy="60" rx="44" ry="52" />
         </svg>
       ) : null}
     </label>

@@ -4,7 +4,6 @@
   --font-sans: var(--font-golos), ui-sans-serif, system-ui, sans-serif;
   --font-poster: var(--font-sofia), "Arial Narrow", sans-serif;
   --font-hand: var(--font-caveat), cursive;
-  --font-marker: var(--font-marker), cursive;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
   --color-paper: #eceae4;
   --color-sheet: #f7f6f2;
@@ -66,10 +65,162 @@ label {
   height: 0;
 }
 
-.logo-text {
-  font-family: var(--font-marker), cursive;
-  font-size: 148px;
-  fill: #141414;
+.logo-lockup {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.42em 0.28em 0.18em 0.2em;
+  font-size: clamp(48px, 7vw, 140px);
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.logo-lockup.logo-compact {
+  font-size: clamp(16px, 1.7vw, 28px);
+}
+
+.logo-lockup > .tape {
+  position: absolute;
+  z-index: 2;
+  top: 0.16em;
+  left: 28%;
+  width: 38%;
+  height: 0.32em;
+  padding: 0;
+  pointer-events: none;
+}
+
+.logo {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  box-sizing: border-box;
+  font:
+    900 clamp(48px, 7vw, 140px) / 0.9 var(--font-sofia),
+    var(--font-oswald),
+    "Arial Narrow",
+    sans-serif;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #141414;
+  background: #f7f6f2;
+  padding: 0.1em 0.25em;
+  transform: rotate(-3deg);
+  transform-origin: center center;
+  clip-path: polygon(
+    1% 8%,
+    6% 0%,
+    16% 5%,
+    34% 0%,
+    52% 6%,
+    71% 0%,
+    86% 4%,
+    100% 1%,
+    99% 91%,
+    82% 100%,
+    58% 94%,
+    36% 100%,
+    14% 95%,
+    0% 100%
+  );
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.06),
+    0 12px 22px -14px rgba(0, 0, 0, 0.4);
+}
+
+.logo.logo-compact {
+  font-size: clamp(16px, 1.7vw, 28px);
+}
+
+.logo-ya {
+  display: inline-block;
+  background: #d7261e;
+  color: #fff;
+  padding: 0 0.08em;
+  margin: 0 0.03em;
+  translate: 0 -0.08em;
+  rotate: 6deg;
+  animation:
+    ya-slap 220ms ease-out backwards,
+    ya-wiggle 340ms ease-in-out infinite alternate;
+  animation-play-state: running, paused;
+}
+
+.logo:hover .logo-ya {
+  animation-play-state: running, running;
+}
+
+@keyframes ya-slap {
+  from {
+    scale: 1.4;
+    rotate: 0deg;
+  }
+  to {
+    scale: 1;
+    rotate: 6deg;
+  }
+}
+
+@keyframes ya-wiggle {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+  100% {
+    transform: rotate(-2deg);
+  }
+}
+
+.logo-caption {
+  display: block;
+  max-width: 100%;
+  margin: 0.2rem 0 0 0.15rem;
+  font-size: clamp(26px, 2.2vw, 36px);
+  line-height: 1.05;
+  transform: rotate(-1.5deg);
+  transform-origin: left center;
+}
+
+.app-header,
+.stage-head {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: flex-end;
+}
+
+.app-header {
+  margin-bottom: 0.75rem;
+}
+
+.lobby .app-header {
+  margin-bottom: 1.75rem;
+}
+
+.stage-head {
+  min-height: 0;
+  align-items: flex-end;
+  gap: 0.8rem;
+}
+
+.stage-head .player-rail {
+  flex: 1;
+  min-width: 0;
+}
+
+.stage-head .logo-lockup,
+.app-header .logo-lockup,
+.phone-bar .logo-lockup {
+  flex: none;
+}
+
+.phone-bar .logo,
+.phone-bar .logo-lockup {
+  font-size: 16px;
 }
 
 .poster {
@@ -140,9 +291,9 @@ label {
 
 .strike {
   position: absolute;
-  inset: 18% -4%;
-  width: 108%;
-  height: 64%;
+  inset: 30% 10%;
+  width: auto;
+  height: auto;
   pointer-events: none;
 }
 
@@ -187,7 +338,13 @@ label {
   align-items: flex-end;
   gap: 1.2vw;
   min-width: 0;
-  overflow: hidden;
+  flex-wrap: wrap;
+}
+
+.player-chip .hand-ring {
+  inset: 2px 0;
+  width: auto;
+  height: auto;
 }
 
 .player-chip {
@@ -205,16 +362,20 @@ label {
 
 .enter-code {
   margin-left: auto;
+  flex: none;
   font-size: max(12px, 1.25vw);
   color: #55534e;
+  white-space: nowrap;
 }
 
 .board-grid {
   display: grid;
+  box-sizing: border-box;
   height: 100%;
   min-height: 0;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
+  padding: 12px 10px 16px;
 }
 
 .paper-col {
@@ -308,7 +469,9 @@ label {
 .stage-body {
   position: relative;
   min-height: 0;
-  overflow: hidden;
+  min-width: 0;
+  overflow: visible;
+  padding: 4px 6px 8px;
 }
 
 .question-sheet {
@@ -316,13 +479,13 @@ label {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  width: min(82vw, 1200px);
-  max-height: 100%;
-  height: 100%;
+  width: min(78vw, 1100px);
+  max-height: calc(100% - 12px);
+  height: auto;
   min-height: 0;
   margin: 1vh auto 0;
   padding: 3.2vh 3.2vw 2.4vh;
-  overflow: hidden;
+  overflow: visible;
   background: #f7f6f2;
   transform: rotate(-0.8deg);
   box-shadow:
@@ -398,13 +561,15 @@ label {
 
 .name-sticker {
   position: absolute;
-  top: 18%;
-  right: 8%;
+  top: 12%;
+  right: 1.25rem;
   z-index: 2;
+  max-width: 42%;
+  box-sizing: border-box;
   padding: 0.1em 0.45em;
   background: #fff6cf;
-  font-size: clamp(28px, 3vw, 64px);
-  transform: rotate(4deg);
+  font-size: clamp(28px, 2.4vw, 52px);
+  transform: rotate(3deg);
   animation: slap 180ms ease;
   box-shadow:
     0 1px 0 rgba(0, 0, 0, 0.06),
@@ -476,9 +641,19 @@ label {
 .phone-bar {
   display: flex;
   height: 56px;
+  min-width: 0;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 0 12px;
+}
+
+.phone-who {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .phone-q {
@@ -494,8 +669,9 @@ label {
 .buzz {
   display: flex;
   flex: 1;
-  min-height: 58dvh;
-  width: 100%;
+  min-height: 52dvh;
+  width: calc(100% - 28px);
+  margin: 12px auto 18px;
   align-items: center;
   justify-content: center;
   margin-top: 8px;
@@ -561,12 +737,10 @@ label {
   min-width: 0;
 }
 
-.home-logo {
-  display: block;
-  width: min(48vw, 720px);
-  height: auto;
-  aspect-ratio: 820 / 240;
-  transform: rotate(-4deg);
+.home-brand {
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.25rem 0.75rem 0 0.15rem;
 }
 
 .home-lead {
@@ -598,17 +772,23 @@ label {
 .home-sheet {
   position: relative;
   z-index: 1;
-  padding: 1.4rem 1.3rem 1.2rem;
-  transform: rotate(1.2deg);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  box-sizing: border-box;
+  padding: 1.5rem 1.25rem 1.35rem;
+  transform: rotate(0.8deg);
 }
 
 .home-ticket {
   position: relative;
   z-index: 2;
+  box-sizing: border-box;
+  width: calc(100% - 28px);
   margin-top: -24px;
-  margin-left: 28px;
+  margin-left: 10px;
   padding: 1rem 1.1rem 1.1rem;
-  transform: rotate(-3deg);
+  transform: rotate(-1.2deg);
 }
 
 .code-cells {
@@ -639,26 +819,53 @@ label {
 }
 
 .mode-row {
-  display: flex;
-  margin-top: 0.8rem;
+  display: grid;
+  width: 100%;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 
 .mode-card {
   position: relative;
-  width: 46%;
+  box-sizing: border-box;
+  width: auto;
+  margin: 0;
   background: #fff;
-  padding: 0.45rem 0.45rem 1.3rem;
+  padding: 0.55rem 0.4rem 0.7rem;
   cursor: pointer;
+  transform: rotate(var(--tilt));
 }
 
 .mode-card:first-child {
-  transform: rotate(-3deg);
+  --tilt: -0.6deg;
   z-index: 1;
 }
 
 .mode-card:last-child {
-  margin-left: -18px;
-  transform: rotate(4deg);
+  --tilt: 0.6deg;
+}
+
+.pick-ring {
+  position: absolute;
+  inset: 7px;
+  width: auto;
+  height: auto;
+  pointer-events: none;
+}
+
+.pick-ring ellipse {
+  fill: none;
+  stroke: #d7261e;
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+  filter: url(#rough);
+}
+
+.home-sheet > .action {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 1rem;
 }
 
 .sketch {
@@ -676,6 +883,11 @@ label {
   align-items: center;
   gap: 3vw;
   padding: 4vh 4vw;
+  box-sizing: border-box;
+}
+
+.lobby > * {
+  min-width: 0;
 }
 
 .qr-card {
@@ -683,6 +895,7 @@ label {
   grid-template-columns: auto auto;
   align-items: center;
   gap: 0.35rem 1rem;
+  box-sizing: border-box;
   width: max-content;
   max-width: 100%;
   padding: 0.85rem 1rem 0.95rem;
@@ -829,7 +1042,8 @@ label {
   .name-sticker,
   .player-sticker,
   .timer.is-hot span,
-  .drawer {
+  .drawer,
+  .logo-ya {
     animation: none;
     transition: none;
   }

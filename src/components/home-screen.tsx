@@ -166,8 +166,13 @@ function ModeCard({
       {sketch}
       <span className="hand mt-1 block text-center text-2xl">{label}</span>
       {checked ? (
-        <svg className="pick-ring" viewBox="0 0 100 120" aria-hidden>
-          <ellipse cx="50" cy="60" rx="44" ry="52" />
+        <svg
+          className="pick-ring"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          aria-hidden
+        >
+          <ellipse cx="50" cy="50" rx="47" ry="45" />
         </svg>
       ) : null}
     </label>

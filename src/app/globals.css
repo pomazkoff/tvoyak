@@ -879,6 +879,7 @@ label {
 .mode-card {
   position: relative;
   box-sizing: border-box;
+  min-width: 0;
   width: auto;
   margin: 0;
   background: #fff;
@@ -896,11 +897,15 @@ label {
   --tilt: 0.6deg;
 }
 
+/* Овал выбора рисуется внутри плитки: явные размеры, иначе SVG
+   растягивается по своему viewBox и вылезает за лист. */
 .pick-ring {
   position: absolute;
-  inset: 7px;
-  width: auto;
-  height: auto;
+  top: 4px;
+  left: 4px;
+  width: calc(100% - 8px);
+  height: calc(100% - 8px);
+  overflow: visible;
   pointer-events: none;
 }
 
@@ -910,6 +915,14 @@ label {
   stroke-width: 2.5;
   vector-effect: non-scaling-stroke;
   filter: url(#rough);
+}
+
+.home-sheet > .tape {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 0.15rem 0.9rem;
+  font-size: 1.35rem;
+  line-height: 1.2;
 }
 
 .home-sheet > .action {

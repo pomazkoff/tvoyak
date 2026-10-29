@@ -10,6 +10,7 @@
  * Переменная GROW_ONLY="Кино,Игры" ограничивает темы.
  */
 import { readFileSync } from "node:fs";
+import { basename } from "node:path";
 import {
   generateForCategory,
   loadExisting,
@@ -138,6 +139,50 @@ const PACKS: Theme[][] = [
       brief: "известные картины, художники, музеи, скульптуры",
     },
   ],
+  [
+    {
+      category: "Русский рэп",
+      brief:
+        "русский рэп и хип-хоп: артисты, альбомы, лейблы, баттлы (без мата, без иноагентов)",
+    },
+    {
+      category: "Рок",
+      brief:
+        "русский и зарубежный рок и метал: группы, альбомы, фронтмены, легендарные концерты",
+    },
+    {
+      category: "K-pop",
+      brief: "K-pop: группы, фандомы, агентства, рекорды",
+    },
+    {
+      category: "Саундтреки",
+      brief:
+        "музыка из кино, сериалов, игр и аниме: композиторы, песни из фильмов, «Оскар» за песню",
+    },
+  ],
+  [
+    {
+      category: "Классика",
+      brief: "классическая музыка: композиторы, оперы, балеты, инструменты",
+    },
+    {
+      category: "Хиты 90-х",
+      brief: "поп-музыка 90-х в России и мире: группы, клипы, евродэнс",
+    },
+    {
+      category: "Советская эстрада",
+      brief:
+        "советская эстрада и ВИА: исполнители, песни из фильмов, «Песня года»",
+    },
+    {
+      category: "Джаз и соул",
+      brief: "джаз, блюз, соул и R&B: исполнители, стили, инструменты",
+    },
+    {
+      category: "Электроника",
+      brief: "электронная и танцевальная музыка: диджеи, фестивали, жанры",
+    },
+  ],
 ];
 
 const TARGET = Number(process.env.GROW_TARGET ?? 26);
@@ -154,19 +199,25 @@ async function main() {
   const mediaFiles = process.argv.slice(2);
 
   if (mediaFiles.length) {
-    const drafts: DraftQuestion[] = mediaFiles.flatMap(
-      (file) => JSON.parse(readFileSync(file, "utf8")) as DraftQuestion[],
-    );
-    const packId = await createPack(
-      `Пополнение 29.10.2026 — медиа: ${drafts.length} вопросов (превью iTunes, YouTube с проверкой oEmbed, картинки Wikimedia Commons)`,
-    );
-    const ok = await reviewDrafts(
-      packId,
-      drafts.map((draft) => ({ ...draft, value: calibrateValue(draft.value) })),
-      { concurrency: 6 },
-    );
-    await finish(packId, ok);
-    console.log(`media pack ${packId}: ${ok}/${drafts.length}`);
+    // Одна пачка на файл: в /admin удобнее принимать музыку, картинки и
+    // видео отдельно (и так же отдельно откатывать по pack_id).
+    for (const file of mediaFiles) {
+      const drafts = JSON.parse(readFileSync(file, "utf8")) as DraftQuestion[];
+      const cats = [...new Set(drafts.map((draft) => draft.category))];
+      const packId = await createPack(
+        `Пополнение 29.10.2026 — медиа (${basename(file, ".json")}): ${drafts.length} вопросов; ${cats.join(", ")}`,
+      );
+      const ok = await reviewDrafts(
+        packId,
+        drafts.map((draft) => ({
+          ...draft,
+          value: calibrateValue(draft.value),
+        })),
+        { concurrency: 6 },
+      );
+      await finish(packId, ok);
+      console.log(`media pack ${packId} (${file}): ${ok}/${drafts.length}`);
+    }
     return;
   }
 

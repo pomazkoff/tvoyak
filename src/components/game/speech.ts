@@ -3,6 +3,12 @@
  * /api/tts (mp3 в <audio>), если за 3 секунды звук не пришёл или не
  * играет — встроенный speechSynthesis браузера. onEnd вызывается не больше
  * одного раза; игра не должна от него зависеть (у вызывающего свой таймер).
+ *
+ * Голос звучит из ОДНОГО постоянного <audio>, который «разблокируется» на
+ * первом касании/клике/кнопке пульта (armSpeechUnlock). Телевизоры с Android
+ * WebView и Safari пускают звук без жеста только у уже разблокированного
+ * элемента: новый <audio> на каждую фразу там молчал, а speechSynthesis в
+ * WebView нет — голос пропадал целиком.
  */
 
 export type TtsAuth = { code: string; hostSecret: string };
@@ -13,6 +19,9 @@ let generation = 0;
 let activeAudio: HTMLAudioElement | null = null;
 let activeAbort: AbortController | null = null;
 let activeUrl: string | null = null;
+let voiceElement: HTMLAudioElement | null = null;
+let voiceUnlocked = false;
+let unlockArmed = false;
 // «Верно!» и «Неверно.» звучат много раз за игру — держим mp3 в памяти.
 const blobCache = new Map<string, Blob>();
 
@@ -77,14 +86,92 @@ function speakBrowser(text: string, onEnd?: () => void): boolean {
   return true;
 }
 
+function ensureVoiceElement(): HTMLAudioElement {
+  if (voiceElement && voiceElement.isConnected) return voiceElement;
+  const audio = voiceElement ?? document.createElement("audio");
+  audio.id = "host-voice";
+  audio.hidden = true;
+  audio.preload = "auto";
+  document.body.appendChild(audio);
+  voiceElement = audio;
+  return audio;
+}
+
+// 0,02 с тишины (WAV 8 кГц) — чтобы проиграть что-то внутри жеста.
+function silentWavUrl(): string {
+  const samples = 160;
+  const bytes = new Uint8Array(44 + samples * 2);
+  const view = new DataView(bytes.buffer);
+  const text = (offset: number, value: string) => {
+    for (let i = 0; i < value.length; i += 1)
+      bytes[offset + i] = value.charCodeAt(i);
+  };
+  text(0, "RIFF");
+  view.setUint32(4, 36 + samples * 2, true);
+  text(8, "WAVEfmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 8000, true);
+  view.setUint32(28, 16000, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  text(36, "data");
+  view.setUint32(40, samples * 2, true);
+  return URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+}
+
+function unlockVoice(): Promise<void> {
+  const audio = ensureVoiceElement();
+  // Уже звучит фраза — элемент и так разблокирован.
+  if (activeAudio === audio && !audio.paused) return Promise.resolve();
+  if (activeAudio === audio) return Promise.reject(new Error("busy"));
+  const url = silentWavUrl();
+  audio.src = url;
+  return audio
+    .play()
+    .then(() => {
+      if (activeAudio !== audio) audio.pause();
+    })
+    .finally(() => {
+      URL.revokeObjectURL(url);
+      if (activeAudio !== audio) audio.removeAttribute("src");
+    });
+}
+
+/**
+ * Разблокировать голос на первом жесте пользователя (клик, тач, кнопка
+ * пульта). Безопасно вызывать сколько угодно раз.
+ */
+export function armSpeechUnlock(): void {
+  if (voiceUnlocked || unlockArmed || typeof window === "undefined") return;
+  unlockArmed = true;
+  const unlock = () => {
+    window.removeEventListener("pointerdown", unlock, true);
+    window.removeEventListener("keydown", unlock, true);
+    window.removeEventListener("touchend", unlock, true);
+    unlockArmed = false;
+    unlockVoice().then(
+      () => {
+        voiceUnlocked = true;
+      },
+      () => armSpeechUnlock(),
+    );
+  };
+  window.addEventListener("pointerdown", unlock, true);
+  window.addEventListener("keydown", unlock, true);
+  window.addEventListener("touchend", unlock, true);
+}
+
 function releaseAudio() {
   activeAbort?.abort();
   activeAbort = null;
   if (activeAudio) {
     activeAudio.onended = null;
     activeAudio.onerror = null;
+    activeAudio.onplaying = null;
     activeAudio.pause();
-    activeAudio.remove();
+    activeAudio.removeAttribute("src");
     activeAudio = null;
   }
   setSpeaking(false);
@@ -137,15 +224,12 @@ export function speakRussian(
       if (mine !== generation || fellBack) return;
       window.clearTimeout(slow);
       const url = URL.createObjectURL(blob);
-      const audio = document.createElement("audio");
-      audio.id = "host-voice";
-      audio.hidden = true;
-      audio.preload = "auto";
+      const audio = ensureVoiceElement();
+      audio.pause();
       audio.dataset.text = text;
       audio.src = url;
       activeUrl = url;
       activeAudio = audio;
-      document.body.appendChild(audio);
       let playing = false;
       audio.onplaying = () => {
         playing = true;
@@ -163,7 +247,12 @@ export function speakRussian(
         } else fallback();
       };
       // Автоплей может быть запрещён — тогда говорит браузер.
-      await audio.play().catch(() => fallback());
+      await audio.play().catch(() => {
+        // Жеста ещё не было — разблокируем на следующем и говорим браузером.
+        voiceUnlocked = false;
+        armSpeechUnlock();
+        fallback();
+      });
     })
     .catch(() => {
       window.clearTimeout(slow);

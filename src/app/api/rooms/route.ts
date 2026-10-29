@@ -1,10 +1,16 @@
+import { isCompanyId } from "@/lib/rooms/company";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import type { CreateRoomResult, HostMode } from "@/lib/supabase/types";
 
 export async function POST(request: Request) {
   let hostMode: HostMode = "human";
+  let company: string | null = null;
   try {
-    const body = (await request.json()) as { hostMode?: unknown };
+    const body = (await request.json()) as {
+      hostMode?: unknown;
+      companyId?: unknown;
+    };
+    company = isCompanyId(body?.companyId) ? body.companyId : null;
     if (body?.hostMode === "bot") hostMode = "bot";
     else if (body?.hostMode === undefined || body.hostMode === "human")
       hostMode = "human";
@@ -26,6 +32,15 @@ export async function POST(request: Request) {
     const result = data as CreateRoomResult;
     if (!result.ok) {
       return Response.json({ error: result.error }, { status: 400 });
+    }
+
+    if (company && result.room_id) {
+      // Не критично: без компании игра просто не учитывает прошлые вопросы.
+      const { error: companyError } = await supabase
+        .from("room_secrets")
+        .update({ company_id: company })
+        .eq("room_id", result.room_id);
+      if (companyError) console.error("room_company", companyError.code);
     }
 
     return Response.json({

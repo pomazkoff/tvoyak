@@ -78,12 +78,24 @@ async function writeCache(
 // попросили её одновременно.
 const inflight = new Map<string, Promise<Buffer>>();
 
+/** Кэшированный mp3 фразы или null — можно запускать параллельно с проверками. */
+export function readCachedSpeech(
+  supabase: SupabaseClient,
+  text: string,
+): Promise<Buffer | null> {
+  return readCached(supabase, ttsCacheKey(text)).catch(() => null);
+}
+
 export async function getSpeech(
   supabase: SupabaseClient,
   text: string,
+  cachedAlready?: Buffer | null,
 ): Promise<{ audio: Buffer; cache: "hit" | "miss" }> {
   const key = ttsCacheKey(text);
-  const cached = await readCached(supabase, key);
+  const cached =
+    cachedAlready === undefined
+      ? await readCached(supabase, key)
+      : cachedAlready;
   if (cached) return { audio: cached, cache: "hit" };
   let job = inflight.get(key);
   if (!job) {

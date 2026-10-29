@@ -1,5 +1,11 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  TTS_MAX_CHARS,
+  isAllowedPhrase,
+  normalizeTtsText,
+  parseVerdictPhrase,
+} from "@/lib/tts/phrases";
 
 /** Тексты, которые бот может произнести в этой комнате сейчас. */
 export async function roomPhrases(
@@ -55,4 +61,31 @@ export async function roomPhrases(
       )
       .map((row) => row.prompt as string),
   };
+}
+
+/**
+ * Быстрая проверка одной фразы для /api/tts: вердикт без ответа — без
+ * запросов, вопрос — один запрос, ответ — только среди уже вскрытых.
+ */
+export async function isAllowedInRoom(
+  supabase: SupabaseClient,
+  roomId: string,
+  text: string,
+): Promise<boolean> {
+  const clean = normalizeTtsText(text);
+  if (!clean || clean.length > TTS_MAX_CHARS) return false;
+  const verdict = parseVerdictPhrase(clean);
+  if (verdict && verdict.answer === null) return true;
+  if (!verdict) {
+    const { data } = await supabase
+      .from("questions")
+      .select("prompt")
+      .eq("room_id", roomId);
+    const prompts = ((data ?? []) as Array<{ prompt: string | null }>)
+      .map((row) => row.prompt)
+      .filter((prompt): prompt is string => Boolean(prompt));
+    return isAllowedPhrase(clean, { prompts, answers: [] });
+  }
+  const phrases = await roomPhrases(supabase, roomId);
+  return isAllowedPhrase(clean, { prompts: [], answers: phrases.answers });
 }

@@ -13,6 +13,32 @@ let generation = 0;
 let activeAudio: HTMLAudioElement | null = null;
 let activeAbort: AbortController | null = null;
 let activeUrl: string | null = null;
+// «Верно!» и «Неверно.» звучат много раз за игру — держим mp3 в памяти.
+const blobCache = new Map<string, Blob>();
+
+function fetchSpeech(
+  text: string,
+  tts: TtsAuth,
+  signal: AbortSignal,
+): Promise<Blob> {
+  const cached = blobCache.get(text);
+  if (cached) return Promise.resolve(cached);
+  return fetch("/api/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, code: tts.code, hostSecret: tts.hostSecret }),
+    signal,
+  }).then(async (response) => {
+    if (!response.ok) throw new Error(`tts_${response.status}`);
+    const blob = await response.blob();
+    blobCache.set(text, blob);
+    if (blobCache.size > 24) {
+      const oldest = blobCache.keys().next().value;
+      if (oldest !== undefined) blobCache.delete(oldest);
+    }
+    return blob;
+  });
+}
 
 function speakBrowser(text: string, onEnd?: () => void): boolean {
   if (typeof window === "undefined" || !window.speechSynthesis) return false;
@@ -78,15 +104,8 @@ export function speakRussian(
   activeAbort = abort;
   const slow = window.setTimeout(fallback, TTS_WAIT_MS);
 
-  void fetch("/api/tts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, code: tts.code, hostSecret: tts.hostSecret }),
-    signal: abort.signal,
-  })
-    .then(async (response) => {
-      if (!response.ok) throw new Error(`tts_${response.status}`);
-      const blob = await response.blob();
+  void fetchSpeech(text, tts, abort.signal)
+    .then(async (blob) => {
       if (mine !== generation || fellBack) return;
       window.clearTimeout(slow);
       const url = URL.createObjectURL(blob);

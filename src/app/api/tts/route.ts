@@ -1,7 +1,12 @@
 import { requireHost } from "@/lib/game/host-auth";
-import { RateLimiter, TTS_MAX_CHARS, isAllowedPhrase } from "@/lib/tts/phrases";
-import { roomPhrases } from "@/lib/tts/room-phrases";
-import { getSpeech, isTtsConfigured } from "@/lib/tts/speechkit";
+import { getServiceSupabase } from "@/lib/supabase/admin";
+import { RateLimiter, TTS_MAX_CHARS } from "@/lib/tts/phrases";
+import { isAllowedInRoom } from "@/lib/tts/room-phrases";
+import {
+  getSpeech,
+  isTtsConfigured,
+  readCachedSpeech,
+} from "@/lib/tts/speechkit";
 
 export const maxDuration = 30;
 
@@ -38,6 +43,9 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Кэш читаем параллельно с проверкой ведущего: отдаём его только
+    // после всех проверок, но не ждём лишний круг до хранилища.
+    const cachedJob = readCachedSpeech(getServiceSupabase(), text);
     const auth = await requireHost(body.code, body.hostSecret);
     if (!auth.ok) return Response.json({ error: auth.error }, { status: 403 });
     if (auth.room.status === "finished") {
@@ -46,11 +54,14 @@ export async function POST(request: Request) {
     if (!perRoom.take(auth.room.id)) {
       return Response.json({ error: "rate_limited" }, { status: 429 });
     }
-    const phrases = await roomPhrases(auth.supabase, auth.room.id);
-    if (!isAllowedPhrase(text, phrases)) {
+    if (!(await isAllowedInRoom(auth.supabase, auth.room.id, text))) {
       return Response.json({ error: "phrase_not_allowed" }, { status: 403 });
     }
-    const { audio, cache } = await getSpeech(auth.supabase, text);
+    const { audio, cache } = await getSpeech(
+      auth.supabase,
+      text,
+      await cachedJob,
+    );
     return new Response(new Uint8Array(audio), {
       headers: {
         "Content-Type": "audio/mpeg",

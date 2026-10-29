@@ -391,6 +391,11 @@ function GameView({
   const showSheet =
     Boolean(current?.prompt) &&
     !["board", "cat_pick", "finished", "lobby"].includes(game.phase);
+  // Видео и музыка остаются на месте и при ответе: снимаются только полоски.
+  const hasMedia =
+    Boolean(current) &&
+    current?.kind !== "text" &&
+    (current?.kind !== "image" || game.phase !== "reveal");
   const hot = left !== null && left <= 5;
   const chooserName = chooser?.nickname ?? "игрок";
   const hostCanPick =
@@ -434,7 +439,7 @@ function GameView({
           </p>
         ) : null}
         {showSheet && current ? (
-          <article className="question-sheet">
+          <article className={`question-sheet ${hasMedia ? "has-media" : ""}`}>
             <span className="corner-tape a" />
             <span className="corner-tape b" />
             <p className="tape tape-red poster">
@@ -444,10 +449,11 @@ function GameView({
             <h2 className="question-copy mt-4">
               {game.phase === "reveal" ? game.revealed_answer : current.prompt}
             </h2>
-            {current.kind !== "text" && game.phase !== "reveal" ? (
+            {hasMedia ? (
               <MediaPlayer
                 cell={current}
                 autoplay={!(hostMode === "human" && hostStartsMedia)}
+                revealed={game.phase === "reveal"}
               />
             ) : null}
             {answering &&

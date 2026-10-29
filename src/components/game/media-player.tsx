@@ -2,14 +2,18 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import type { BoardCell } from "@/components/game/board";
+import { youtubeEmbedVars } from "@/lib/media/youtube";
 
 type Provider = "youtube" | "vk" | "rutube";
 
 type YTPlayer = {
   playVideo: () => void;
   pauseVideo: () => void;
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
   destroy: () => void;
   getCurrentTime: () => number;
+  getDuration: () => number;
+  getIframe?: () => HTMLIFrameElement;
 };
 
 declare global {
@@ -19,10 +23,14 @@ declare global {
         element: HTMLElement,
         options: {
           videoId: string;
+          host?: string;
+          width?: string | number;
+          height?: string | number;
           playerVars?: Record<string, number | string>;
           events?: {
             onError?: () => void;
             onReady?: (event: { target: YTPlayer }) => void;
+            onStateChange?: (event: { target: YTPlayer; data: number }) => void;
           };
         },
       ) => YTPlayer;
@@ -50,12 +58,18 @@ function loadYouTubeApi(): Promise<void> {
   return youtubeApi;
 }
 
+/** Запас до края фрагмента: YouTube не должен успеть показать заставку конца. */
+const END_GUARD_SECONDS = 0.35;
+const YT_ENDED = 0;
+
 export function MediaPlayer({
   cell,
   autoplay,
+  revealed = false,
 }: {
   cell: BoardCell;
   autoplay: boolean;
+  revealed?: boolean;
 }) {
   const reactId = useId().replace(/:/g, "");
   const hostRef = useRef<HTMLDivElement>(null);
@@ -64,40 +78,69 @@ export function MediaPlayer({
     cell.youtube_id ? "youtube" : cell.vk_url ? "vk" : "rutube",
   );
   const [playing, setPlaying] = useState(autoplay);
+  const [finished, setFinished] = useState(false);
+  const audioOnly = cell.kind === "music" || cell.curtain;
 
   useEffect(() => {
     if (cell.kind === "image" || provider !== "youtube" || !cell.youtube_id)
       return;
     let stopped = false;
     let timer = 0;
+    const start = cell.start_seconds ?? 0;
+
+    function stopAtEnd(player: YTPlayer) {
+      player.pauseVideo();
+      window.clearInterval(timer);
+      setFinished(true);
+    }
+
     void loadYouTubeApi().then(() => {
       if (stopped || !hostRef.current || !window.YT) return;
       playerRef.current?.destroy();
-      playerRef.current = new window.YT.Player(hostRef.current, {
+      const mount = document.createElement("div");
+      hostRef.current.replaceChildren(mount);
+      playerRef.current = new window.YT.Player(mount, {
         videoId: cell.youtube_id ?? "",
-        playerVars: {
-          start: cell.start_seconds ?? 0,
-          end: cell.end_seconds ?? 0,
-          autoplay: playing ? 1 : 0,
-          controls: cell.curtain ? 0 : 1,
-          modestbranding: 1,
-          rel: 0,
-          playsinline: 1,
-        },
+        host: "https://www.youtube-nocookie.com",
+        width: "100%",
+        height: "100%",
+        playerVars: youtubeEmbedVars({
+          start,
+          end: cell.end_seconds,
+          autoplay: playing,
+          origin: window.location.origin,
+        }),
         events: {
           onError: () => {
             if (cell.vk_url) setProvider("vk");
             else if (cell.rutube_url) setProvider("rutube");
           },
           onReady: (event) => {
+            const frame = event.target.getIframe?.();
+            if (frame) {
+              frame.setAttribute("tabindex", "-1");
+              frame.style.pointerEvents = "none";
+            }
             if (playing) event.target.playVideo();
-            if (cell.end_seconds) {
-              timer = window.setInterval(() => {
-                if (event.target.getCurrentTime() >= (cell.end_seconds ?? 0)) {
-                  event.target.pauseVideo();
-                  window.clearInterval(timer);
-                }
-              }, 400);
+            timer = window.setInterval(() => {
+              const player = event.target;
+              const end =
+                cell.end_seconds && cell.end_seconds > start
+                  ? cell.end_seconds
+                  : player.getDuration() || 0;
+              if (end > 0 && player.getCurrentTime() >= end - END_GUARD_SECONDS)
+                stopAtEnd(player);
+            }, 200);
+          },
+          onStateChange: (event) => {
+            // Если всё же доехали до конца — откатываемся, чтобы не было
+            // экрана с рекомендациями.
+            if (event.data === YT_ENDED) {
+              event.target.seekTo(
+                Math.max(start, (cell.end_seconds ?? 1) - 1),
+                true,
+              );
+              stopAtEnd(event.target);
             }
           },
         },
@@ -110,7 +153,6 @@ export function MediaPlayer({
       playerRef.current = null;
     };
   }, [
-    cell.curtain,
     cell.end_seconds,
     cell.kind,
     cell.rutube_url,
@@ -144,41 +186,50 @@ export function MediaPlayer({
         : null;
 
   return (
-    <div className="grid gap-3">
+    <div className="media-block">
       {!autoplay && !playing ? (
         <button
           type="button"
           onClick={() => setPlaying(true)}
-          className="h-12 bg-gold font-semibold text-navy"
+          className="action media-start"
         >
-          Включить трек
+          {audioOnly ? "Включить трек" : "Включить видео"}
         </button>
       ) : null}
-      <div className="polaroid">
-        <div className="relative aspect-video bg-black">
-          {provider === "youtube" ? (
-            <div ref={hostRef} id={`yt-${reactId}`} className="h-full w-full" />
-          ) : fallback ? (
-            <iframe
-              title="Видео вопроса"
-              src={withTimecode(fallback, provider, cell.start_seconds)}
-              className="h-full w-full"
-              allow="autoplay; encrypted-media; picture-in-picture"
-              allowFullScreen
-            />
-          ) : (
-            <p className="p-6 text-sm text-muted">Ролик не открылся.</p>
-          )}
-          {cell.curtain ? (
-            <div className="absolute inset-0 bg-[#1a1916]" aria-hidden="true" />
-          ) : null}
-        </div>
+      <div
+        className={`media-frame${audioOnly ? " is-audio" : ""}${revealed ? " is-revealed" : ""}`}
+      >
+        {provider === "youtube" ? (
+          <div ref={hostRef} id={`yt-${reactId}`} className="media-embed" />
+        ) : fallback ? (
+          <iframe
+            title="Видео вопроса"
+            src={withTimecode(fallback, provider, cell.start_seconds)}
+            className="media-embed"
+            tabIndex={-1}
+            allow="autoplay; encrypted-media; picture-in-picture"
+          />
+        ) : (
+          <p className="media-missing hand">Ролик не открылся.</p>
+        )}
+        {!revealed && !audioOnly ? (
+          <>
+            <span className="media-strip is-top" aria-hidden="true" />
+            <span className="media-strip is-bottom" aria-hidden="true" />
+          </>
+        ) : null}
+        {audioOnly && !revealed ? (
+          <div className="media-audio">
+            <span className="media-disc" aria-hidden="true" />
+            <p className="media-audio-label hand">
+              {finished ? "Трек закончился" : "Слушаем"}
+            </p>
+            <p className="media-audio-note poster">
+              {cell.kind === "music" ? "музыкальный вопрос" : "только звук"}
+            </p>
+          </div>
+        ) : null}
       </div>
-      {cell.curtain ? (
-        <p className="text-sm text-muted">
-          Шторка: картинки не видно, только звук.
-        </p>
-      ) : null}
     </div>
   );
 }

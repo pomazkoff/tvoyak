@@ -1247,3 +1247,184 @@ button {
 .answer-panel .action {
   width: 100%;
 }
+
+/* ---- Видео и музыка на ТВ ---- */
+.question-sheet.has-media {
+  width: min(94vw, 1600px);
+  padding-bottom: 2vh;
+}
+
+.question-sheet.has-media .question-copy {
+  max-width: 60ch;
+  margin-top: 1.2vh;
+  font-size: clamp(22px, 2.2vw, 48px);
+}
+
+.question-sheet.has-media .timer {
+  position: absolute;
+  right: 2vw;
+  bottom: 2vh;
+  width: clamp(56px, 9vh, 110px);
+  height: clamp(56px, 9vh, 110px);
+  font-size: clamp(56px, 9vh, 110px);
+}
+
+.media-block {
+  display: grid;
+  justify-items: center;
+  gap: 1vh;
+  width: 100%;
+  margin-top: 1.4vh;
+}
+
+.media-start {
+  width: auto;
+  padding-inline: 2rem;
+}
+
+.media-frame {
+  position: relative;
+  width: min(70vw, 100%, calc(60vh * 16 / 9));
+  max-height: 60vh;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #141414;
+  box-shadow:
+    0 0 0 10px #fff,
+    0 1px 0 10px rgba(0, 0, 0, 0.06),
+    0 18px 26px 0 rgba(0, 0, 0, 0.35);
+  transform: rotate(0.6deg);
+}
+
+.media-embed,
+.media-embed iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: none;
+}
+
+/* Бумажные полоски поверх названия ролика и нижних подсказок YouTube. */
+.media-strip {
+  position: absolute;
+  right: -2%;
+  left: -2%;
+  z-index: 2;
+  background: #eceae4;
+  pointer-events: none;
+  box-shadow: 0 6px 12px -8px rgba(0, 0, 0, 0.5);
+}
+
+.media-strip.is-top {
+  top: -2px;
+  height: 15%;
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% 82%,
+    88% 96%,
+    71% 86%,
+    52% 100%,
+    33% 88%,
+    16% 98%,
+    0 86%
+  );
+}
+
+.media-strip.is-bottom {
+  bottom: -2px;
+  height: 16%;
+  clip-path: polygon(
+    0 14%,
+    13% 2%,
+    31% 12%,
+    49% 0,
+    68% 10%,
+    86% 0,
+    100% 12%,
+    100% 100%,
+    0 100%
+  );
+}
+
+.media-strip::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18%;
+  height: 34%;
+  background: rgba(215, 38, 30, 0.85);
+  transform: translate(-50%, -50%) rotate(-2deg);
+}
+
+.media-frame.is-revealed .media-strip {
+  display: none;
+}
+
+.media-audio {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1.2vh;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 27px,
+      rgba(43, 74, 154, 0.12) 27px 28px
+    ),
+    #f7f6f2;
+  color: #141414;
+  text-align: center;
+}
+
+.media-disc {
+  width: clamp(80px, 18vh, 220px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, #d7261e 0 17%, #141414 18% 20%, transparent 21%),
+    repeating-radial-gradient(circle, #1d1d1d 0 3px, #2a2a2a 3px 5px);
+  box-shadow: 0 14px 22px -12px rgba(0, 0, 0, 0.6);
+  animation: disc-spin 3.2s linear infinite;
+}
+
+.media-audio-label {
+  margin: 0;
+  color: #d7261e;
+  font-size: clamp(32px, 5vh, 64px);
+  line-height: 1;
+}
+
+.media-audio-note {
+  margin: 0;
+  font-size: clamp(16px, 2.4vh, 28px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.media-missing {
+  display: grid;
+  height: 100%;
+  margin: 0;
+  place-items: center;
+  background: #f7f6f2;
+  color: #141414;
+  font-size: 32px;
+}
+
+@keyframes disc-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-disc {
+    animation: none;
+  }
+}

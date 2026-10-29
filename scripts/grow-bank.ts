@@ -11,6 +11,13 @@
  * GROW_PICTURES="rebus,emoji,hidden,fragment,blur,logo" — вместо тем пополнить
  * картиночные задания (каждый формат — своя пачка, те же проверки плюс
  * проход picture: ребус однозначен, эмодзи есть, лицензия свободная, 200).
+ *
+ * Видео (media.json): основной плеер — VK Видео. У черновика vk_url
+ * (video_ext.php с hash) или vk_query (+ vk_duration) — тогда с VK_API_TOKEN
+ * копия ищется через video.search. Проход media проверяет, что встраивание
+ * VK доступно; если нет — остаётся YouTube (youtube_id), без обоих — отказ.
+ * Без токена ролики ищет scripts/vk-video/find.mjs (vkvideo.ru в Chrome),
+ * встраивание проверяет scripts/vk-video/check.mjs.
  */
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";

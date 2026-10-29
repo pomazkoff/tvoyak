@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Rubik_Spray_Paint, Unbounded } from "next/font/google";
+import { MarginDecor } from "@/components/margin-decor";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body
         className={`${manrope.className} flex min-h-full flex-col antialiased`}
       >
+        <MarginDecor />
         {children}
       </body>
     </html>

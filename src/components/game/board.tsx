@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Strike } from "@/components/marks";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import type { PlayerRow } from "@/lib/supabase/types";
 
@@ -26,43 +27,20 @@ export type BoardCell = {
   curtain: boolean;
 };
 
-export function ScoreStrip({ players }: { players: PlayerRow[] }) {
-  const table = scoreboardPlayers(players)
-    .slice()
-    .sort(
-      (left, right) =>
-        right.score - left.score ||
-        left.nickname.localeCompare(right.nickname, "ru"),
-    );
-
-  return (
-    <ul className="flex gap-2 overflow-x-auto pb-1">
-      {table.map((player) => (
-        <li key={player.id} className="slip min-w-32 px-3 pt-3 pb-2">
-          <p className="kicker truncate text-[10px] text-muted">
-            {player.nickname}
-          </p>
-          <p
-            className={`num mt-1 text-3xl ${player.score < 0 ? "text-danger" : "text-ink"}`}
-          >
-            <CountUp value={player.score} />
-          </p>
-        </li>
-      ))}
-    </ul>
-  );
-}
+const COL_TILT = [-0.8, 1.1, -1.4, 0.7, -1.2, 1.5];
 
 export function Board({
   cells,
   round,
   canPick,
   onPick,
+  activeId,
 }: {
   cells: BoardCell[];
   round: number;
   canPick: boolean;
   onPick?: (cell: BoardCell) => void;
+  activeId?: string | null;
 }) {
   const roundCells = cells.filter(
     (cell) => cell.round === round && cell.round !== 3,
@@ -74,15 +52,14 @@ export function Board({
   );
 
   return (
-    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6 sm:gap-2">
+    <div className="board-grid">
       {columns.map((column, index) => (
         <div
           key={column[0]?.category ?? index}
-          className="grid gap-1.5 sm:gap-2"
+          className="paper-col"
+          style={{ transform: `rotate(${COL_TILT[index]}deg)` }}
         >
-          <p className="kicker flex min-h-8 items-end justify-center px-1 pb-1 text-center text-[11px] text-ink sm:min-h-10 sm:text-sm">
-            {column[0]?.category ?? ""}
-          </p>
+          <p className="tape cat-tape poster">{column[0]?.category ?? ""}</p>
           {column.map((cell) => {
             const spent = cell.status === "answered";
             return (
@@ -91,17 +68,61 @@ export function Board({
                 type="button"
                 disabled={!canPick || spent}
                 onClick={() => onPick?.(cell)}
-                className="cell disabled:cursor-default"
+                className={`nominal poster ${spent ? "is-spent" : ""} ${cell.id === activeId ? "is-open" : ""}`}
               >
-                <span className={`cell-inner ${spent ? "is-spent" : ""}`}>
-                  <span className="cell-face cell-front">{cell.value}</span>
-                  <span className="cell-face cell-back text-muted">—</span>
-                </span>
+                {cell.value}
+                <span className="hover-ring" />
+                {spent ? <Strike /> : null}
               </button>
             );
           })}
         </div>
       ))}
+    </div>
+  );
+}
+
+export function PlayerRail({
+  players,
+  activeId,
+  note,
+}: {
+  players: PlayerRow[];
+  activeId?: string | null;
+  note?: string;
+}) {
+  const table = scoreboardPlayers(players);
+  return (
+    <div className="player-rail">
+      {table.map((player, index) => {
+        const active = player.id === activeId;
+        return (
+          <div key={player.id} className="player-chip">
+            {active ? (
+              <svg
+                className="hand-ring"
+                viewBox="0 0 220 110"
+                preserveAspectRatio="none"
+                aria-hidden
+              >
+                <ellipse cx="110" cy="58" rx="100" ry="46" />
+              </svg>
+            ) : null}
+            <p
+              className="tape hand"
+              style={{ transform: `rotate(${index % 2 ? 3 : -4}deg)` }}
+            >
+              {player.nickname}
+            </p>
+            <p
+              className={`poster score ${player.score < 0 ? "text-danger" : ""}`}
+            >
+              <CountUp value={player.score} />
+            </p>
+            {active && note ? <p className="hand text-danger">{note}</p> : null}
+          </div>
+        );
+      })}
     </div>
   );
 }

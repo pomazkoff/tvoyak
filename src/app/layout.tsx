@@ -1,26 +1,47 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope, Rubik_Spray_Paint, Unbounded } from "next/font/google";
-import { MarginDecor } from "@/components/margin-decor";
+import {
+  Caveat,
+  Golos_Text,
+  JetBrains_Mono,
+  Rubik_Marker_Hatch,
+  Sofia_Sans_Extra_Condensed,
+} from "next/font/google";
+import { RoughDefs } from "@/components/marks";
 import "./globals.css";
 
-const manrope = Manrope({
+const golos = Golos_Text({
   subsets: ["cyrillic", "latin"],
+  weight: ["500", "600"],
   display: "swap",
-  variable: "--font-manrope",
+  variable: "--font-golos",
 });
 
-const unbounded = Unbounded({
+const sofia = Sofia_Sans_Extra_Condensed({
   subsets: ["cyrillic", "latin"],
-  weight: ["300", "700"],
+  weight: ["800", "900"],
   display: "swap",
-  variable: "--font-unbounded",
+  variable: "--font-sofia",
 });
 
-const spray = Rubik_Spray_Paint({
+const caveat = Caveat({
+  subsets: ["cyrillic", "latin"],
+  weight: "700",
+  display: "swap",
+  variable: "--font-caveat",
+});
+
+const marker = Rubik_Marker_Hatch({
   subsets: ["cyrillic", "latin"],
   weight: "400",
   display: "swap",
-  variable: "--font-spray",
+  variable: "--font-marker",
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["cyrillic", "latin"],
+  weight: "500",
+  display: "swap",
+  variable: "--font-jetbrains",
 });
 
 export const metadata: Metadata = {
@@ -30,7 +51,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#e6e0d4",
+  themeColor: "#ECEAE4",
   width: "device-width",
   initialScale: 1,
 };
@@ -39,12 +60,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="ru"
-      className={`${manrope.variable} ${unbounded.variable} ${spray.variable} h-full`}
+      className={`${golos.variable} ${sofia.variable} ${caveat.variable} ${marker.variable} ${mono.variable} h-full`}
     >
       <body
-        className={`${manrope.className} flex min-h-full flex-col antialiased`}
+        className={`${golos.className} flex min-h-full flex-col antialiased`}
       >
-        <MarginDecor />
+        <RoughDefs />
         {children}
       </body>
     </html>

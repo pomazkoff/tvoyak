@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Board, ScoreStrip } from "@/components/game/board";
+import { Board } from "@/components/game/board";
 import { secondsLeft, useMatch, useNow } from "@/components/game/use-match";
 import { Panel, Shell } from "@/components/shell";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
@@ -28,6 +28,7 @@ export function PlayScreen({ code }: { code: string }) {
   const [role, setRole] = useState<PlayerRole>("player");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bye, setBye] = useState(false);
   const match = useMatch(code);
   const now = useNow();
 
@@ -105,26 +106,62 @@ export function PlayScreen({ code }: { code: string }) {
     }
   }
 
+  if (session && match.status === "ready" && match.game.phase !== "lobby") {
+    const meScore =
+      match.players.find((player) => player.id === session.playerId)?.score ??
+      0;
+    return (
+      <div className="phone">
+        <header className="phone-bar">
+          <p className="hand text-[22px]">
+            {session.nickname} · {meScore}
+          </p>
+          <p className="mono text-xs">{normalized}</p>
+          {bye ? (
+            <button
+              type="button"
+              className="action h-11 px-3"
+              onClick={() => void leave()}
+            >
+              выйти
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="h-11 w-11 border border-ink text-sm"
+              onClick={() => setBye(true)}
+              aria-label="Выйти"
+            >
+              ×
+            </button>
+          )}
+        </header>
+        {error ? <p className="px-3 text-danger">{error}</p> : null}
+        <PlayTurn
+          code={normalized}
+          session={session}
+          match={match}
+          now={now}
+          pending={pending}
+          setPending={setPending}
+          setError={setError}
+        />
+      </div>
+    );
+  }
+
   return (
     <Shell width="max-w-xl">
-      <p className="kicker text-[11px] text-muted">Комната</p>
-      <h1 className="code-mark mt-1 text-5xl">{normalized}</h1>
-      {match.status === "ready" ? (
-        <div className="mt-4">
-          <ScoreStrip players={match.players} />
-        </div>
-      ) : null}
       {error ? (
-        <p className="mt-4 text-sm text-danger" role="alert">
+        <p className="text-danger" role="alert">
           {error}
         </p>
       ) : null}
-
       {session ? (
-        <div className="mt-4 grid gap-4">
-          <p className="text-lg">
+        <div className="grid gap-4">
+          <p className="hand text-4xl">
             {session.role === "spectator" ? "Вы зритель" : "Вы в игре"},{" "}
-            <span className="font-semibold">{session.nickname}</span>
+            {session.nickname}
           </p>
           {match.status === "ready" ? (
             <PlayTurn
@@ -139,14 +176,6 @@ export function PlayScreen({ code }: { code: string }) {
           ) : (
             <p className="text-muted">Подключаемся к партии…</p>
           )}
-          <button
-            type="button"
-            onClick={() => void leave()}
-            disabled={pending}
-            className="text-left text-sm text-muted underline-offset-4 hover:text-ink hover:underline"
-          >
-            Покинуть комнату
-          </button>
         </div>
       ) : (
         <Panel className="mt-6">
@@ -303,15 +332,42 @@ function PlayTurn({
     );
   }
 
+  const mine = game.phase === "answering" && iAnswer;
+  const otherName =
+    game.phase === "answering" && !iAnswer
+      ? players.find((player) =>
+          current?.special === "cat"
+            ? player.id === current.assigned_player_id
+            : player.id === game.buzz_winner_player_id,
+        )?.nickname
+      : null;
+  const waiting =
+    game.phase === "question" ||
+    (game.phase === "buzzing" && session.role !== "player");
+
   return (
-    <div className="grid gap-4">
-      <p className="text-sm text-muted">
-        {game.round === 1 ? "Раунд 1" : game.round === 2 ? "Раунд 2" : "Финал"}
-        {chooser && game.phase === "board"
-          ? ` · выбирает ${chooser.nickname}`
-          : ""}
-        {left !== null ? ` · ${left} с` : ""}
-      </p>
+    <div
+      className={`flex h-full min-h-0 flex-col px-3 ${mine ? "is-mine bg-[#d7261e] text-[#f7f6f2]" : ""} ${waiting ? "is-wait" : ""}`}
+    >
+      <div className="flex items-baseline justify-between">
+        <p className="poster text-[40px]">
+          {current?.category ?? (game.round === 3 ? "Финал" : "")}
+        </p>
+        {left !== null ? (
+          <p className={`poster text-[40px] ${left <= 5 ? "text-danger" : ""}`}>
+            {left}
+          </p>
+        ) : null}
+      </div>
+      {current?.prompt && game.phase !== "board" ? (
+        <p className={`phone-q mt-1 ${otherName ? "struck" : ""}`}>
+          {current.prompt}
+        </p>
+      ) : null}
+      {otherName ? <p className="name-sticker hand">{otherName}</p> : null}
+      {chooser && game.phase === "board" ? (
+        <p className="hand text-2xl">выбирает {chooser.nickname}</p>
+      ) : null}
 
       {game.phase === "board" ? (
         <Board
@@ -370,43 +426,33 @@ function PlayTurn({
         </Panel>
       ) : null}
 
-      {current?.prompt &&
-      game.phase !== "board" &&
-      game.phase !== "cat_pick" ? (
-        <Panel>
-          <p className="kicker text-[11px] text-gold">
-            {current.category}
-            {current.special === "cat" ? " · кот в мешке" : ""}
-          </p>
-          <h2 className="prompt mt-2 text-3xl leading-snug">
-            {current.prompt}
-          </h2>
-          {current.kind === "image" && current.image_url ? (
-            <div className="polaroid">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={current.image_url}
-                alt=""
-                className="max-h-64 w-full object-contain"
-              />
-            </div>
-          ) : null}
-          {current.kind === "video" || current.kind === "music" ? (
-            <p className="mt-3 text-sm text-muted">
-              Смотрите и слушайте экран ведущего.
-            </p>
-          ) : null}
-        </Panel>
+      {current &&
+      (current.kind === "video" || current.kind === "music") &&
+      game.phase !== "board" ? (
+        <p className="mt-2 text-[17px]">Смотрите экран ведущего.</p>
+      ) : null}
+      {current?.kind === "image" &&
+      current.image_url &&
+      game.phase !== "board" ? (
+        <div className="polaroid mt-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={current.image_url}
+            alt=""
+            className="max-h-40 w-full object-contain"
+          />
+        </div>
       ) : null}
 
       {game.phase === "buzzing" && session.role === "player" ? (
         <button
           type="button"
           disabled={pending}
-          onClick={() =>
-            void rpc("buzz", { p_code: code, p_player_token: session.token })
-          }
-          className="buzzer disabled:opacity-60"
+          onClick={() => {
+            navigator.vibrate?.(30);
+            void rpc("buzz", { p_code: code, p_player_token: session.token });
+          }}
+          className="buzz"
         >
           Ответить
         </button>
@@ -429,7 +475,7 @@ function PlayTurn({
             <button
               type="submit"
               disabled={pending}
-              className="mt-3 h-12 w-full rounded-full bg-gold font-semibold text-navy disabled:opacity-60"
+              className="action mt-3 w-full"
             >
               Отправить
             </button>
@@ -480,7 +526,7 @@ function PlayTurn({
             <button
               type="submit"
               disabled={pending}
-              className="mt-3 h-12 w-full rounded-full bg-gold font-semibold text-navy"
+              className="action mt-3 w-full"
             >
               Поставить
             </button>

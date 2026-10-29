@@ -1,21 +1,14 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 export function Shell({
   children,
-  width = "max-w-5xl",
+  width = "max-w-3xl",
 }: {
   children: ReactNode;
   width?: string;
 }) {
   return (
-    <div
-      className={`mx-auto flex w-full flex-1 flex-col px-4 py-6 sm:px-8 sm:py-10 ${width}`}
-    >
-      <Link href="/" className="mb-6 flex items-end gap-4">
-        <span className="brush text-4xl sm:text-5xl">Твояк</span>
-        <span className="kicker mb-1 text-[10px] text-muted">партия</span>
-      </Link>
+    <div className={`mx-auto flex w-full flex-1 flex-col px-4 py-8 ${width}`}>
       {children}
     </div>
   );

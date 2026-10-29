@@ -1,8 +1,8 @@
 "use client";
 
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useRef, useState } from "react";
-import { Board, ScoreStrip, type BoardCell } from "@/components/game/board";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Board, PlayerRail, type BoardCell } from "@/components/game/board";
 import { MediaPlayer } from "@/components/game/media-player";
 import { speakRussian, stopSpeech } from "@/components/game/speech";
 import {
@@ -46,6 +46,13 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const [sheet, setSheet] = useState<HostSheet | null>(null);
   const [voiceChoice, setVoiceChoice] = useState<boolean | null>(null);
   const [finalPicks, setFinalPicks] = useState<Record<string, boolean>>({});
+  const queryDesk = useSyncExternalStore(
+    () => () => undefined,
+    () => new URLSearchParams(window.location.search).has("host"),
+    () => false,
+  );
+  const [deskChoice, setDeskChoice] = useState<boolean | null>(null);
+  const desk = deskChoice ?? queryDesk;
   const spoken = useRef<string | null>(null);
 
   const game = match.status === "ready" ? match.game : null;
@@ -145,248 +152,201 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     }
   }
 
+  if (match.status !== "ready" || !normalized) {
+    const text =
+      match.status === "invalid"
+        ? "Код комнаты — четыре латинские буквы."
+        : match.status === "unconfigured"
+          ? "В .env.local нет SUPABASE_URL и SUPABASE_ANON_KEY."
+          : match.status === "missing"
+            ? "Такой комнаты нет."
+            : match.status === "error"
+              ? match.message
+              : "Собираем комнату…";
+    return (
+      <Shell>
+        <p className="hand text-4xl">{text}</p>
+      </Shell>
+    );
+  }
+
+  if (match.game.phase === "lobby") {
+    return (
+      <Lobby
+        code={normalized}
+        players={match.players}
+        playUrl={playUrl}
+        copied={copied}
+        ownsRoom={ownsRoom}
+        pending={pending}
+        error={error}
+        onCopy={() => void copyLink()}
+        onStart={() => void run("start")}
+      />
+    );
+  }
+
   return (
-    <Shell width="max-w-7xl">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="kicker text-[11px] text-muted">Экран ведущего</p>
-          <h1 className="code-mark mt-1 text-4xl sm:text-5xl">
-            {normalized ?? code}
-          </h1>
-        </div>
-        {match.status === "ready" ? (
-          <p className="max-w-sm text-sm leading-6 text-muted">
-            {match.room.host_mode === "bot"
-              ? "Ведущий-бот читает вопрос вслух и сам засчитывает ответ. Вы не играете."
-              : "Вы ведущий и не играете. Вердикт можно поправить с этого экрана."}
-          </p>
-        ) : null}
-      </div>
-
-      {match.status === "invalid" ? (
-        <Notice text="Код комнаты — четыре латинские буквы." />
-      ) : null}
-      {match.status === "unconfigured" ? (
-        <Notice text="В .env.local нет SUPABASE_URL и SUPABASE_ANON_KEY. Добавьте их и перезапустите сервер." />
-      ) : null}
-      {match.status === "missing" ? (
-        <Notice text="Такой комнаты нет. Проверьте код." />
-      ) : null}
-      {match.status === "error" ? <Notice text={match.message} /> : null}
-      {match.status === "loading" ? <Notice text="Собираем комнату…" /> : null}
-
-      {match.status === "ready" && normalized ? (
-        <div className="grid gap-4">
-          <ScoreStrip players={match.players} />
-          {error ? (
-            <p className="text-sm text-danger" role="alert">
-              {error}
-            </p>
-          ) : null}
-          {match.game.phase === "lobby" ? (
-            <Lobby
-              players={match.players}
-              playUrl={playUrl}
-              copied={copied}
-              ownsRoom={ownsRoom}
-              pending={pending}
-              onCopy={() => void copyLink()}
-              onStart={() => void run("start")}
-            />
-          ) : (
-            <GameView
-              players={match.players}
-              board={match.board}
-              game={match.game}
-              sheet={sheet}
-              now={now}
-              voiceOn={voiceOn}
-              pending={pending}
-              finalPicks={finalPicks}
-              onVoice={(value) => setVoiceChoice(value)}
-              onOpenBuzz={() => void run("open_buzz")}
-              onPass={() => void run("pass")}
-              onContinue={() => void run("continue")}
-              onJudge={(correct) => void run("judge", { correct })}
-              onFinalPick={(playerId, correct) =>
-                setFinalPicks((current) => ({
-                  ...current,
-                  [playerId]: correct,
-                }))
-              }
-              onFinalize={() =>
-                void run("finalize", {
-                  decisions: decisionsFrom(sheet, finalPicks),
-                })
-              }
-              hostStartsMedia={match.room.host_starts_media}
-              hostMode={match.room.host_mode}
-              onHostStarts={(value) =>
-                void run("media_cue", { correct: value })
-              }
-            />
-          )}
-        </div>
-      ) : null}
-    </Shell>
+    <>
+      <GameView
+        code={normalized}
+        players={match.players}
+        board={match.board}
+        game={match.game}
+        now={now}
+        error={error}
+        hostStartsMedia={match.room.host_starts_media}
+        hostMode={match.room.host_mode}
+      />
+      <HostDesk
+        open={desk}
+        onToggle={() => setDeskChoice((value) => !(value ?? queryDesk))}
+        voiceOn={voiceOn}
+        pending={pending}
+        finalPicks={finalPicks}
+        sheet={sheet}
+        game={match.game}
+        hostStartsMedia={match.room.host_starts_media}
+        hostMode={match.room.host_mode}
+        onVoice={(value) => setVoiceChoice(value)}
+        onOpenBuzz={() => void run("open_buzz")}
+        onPass={() => void run("pass")}
+        onContinue={() => void run("continue")}
+        onJudge={(correct) => void run("judge", { correct })}
+        onFinalPick={(playerId, correct) =>
+          setFinalPicks((current) => ({ ...current, [playerId]: correct }))
+        }
+        onFinalize={() =>
+          void run("finalize", { decisions: decisionsFrom(sheet, finalPicks) })
+        }
+        onHostStarts={(value) => void run("media_cue", { correct: value })}
+      />
+    </>
   );
 }
 
 function Lobby({
+  code,
   players,
   playUrl,
   copied,
   ownsRoom,
   pending,
+  error,
   onCopy,
   onStart,
 }: {
+  code: string;
   players: PlayerRow[];
   playUrl: string;
   copied: "idle" | "copied" | "failed";
   ownsRoom: boolean;
   pending: boolean;
+  error: string | null;
   onCopy: () => void;
   onStart: () => void;
 }) {
   const seated = scoreboardPlayers(players);
   const watchers = players.filter((player) => player.role === "spectator");
   return (
-    <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <Panel className="flex flex-col items-center text-center">
+    <main className="lobby">
+      <div>
         {playUrl ? (
           <div
-            className="rounded-2xl bg-white p-3"
+            className="polaroid inline-block"
+            style={{ transform: "rotate(-2deg)" }}
             role="img"
-            aria-label="QR-код для входа в комнату"
+            aria-label="QR-код"
           >
             <QRCodeSVG
               value={playUrl}
-              size={208}
+              size={220}
               bgColor="#ffffff"
-              fgColor="#07111f"
+              fgColor="#141414"
               level="M"
             />
           </div>
         ) : null}
-        <a
-          href={playUrl}
-          className="mt-4 break-all text-sm text-gold underline-offset-4 hover:underline"
+        <p
+          className="tape lobby-code poster"
+          style={{ transform: "rotate(2deg)" }}
         >
-          {playUrl}
-        </a>
+          {code}
+        </p>
         <button
           type="button"
           onClick={onCopy}
-          className="mt-4 inline-flex h-11 items-center justify-center rounded-full border border-line px-4 text-sm font-semibold hover:border-gold"
+          className="hand mt-3 block text-2xl text-pen"
         >
-          {copied === "copied" ? "Ссылка скопирована" : "Скопировать ссылку"}
+          {copied === "copied" ? "Ссылка у вас" : "Скопировать ссылку"}
         </button>
         {copied === "failed" ? (
-          <p className="mt-2 text-xs text-danger">
-            Не удалось скопировать. Выделите ссылку вручную.
+          <p className="text-danger">Не удалось скопировать.</p>
+        ) : null}
+        <p className="mt-2 max-w-xs text-sm text-muted">
+          {ownsRoom
+            ? "Ключ ведущего в этом браузере."
+            : "Ключ ведущего в браузере, где комнату создали."}
+        </p>
+      </div>
+      <div>
+        {seated.length === 0 ? (
+          <p className="hand text-4xl">Покажите QR</p>
+        ) : (
+          <ul>
+            {seated.map((player, index) => (
+              <li
+                key={player.id}
+                className="player-sticker hand"
+                style={{ transform: `rotate(${index % 2 ? 4 : -3}deg)` }}
+              >
+                {player.nickname}
+              </li>
+            ))}
+          </ul>
+        )}
+        {watchers.length > 0 ? (
+          <p className="mt-4 text-muted">
+            Зрители: {watchers.map((player) => player.nickname).join(", ")}
           </p>
         ) : null}
-        <p className="mt-4 text-xs leading-5 text-muted">
-          {ownsRoom
-            ? "Ключ ведущего записан в этом браузере."
-            : "Ключ ведущего есть в браузере, где комнату создали."}
+        {error ? <p className="mt-3 text-danger">{error}</p> : null}
+        <button
+          type="button"
+          disabled={!ownsRoom || seated.length < 2 || pending}
+          onClick={onStart}
+          className="action mt-6"
+        >
+          {pending ? "Раздаём поле…" : "Начать игру"}
+        </button>
+        <p className="mt-2 text-sm text-muted">
+          {seated.length < 2
+            ? "Нужно минимум два игрока."
+            : `${seated.length}/10`}
         </p>
-      </Panel>
-      <div className="grid gap-4">
-        <Panel>
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold">Игроки</h2>
-            <p className="font-mono text-sm text-gold">{seated.length}/10</p>
-          </div>
-          {seated.length === 0 ? (
-            <p className="mt-4 text-sm text-muted">
-              Пока никого. Покажите QR-код.
-            </p>
-          ) : (
-            <ul className="mt-4 divide-y divide-line">
-              {seated.map((player) => (
-                <li key={player.id} className="flex justify-between py-3">
-                  <span>{player.nickname}</span>
-                  <span className="font-mono text-gold">{player.score}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <button
-            type="button"
-            disabled={!ownsRoom || seated.length < 2 || pending}
-            onClick={onStart}
-            className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-full bg-gold font-semibold text-navy disabled:opacity-50"
-          >
-            {pending ? "Раздаём поле…" : "Начать игру"}
-          </button>
-          <p className="mt-2 text-sm text-muted">
-            {seated.length < 2
-              ? "Нужно минимум два игрока."
-              : "Максимум десять игроков за столом."}
-          </p>
-        </Panel>
-        <Panel>
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold">Зрители</h2>
-            <p className="font-mono text-sm text-gold">{watchers.length}</p>
-          </div>
-          {watchers.length === 0 ? (
-            <p className="mt-4 text-sm text-muted">Зрителей нет.</p>
-          ) : (
-            <ul className="mt-4 divide-y divide-line">
-              {watchers.map((player) => (
-                <li key={player.id} className="py-3">
-                  {player.nickname}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
       </div>
-    </div>
+    </main>
   );
 }
 
 function GameView({
+  code,
   players,
   board,
   game,
-  sheet,
   now,
-  voiceOn,
-  pending,
-  finalPicks,
-  onVoice,
-  onOpenBuzz,
-  onPass,
-  onContinue,
-  onJudge,
-  onFinalPick,
-  onFinalize,
+  error,
   hostStartsMedia,
   hostMode,
-  onHostStarts,
 }: {
+  code: string;
   players: PlayerRow[];
   board: BoardCell[];
   game: GameRow;
-  sheet: HostSheet | null;
   now: number;
-  voiceOn: boolean;
-  pending: boolean;
-  finalPicks: Record<string, boolean>;
-  onVoice: (value: boolean) => void;
-  onOpenBuzz: () => void;
-  onPass: () => void;
-  onContinue: () => void;
-  onJudge: (correct: boolean) => void;
-  onFinalPick: (playerId: string, correct: boolean) => void;
-  onFinalize: () => void;
+  error: string | null;
   hostStartsMedia: boolean;
   hostMode: "human" | "bot";
-  onHostStarts: (value: boolean) => void;
 }) {
   const current = board.find((cell) => cell.id === game.current_question_id);
   const chooser = players.find(
@@ -400,23 +360,133 @@ function GameView({
       ? players.find((player) => player.id === current.assigned_player_id)
       : buzzWinner;
   const left = secondsLeft(game.deadline, now);
-  const publicPrompt = current?.prompt;
-  const showAnswerToHost =
-    Boolean(sheet?.expected) &&
-    ["question", "buzzing", "answering", "judging", "final_answer"].includes(
-      game.phase,
-    );
+  const showSheet =
+    Boolean(current?.prompt) &&
+    !["board", "cat_pick", "finished", "lobby"].includes(game.phase);
+  const hot = left !== null && left <= 5;
 
   return (
-    <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted">
-          {roundLabel(game.round)}
-          {chooser && game.phase === "board"
-            ? ` · выбирает ${chooser.nickname}`
-            : ""}
-        </p>
-        <label className="flex items-center gap-2 text-sm">
+    <main className="stage">
+      <div className="flex min-h-0 items-end gap-4">
+        <PlayerRail
+          players={players}
+          activeId={game.chooser_player_id}
+          note={game.phase === "board" ? "выбирает" : undefined}
+        />
+        <p className="enter-code mono">войти: {code}</p>
+      </div>
+      <div className="min-h-0">
+        {error ? <p className="text-danger">{error}</p> : null}
+        {game.phase === "board" || game.phase === "cat_pick" ? (
+          <Board
+            cells={board}
+            round={game.round}
+            canPick={false}
+            activeId={game.current_question_id}
+          />
+        ) : null}
+        {game.phase === "cat_pick" ? (
+          <p className="hand absolute text-4xl text-danger">
+            Кот в мешке. {chooser?.nickname ?? "Игрок"} выбирает, кому отдать.
+          </p>
+        ) : null}
+        {showSheet && current ? (
+          <article className="question-sheet">
+            <span className="corner-tape a" />
+            <span className="corner-tape b" />
+            <p className="tape tape-red poster">
+              {current.category} · {current.value || "финал"}
+              {current.special === "cat" ? " · кот" : ""}
+            </p>
+            <h2 className="question-copy mt-4">
+              {game.phase === "reveal" ? game.revealed_answer : current.prompt}
+            </h2>
+            {current.kind !== "text" && game.phase !== "reveal" ? (
+              <MediaPlayer
+                cell={current}
+                autoplay={!(hostMode === "human" && hostStartsMedia)}
+              />
+            ) : null}
+            {answering &&
+            (game.phase === "answering" || game.phase === "judging") ? (
+              <p key={answering.id} className="name-sticker hand">
+                {answering.nickname}
+              </p>
+            ) : null}
+            {left !== null && game.phase !== "reveal" ? (
+              <div className={`timer poster ${hot ? "is-hot" : ""}`}>
+                <svg viewBox="0 0 120 120" aria-hidden>
+                  <circle className="timer-ring" cx="60" cy="60" r="48" />
+                </svg>
+                <span>{left}</span>
+              </div>
+            ) : null}
+          </article>
+        ) : null}
+        {game.phase === "wager" && !current?.prompt ? (
+          <article className="question-sheet">
+            <h2 className="question-copy">Тайные ставки</h2>
+            {left !== null ? (
+              <div className={`timer poster ${hot ? "is-hot" : ""}`}>
+                <svg viewBox="0 0 120 120" aria-hidden>
+                  <circle className="timer-ring" cx="60" cy="60" r="48" />
+                </svg>
+                <span>{left}</span>
+              </div>
+            ) : null}
+          </article>
+        ) : null}
+        {game.phase === "finished" ? <Results players={players} /> : null}
+      </div>
+    </main>
+  );
+}
+
+function HostDesk({
+  open,
+  onToggle,
+  voiceOn,
+  pending,
+  sheet,
+  game,
+  finalPicks,
+  hostStartsMedia,
+  hostMode,
+  onVoice,
+  onOpenBuzz,
+  onPass,
+  onContinue,
+  onJudge,
+  onFinalPick,
+  onFinalize,
+  onHostStarts,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  voiceOn: boolean;
+  pending: boolean;
+  sheet: HostSheet | null;
+  game: GameRow;
+  finalPicks: Record<string, boolean>;
+  hostStartsMedia: boolean;
+  hostMode: "human" | "bot";
+  onVoice: (value: boolean) => void;
+  onOpenBuzz: () => void;
+  onPass: () => void;
+  onContinue: () => void;
+  onJudge: (correct: boolean) => void;
+  onFinalPick: (playerId: string, correct: boolean) => void;
+  onFinalize: () => void;
+  onHostStarts: (value: boolean) => void;
+}) {
+  return (
+    <aside className={`drawer ${open ? "is-open" : ""}`}>
+      <button type="button" className="drawer-tab" onClick={onToggle}>
+        <span>Ведущему</span>
+        <span>{open ? "скрыть" : "открыть"}</span>
+      </button>
+      <div className="grid gap-3 px-4 pb-4">
+        <label className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={voiceOn}
@@ -424,58 +494,36 @@ function GameView({
           />
           Читать вопрос вслух
         </label>
-      </div>
-
-      {game.phase === "board" || game.phase === "cat_pick" ? (
-        <Board cells={board} round={game.round} canPick={false} />
-      ) : null}
-
-      {game.phase === "cat_pick" ? (
-        <Panel>
-          <h2 className="text-2xl font-semibold">Кот в мешке</h2>
-          <p className="mt-2 text-muted">
-            {chooser?.nickname ?? "Игрок"} выбирает, кому отдать вопрос. Ответит
-            только он.
-          </p>
-        </Panel>
-      ) : null}
-
-      {publicPrompt && game.phase !== "finished" ? (
-        <Panel>
-          <p className="kicker text-xs text-gold">
-            {current?.category} · {current?.value || "финал"}
-            {current?.special === "cat" ? " · кот в мешке" : ""}
-          </p>
-          <h2 className="prompt mt-3 text-4xl leading-tight sm:text-6xl">
-            {publicPrompt}
-          </h2>
-          {current && current.kind !== "text" ? (
-            <div className="mt-4">
-              <MediaPlayer
-                cell={current}
-                autoplay={!(hostMode === "human" && hostStartsMedia)}
-              />
-            </div>
-          ) : null}
-          {hostMode === "human" ? (
-            <label className="mt-4 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={hostStartsMedia}
-                onChange={(event) => onHostStarts(event.target.checked)}
-              />
-              Трек включает ведущий
-            </label>
-          ) : null}
-          {left !== null && game.phase !== "reveal" ? (
-            <p className="mt-3 font-mono text-gold">Осталось {left} с</p>
-          ) : null}
+        {hostMode === "human" ? (
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={hostStartsMedia}
+              onChange={(event) => onHostStarts(event.target.checked)}
+            />
+            Трек включает ведущий
+          </label>
+        ) : null}
+        {sheet?.expected ? <p>Эталон: {sheet.expected}</p> : null}
+        {sheet?.rows
+          ?.filter((row) => row.verdict === "pending" && row.raw_text)
+          .map((row) => (
+            <p key={row.player_id}>
+              {row.nickname}: «{row.raw_text}»
+              {row.suggestion_correct === null
+                ? ""
+                : row.suggestion_correct
+                  ? " · верно"
+                  : " · неверно"}
+            </p>
+          ))}
+        <div className="flex flex-wrap gap-2">
           {game.phase === "question" ? (
             <button
               type="button"
               disabled={pending}
               onClick={onOpenBuzz}
-              className="mt-5 inline-flex h-12 items-center rounded-full bg-gold px-6 font-semibold text-navy"
+              className="action"
             >
               К кнопке
             </button>
@@ -485,43 +533,18 @@ function GameView({
               type="button"
               disabled={pending}
               onClick={onPass}
-              className="mt-5 inline-flex h-12 items-center rounded-full border border-line px-6 font-semibold"
+              className="action"
             >
               Никто не берёт
             </button>
           ) : null}
-          {answering &&
-          (game.phase === "answering" || game.phase === "judging") ? (
-            <p className="mt-3 text-muted">Отвечает {answering.nickname}</p>
-          ) : null}
-        </Panel>
-      ) : null}
-
-      {showAnswerToHost ? (
-        <Panel>
-          <p className="text-sm text-muted">
-            Только для ведущего, на телефонах этого нет
-          </p>
-          <p className="mt-2 text-xl">Эталон: {sheet?.expected}</p>
-          {sheet?.rows
-            ?.filter((row) => row.verdict === "pending" && row.raw_text)
-            .map((row) => (
-              <p key={row.player_id} className="mt-2">
-                {row.nickname}: «{row.raw_text}»
-                {row.suggestion_correct === null
-                  ? ""
-                  : row.suggestion_correct
-                    ? " · автопроверка: верно"
-                    : " · автопроверка: неверно"}
-              </p>
-            ))}
           {game.phase === "judging" && game.round !== 3 ? (
-            <div className="mt-4 flex gap-2">
+            <>
               <button
                 type="button"
                 disabled={pending}
                 onClick={() => onJudge(true)}
-                className="h-12 rounded-full bg-gold px-5 font-semibold text-navy"
+                className="action"
               >
                 Верно
               </button>
@@ -529,86 +552,65 @@ function GameView({
                 type="button"
                 disabled={pending}
                 onClick={() => onJudge(false)}
-                className="h-12 rounded-full border border-line px-5 font-semibold"
+                className="action bg-ink"
               >
                 Неверно
               </button>
-            </div>
+            </>
           ) : null}
-          {game.phase === "judging" && game.round === 3 ? (
-            <div className="mt-4 grid gap-3">
-              {sheet?.rows?.map((row) => {
-                const picked =
-                  finalPicks[row.player_id] ?? row.suggestion_correct === true;
-                return (
-                  <div
-                    key={row.player_id}
-                    className="flex flex-wrap items-center justify-between gap-2"
+          {game.phase === "reveal" ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={onContinue}
+              className="action"
+            >
+              Дальше
+            </button>
+          ) : null}
+        </div>
+        {game.phase === "judging" && game.round === 3 ? (
+          <div className="grid gap-2">
+            {sheet?.rows?.map((row) => {
+              const picked =
+                finalPicks[row.player_id] ?? row.suggestion_correct === true;
+              return (
+                <div
+                  key={row.player_id}
+                  className="flex flex-wrap items-center gap-2"
+                >
+                  <p>
+                    {row.nickname}: «{row.raw_text || "—"}» · {row.wager ?? 0}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onFinalPick(row.player_id, true)}
+                    className="action"
                   >
-                    <p>
-                      {row.nickname}: «{row.raw_text || "—"}» · ставка{" "}
-                      {row.wager ?? 0}
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onFinalPick(row.player_id, true)}
-                        className={`rounded-full px-3 py-2 ${picked ? "bg-gold text-navy" : "border border-line"}`}
-                      >
-                        Верно
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onFinalPick(row.player_id, false)}
-                        className={`rounded-full px-3 py-2 ${picked ? "border border-line" : "bg-gold text-navy"}`}
-                      >
-                        Неверно
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              <button
-                type="button"
-                disabled={pending}
-                onClick={onFinalize}
-                className="h-12 rounded-full bg-gold font-semibold text-navy"
-              >
-                Показать итог
-              </button>
-            </div>
-          ) : null}
-        </Panel>
-      ) : null}
-
-      {game.phase === "reveal" ? (
-        <Panel>
-          <p className="text-sm text-muted">Правильный ответ</p>
-          <h2 className="mt-2 text-4xl font-semibold">
-            {game.revealed_answer}
-          </h2>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={onContinue}
-            className="mt-5 h-12 rounded-full bg-gold px-6 font-semibold text-navy"
-          >
-            Дальше
-          </button>
-        </Panel>
-      ) : null}
-
-      {game.phase === "wager" ? (
-        <Panel>
-          <h2 className="text-2xl font-semibold">Финал: тайные ставки</h2>
-          <p className="mt-2 text-muted">
-            Ставят только те, у кого больше нуля. Суммы скрыты.
-          </p>
-        </Panel>
-      ) : null}
-
-      {game.phase === "finished" ? <Results players={players} /> : null}
-    </div>
+                    {picked ? "Верно" : "засчитать"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onFinalPick(row.player_id, false)}
+                    className="action bg-ink"
+                  >
+                    Неверно
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              disabled={pending}
+              onClick={onFinalize}
+              className="action"
+            >
+              Показать итог
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </aside>
   );
 }
 
@@ -638,21 +640,6 @@ function Results({ players }: { players: PlayerRow[] }) {
       </ol>
     </Panel>
   );
-}
-
-function Notice({ text }: { text: string }) {
-  return (
-    <Panel>
-      <p role="status">{text}</p>
-    </Panel>
-  );
-}
-
-function roundLabel(round: number): string {
-  if (round === 1) return "Раунд 1 · 100–500";
-  if (round === 2) return "Раунд 2 · 200–1000";
-  if (round === 3) return "Финал";
-  return "Партия";
 }
 
 function decisionsFrom(

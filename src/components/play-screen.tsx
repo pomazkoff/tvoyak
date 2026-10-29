@@ -606,6 +606,7 @@ function PlayTurn({
 
       {game.round === 3 &&
       acceptedHere &&
+      (game.phase === "wager" ? acceptedHere.wager !== undefined : finalSent) &&
       ["wager", "final_answer", "judging"].includes(game.phase) ? (
         <div role="status">
           <Panel className="accepted-panel">

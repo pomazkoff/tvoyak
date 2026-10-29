@@ -1727,3 +1727,13 @@ button {
     animation: none;
   }
 }
+
+/* Чужой браузер на экране ведущего: понятная табличка вместо мелкой подписи. */
+.not-host-plate {
+  background: var(--color-sheet);
+  border-left: 6px solid var(--color-danger);
+  padding: 14px 18px;
+  transform: rotate(-0.6deg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+  color: var(--color-ink);
+}

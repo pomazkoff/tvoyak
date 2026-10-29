@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Board, PlayerRail, type BoardCell } from "@/components/game/board";
 import { MediaPlayer } from "@/components/game/media-player";
@@ -18,7 +19,16 @@ import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import { verdictLine } from "@/lib/game/verdict-speech";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { messageFor } from "@/lib/rooms/messages";
-import { readHostSecret, useHasHostSecret } from "@/lib/rooms/storage";
+import {
+  hashWithoutSecret,
+  hostLink,
+  secretFromHash,
+} from "@/lib/rooms/host-link";
+import {
+  readHostSecret,
+  saveHostSecret,
+  useHasHostSecret,
+} from "@/lib/rooms/storage";
 import type { PlayerRow } from "@/lib/supabase/types";
 
 type HostSheet = {
@@ -37,6 +47,8 @@ type HostSheet = {
   }>;
 };
 
+const noopSubscribe = () => () => undefined;
+
 export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const normalized = normalizeRoomCode(code);
   const match = useMatch(code);
@@ -44,6 +56,24 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const playUrl = normalized && origin ? `${origin}/play/${normalized}` : "";
   const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
   const ownsRoom = useHasHostSecret(normalized);
+  const [hostCopied, setHostCopied] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
+
+  // Ссылка ведущего (#k=…): сохраняем ключ для этого адреса и сразу стираем
+  // его из адресной строки и истории.
+  useEffect(() => {
+    if (!normalized) return;
+    const secret = secretFromHash(window.location.hash);
+    if (!secret) return;
+    saveHostSecret(normalized, secret);
+    const { pathname, search, hash } = window.location;
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${pathname}${search}${hashWithoutSecret(hash)}`,
+    );
+  }, [normalized]);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -206,6 +236,19 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     }
   }
 
+  async function copyHostLink() {
+    const secret = normalized ? readHostSecret(normalized) : null;
+    if (!secret || !normalized) return;
+    try {
+      await navigator.clipboard.writeText(
+        hostLink(window.location.origin, normalized, secret),
+      );
+      setHostCopied("copied");
+    } catch {
+      setHostCopied("failed");
+    }
+  }
+
   async function copyLink() {
     if (!playUrl) return;
     try {
@@ -245,6 +288,8 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
         pending={pending}
         error={error}
         onCopy={() => void copyLink()}
+        hostCopied={hostCopied}
+        onCopyHost={() => void copyHostLink()}
         onStart={() => void run("start")}
       />
     );
@@ -311,6 +356,8 @@ function Lobby({
   pending,
   error,
   onCopy,
+  hostCopied,
+  onCopyHost,
   onStart,
 }: {
   code: string;
@@ -321,9 +368,17 @@ function Lobby({
   pending: boolean;
   error: string | null;
   onCopy: () => void;
+  hostCopied: "idle" | "copied" | "failed";
+  onCopyHost: () => void;
   onStart: () => void;
 }) {
   const seated = scoreboardPlayers(players);
+  // На сервере ключа не видно — табличку показываем только в браузере.
+  const mounted = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
   const watchers = players.filter((player) => player.role === "spectator");
   return (
     <main className="lobby">
@@ -353,11 +408,27 @@ function Lobby({
         {copied === "failed" ? (
           <p className="text-danger">Не удалось скопировать.</p>
         ) : null}
-        <p className="mt-2 max-w-xs text-sm text-muted">
-          {ownsRoom
-            ? "Ключ ведущего в этом браузере."
-            : "Ключ ведущего в браузере, где комнату создали."}
-        </p>
+        {ownsRoom ? (
+          <div className="mt-2 max-w-xs text-sm text-muted">
+            <p>Ключ ведущего в этом браузере.</p>
+            <button
+              type="button"
+              onClick={onCopyHost}
+              className="mt-1 text-pen underline"
+            >
+              {hostCopied === "copied"
+                ? "Ссылка ведущего скопирована"
+                : "Скопировать ссылку ведущего"}
+            </button>
+            <p className="mt-1">
+              Откройте её на телевизоре, чтобы вести игру оттуда. Не отправляйте
+              игрокам — по ней можно управлять комнатой.
+            </p>
+            {hostCopied === "failed" ? (
+              <p className="text-danger">Не удалось скопировать.</p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div>
         {seated.length === 0 ? (
@@ -381,6 +452,21 @@ function Lobby({
           </p>
         ) : null}
         {error ? <p className="mt-3 text-danger">{error}</p> : null}
+        {ownsRoom || !mounted ? null : (
+          <div role="alert" className="not-host-plate mt-6 max-w-md">
+            <p className="hand text-3xl">
+              Этот браузер не ведущий этой комнаты
+            </p>
+            <p className="mt-2 text-sm">
+              Начать игру может только браузер, где комнату создали, или тот,
+              кто открыл ссылку ведущего оттуда. Адрес сайта тоже должен
+              совпадать.
+            </p>
+            <Link href="/" className="action mt-3 inline-block">
+              Создать новую комнату
+            </Link>
+          </div>
+        )}
         <button
           type="button"
           disabled={!ownsRoom || seated.length < 2 || pending}

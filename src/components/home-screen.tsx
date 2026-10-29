@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { Arrow, BotSketch, HostSketch, Logo } from "@/components/marks";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { messageFor } from "@/lib/rooms/messages";
+import { hostPath } from "@/lib/rooms/host-link";
 import { saveHostSecret } from "@/lib/rooms/storage";
 import type { HostMode } from "@/lib/supabase/types";
 
@@ -40,7 +41,9 @@ export function HomeScreen() {
           "Браузер не сохранил ключ ведущего. Экран комнаты всё равно откроется.",
         );
       }
-      router.push(`/host/${payload.code}`);
+      // Ключ и в адресе: страница ведущего сохранит его сама и уберёт из
+      // строки, даже если localStorage здесь недоступен.
+      router.push(hostPath(payload.code, payload.hostSecret));
     } catch {
       setError(messageFor("network"));
     } finally {

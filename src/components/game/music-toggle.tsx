@@ -57,7 +57,7 @@ export function MusicToggle({
           target="_blank"
           rel="noreferrer"
           className="music-toggle-credits"
-          title="Треки: Uncan, Alex Morgan — Free Music Archive, CC BY 4.0"
+          title="Треки: Uncan, Alex Morgan, 1000 Handz — Free Music Archive, CC BY 4.0"
         >
           авторы
         </a>

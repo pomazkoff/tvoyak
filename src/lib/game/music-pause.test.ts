@@ -97,7 +97,8 @@ describe("background music settings", () => {
       expect(existsSync(file)).toBe(true);
       total += statSync(file).size;
     }
-    expect(total).toBeLessThan(12 * 1024 * 1024);
+    // Треки качаются по одному по мере проигрывания, не все сразу.
+    expect(total).toBeLessThan(40 * 1024 * 1024);
     expect(existsSync(path.join(root, "music/CREDITS.md"))).toBe(true);
   });
 });

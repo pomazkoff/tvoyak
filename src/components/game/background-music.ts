@@ -1,10 +1,11 @@
 "use client";
 
 /**
- * Фоновая музыка на главной и на экране ведущего (/host/КОД): тихий
- * чилл-хаус до создания комнаты, в лобби и во время игры. Телефоны игроков
- * (/play) молчат. Треки лежат у нас в /public/music (CC BY 4.0, см.
- * public/music/CREDITS.md) — никаких внешних CDN, всё с нашего домена.
+ * Фоновая музыка на главной и на экране ведущего (/host/КОД): чилл-хаус
+ * вперемешку с энергичным хаусом — до создания комнаты, в лобби и во время
+ * игры. Телефоны игроков (/play) молчат. Треки лежат у нас в /public/music
+ * (CC BY 4.0, см. public/music/CREDITS.md) — никаких внешних CDN, всё с
+ * нашего домена.
  *
  * Один <audio> на страницу. Громкость плавно уходит в ноль, когда:
  *  - музыку выключили кнопкой;
@@ -23,6 +24,15 @@ export const MUSIC_TRACKS = [
   "/music/alex-morgan-tropical-house-paradise.mp3",
   "/music/uncan-aetheric.mp3",
   "/music/uncan-harx-hitter.mp3",
+  // Энергичный хаус (CC BY 4.0, см. public/music/CREDITS.md).
+  "/music/alex-morgan-neon-snap.mp3",
+  "/music/1000-handz-clone.mp3",
+  "/music/alex-morgan-house-music-classic.mp3",
+  "/music/1000-handz-in-search-of-sunset.mp3",
+  "/music/alex-morgan-dj-music.mp3",
+  "/music/alex-morgan-hot-amapiano-beats.mp3",
+  "/music/alex-morgan-exciting-music.mp3",
+  "/music/alex-morgan-deep-house-sunset.mp3",
 ] as const;
 
 export const DEFAULT_MUSIC_VOLUME = 0.18;

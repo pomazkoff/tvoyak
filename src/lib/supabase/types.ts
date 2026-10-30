@@ -8,6 +8,10 @@ export type RoomRow = {
   status: RoomStatus;
   host_mode: HostMode;
   host_starts_media: boolean;
+  /** Ведущий ведёт с телефона — на большом экране панели «Ведущему» нет. */
+  host_phone?: boolean;
+  /** Читать вопрос вслух; null — по умолчанию режима (бот — да). */
+  host_voice?: boolean | null;
   created_at: string;
 };
 

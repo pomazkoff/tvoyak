@@ -4,6 +4,17 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useBackgroundMusic } from "@/components/game/background-music";
 import { Board, PlayerRail, type BoardCell } from "@/components/game/board";
+import {
+  HoldToReveal,
+  HostMoves,
+  HostToggles,
+  PendingAnswers,
+  answererId,
+  callHostAction,
+  decisionsFrom,
+  type HostSheet,
+} from "@/components/game/host-controls";
+import { HostPhonePair } from "@/components/game/host-phone-pair";
 import { MediaPlayer } from "@/components/game/media-player";
 import { PictureTask } from "@/components/game/picture-task";
 import { MusicToggle } from "@/components/game/music-toggle";
@@ -34,28 +45,14 @@ import {
   hostLink,
   secretFromHash,
 } from "@/lib/rooms/host-link";
+import { phonePath } from "@/lib/rooms/host-phone";
 import {
   readHostSecret,
+  readPhoneToken,
   saveHostSecret,
   useHasHostSecret,
 } from "@/lib/rooms/storage";
 import type { PlayerRow } from "@/lib/supabase/types";
-
-type HostSheet = {
-  ok?: boolean;
-  prompt?: string | null;
-  expected?: string | null;
-  phase?: string;
-  special?: string | null;
-  rows?: Array<{
-    player_id: string;
-    nickname: string;
-    raw_text: string;
-    wager: number | null;
-    suggestion_correct: boolean | null;
-    verdict: string;
-  }>;
-};
 
 const noopSubscribe = () => () => undefined;
 
@@ -96,7 +93,12 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const [toast, setToast] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [sheet, setSheet] = useState<HostSheet | null>(null);
-  const [voiceChoice, setVoiceChoice] = useState<boolean | null>(null);
+  // Выбор «читать вслух» до ответа сервера: действует, пока в комнате
+  // тот же host_voice, что был при нажатии (потом верх берёт общий флаг).
+  const [voiceChoice, setVoiceChoice] = useState<{
+    value: boolean;
+    base: boolean | null;
+  } | null>(null);
   const [finalPicks, setFinalPicks] = useState<Record<string, boolean>>({});
   const queryDesk = useSyncExternalStore(
     () => () => undefined,
@@ -108,11 +110,29 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const spoken = useRef<string | null>(null);
 
   const game = match.status === "ready" ? match.game : null;
+  const roomVoice =
+    match.status === "ready" ? (match.room.host_voice ?? null) : null;
   const voiceOn =
-    voiceChoice ?? (match.status === "ready" && match.room.host_mode === "bot");
+    voiceChoice && (!ownsRoom || voiceChoice.base === roomVoice)
+      ? voiceChoice.value
+      : (roomVoice ??
+        (match.status === "ready" && match.room.host_mode === "bot"));
+  // Ведущий подключил телефон: эталон и пульт только там.
+  const phoneHost =
+    match.status === "ready" &&
+    match.room.host_mode === "human" &&
+    match.room.host_phone === true;
+
+  // На этом браузере уже привязан телефон ведущего (а ключа комнаты нет) —
+  // сразу на пульт ведущего.
+  useEffect(() => {
+    if (!normalized || ownsRoom || readHostSecret(normalized)) return;
+    if (readPhoneToken(normalized))
+      window.location.replace(phonePath(normalized));
+  }, [normalized, ownsRoom]);
 
   useEffect(() => {
-    if (!normalized || !ownsRoom || !game) return;
+    if (!normalized || !ownsRoom || !game || phoneHost) return;
     if (
       game.phase === "lobby" ||
       game.phase === "board" ||
@@ -126,7 +146,7 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     return () => {
       cancelled = true;
     };
-  }, [normalized, ownsRoom, game]);
+  }, [normalized, ownsRoom, game, phoneHost]);
 
   const hostMode = match.status === "ready" ? match.room.host_mode : null;
   const questionPrompt =
@@ -350,6 +370,9 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
           hostCopied={hostCopied}
           onCopyHost={() => void copyHostLink()}
           onStart={() => void run("start")}
+          origin={origin}
+          hostMode={match.room.host_mode}
+          phoneHost={phoneHost}
         />
       </>
     );
@@ -379,31 +402,55 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
         </p>
       ) : null}
       <MusicToggle raised />
-      <HostDesk
-        open={desk}
-        onToggle={() => setDeskChoice((value) => !(value ?? queryDesk))}
-        voiceOn={voiceOn}
-        pending={pending}
-        finalPicks={finalPicks}
-        sheet={sheet}
-        game={match.game}
-        hostStartsMedia={match.room.host_starts_media}
-        hostMode={match.room.host_mode}
-        onVoice={(value) => setVoiceChoice(value)}
-        onOpenBuzz={() => void run("open_buzz")}
-        onPass={() => void run("pass")}
-        onContinue={() => void run("continue")}
-        onJudge={(correct) =>
-          void run("judge", { correct, playerId: answererId(match) })
-        }
-        onFinalPick={(playerId, correct) =>
-          setFinalPicks((current) => ({ ...current, [playerId]: correct }))
-        }
-        onFinalize={() =>
-          void run("finalize", { decisions: decisionsFrom(sheet, finalPicks) })
-        }
-        onHostStarts={(value) => void run("media_cue", { correct: value })}
-      />
+      {phoneHost ? (
+        <div className="host-phone-corner">
+          {ownsRoom ? (
+            <HostPhonePair
+              key="on"
+              code={normalized}
+              origin={origin}
+              connected
+              compact
+            />
+          ) : (
+            <span className="hand">Ведущий с телефона</span>
+          )}
+        </div>
+      ) : (
+        <HostDesk
+          open={desk}
+          onToggle={() => setDeskChoice((value) => !(value ?? queryDesk))}
+          code={normalized}
+          origin={origin}
+          ownsRoom={ownsRoom}
+          voiceOn={voiceOn}
+          pending={pending}
+          finalPicks={finalPicks}
+          sheet={sheet}
+          game={match.game}
+          hostStartsMedia={match.room.host_starts_media}
+          hostMode={match.room.host_mode}
+          onVoice={(value) => {
+            setVoiceChoice({ value, base: roomVoice });
+            if (ownsRoom) void run("voice", { correct: value });
+          }}
+          onOpenBuzz={() => void run("open_buzz")}
+          onPass={() => void run("pass")}
+          onContinue={() => void run("continue")}
+          onJudge={(correct) =>
+            void run("judge", { correct, playerId: answererId(match) })
+          }
+          onFinalPick={(playerId, correct) =>
+            setFinalPicks((current) => ({ ...current, [playerId]: correct }))
+          }
+          onFinalize={() =>
+            void run("finalize", {
+              decisions: decisionsFrom(sheet, finalPicks),
+            })
+          }
+          onHostStarts={(value) => void run("media_cue", { correct: value })}
+        />
+      )}
     </>
   );
 }
@@ -420,6 +467,9 @@ function Lobby({
   hostCopied,
   onCopyHost,
   onStart,
+  origin,
+  hostMode,
+  phoneHost,
 }: {
   code: string;
   players: PlayerRow[];
@@ -432,6 +482,9 @@ function Lobby({
   hostCopied: "idle" | "copied" | "failed";
   onCopyHost: () => void;
   onStart: () => void;
+  origin: string;
+  hostMode: "human" | "bot";
+  phoneHost: boolean;
 }) {
   const seated = scoreboardPlayers(players);
   // На сервере ключа не видно — табличку показываем только в браузере.
@@ -488,6 +541,20 @@ function Lobby({
             {hostCopied === "failed" ? (
               <p className="text-danger">Не удалось скопировать.</p>
             ) : null}
+            {hostMode === "human" ? (
+              <div className="mt-3">
+                <p>
+                  Эталон и пульт — на телефоне ведущего, чтобы игроки не видели
+                  ответ на экране.
+                </p>
+                <HostPhonePair
+                  key={phoneHost ? "on" : "off"}
+                  code={code}
+                  origin={origin}
+                  connected={phoneHost}
+                />
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -523,9 +590,17 @@ function Lobby({
               кто открыл ссылку ведущего оттуда. Адрес сайта тоже должен
               совпадать.
             </p>
-            <Link href="/" className="action mt-3 inline-block">
-              Создать новую комнату
-            </Link>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href="/" className="action inline-block">
+                Создать новую комнату
+              </Link>
+              <Link
+                href={phonePath(code)}
+                className="action is-ink inline-block"
+              >
+                Я ведущий: ввести код
+              </Link>
+            </div>
           </div>
         )}
         <button
@@ -720,6 +795,9 @@ function GameView({
 function HostDesk({
   open,
   onToggle,
+  code,
+  origin,
+  ownsRoom,
   voiceOn,
   pending,
   sheet,
@@ -738,6 +816,9 @@ function HostDesk({
 }: {
   open: boolean;
   onToggle: () => void;
+  code: string;
+  origin: string;
+  ownsRoom: boolean;
   voiceOn: boolean;
   pending: boolean;
   sheet: HostSheet | null;
@@ -754,6 +835,10 @@ function HostDesk({
   onFinalize: () => void;
   onHostStarts: (value: boolean) => void;
 }) {
+  // Общий экран видят все: эталон только пока держат «Показать ответ».
+  // На вскрытии ответ и так на экране.
+  const answer =
+    sheet?.expected && game.phase !== "reveal" ? sheet.expected : null;
   return (
     <aside className={`drawer ${open ? "is-open" : ""}`}>
       <button type="button" className="drawer-tab" onClick={onToggle}>
@@ -761,127 +846,38 @@ function HostDesk({
         <span>{open ? "скрыть" : "открыть"}</span>
       </button>
       <div className="grid gap-3 px-4 pb-4">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={voiceOn}
-            onChange={(event) => onVoice(event.target.checked)}
-          />
-          Читать вопрос вслух
-        </label>
-        {hostMode === "human" ? (
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={hostStartsMedia}
-              onChange={(event) => onHostStarts(event.target.checked)}
-            />
-            Трек включает ведущий
-          </label>
+        <HostToggles
+          voiceOn={voiceOn}
+          hostStartsMedia={hostStartsMedia}
+          hostMode={hostMode}
+          onVoice={onVoice}
+          onHostStarts={onHostStarts}
+        />
+        {answer ? (
+          <HoldToReveal key={game.current_question_id} answer={answer} />
         ) : null}
-        {sheet?.expected ? <p>Эталон: {sheet.expected}</p> : null}
-        {sheet?.rows
-          ?.filter((row) => row.verdict === "pending" && row.raw_text)
-          .map((row) => (
-            <p key={row.player_id}>
-              {row.nickname}: «{row.raw_text}»
-              {row.suggestion_correct === null
-                ? ""
-                : row.suggestion_correct
-                  ? " · верно"
-                  : " · неверно"}
-            </p>
-          ))}
-        <div className="flex flex-wrap gap-2">
-          {game.phase === "question" ? (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={onOpenBuzz}
-              className="action"
-            >
-              К кнопке
-            </button>
-          ) : null}
-          {game.phase === "buzzing" ? (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={onPass}
-              className="action"
-            >
-              Никто не берёт
-            </button>
-          ) : null}
-          {game.phase === "judging" && game.round !== 3 ? (
-            <>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => onJudge(true)}
-                className="action"
-              >
-                Верно
-              </button>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => onJudge(false)}
-                className="action bg-ink"
-              >
-                Неверно
-              </button>
-            </>
-          ) : null}
-          {game.phase === "reveal" ? (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={onContinue}
-              className="action"
-            >
-              Дальше
-            </button>
-          ) : null}
-        </div>
-        {game.phase === "judging" && game.round === 3 ? (
-          <div className="grid gap-2">
-            {sheet?.rows?.map((row) => {
-              const picked =
-                finalPicks[row.player_id] ?? row.suggestion_correct === true;
-              return (
-                <div
-                  key={row.player_id}
-                  className="flex flex-wrap items-center gap-2"
-                >
-                  <p>
-                    {row.nickname}: «{row.raw_text || "—"}» · {row.wager ?? 0}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => onFinalPick(row.player_id, true)}
-                    className="action"
-                  >
-                    {picked ? "Верно" : "засчитать"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onFinalPick(row.player_id, false)}
-                    className="action bg-ink"
-                  >
-                    Неверно
-                  </button>
-                </div>
-              );
-            })}
-            <button
-              type="button"
-              disabled={pending}
-              onClick={onFinalize}
-              className="action"
-            >
-              Показать итог
-            </button>
+        <PendingAnswers sheet={sheet} />
+        <HostMoves
+          game={game}
+          sheet={sheet}
+          pending={pending}
+          finalPicks={finalPicks}
+          onOpenBuzz={onOpenBuzz}
+          onPass={onPass}
+          onContinue={onContinue}
+          onJudge={onJudge}
+          onFinalPick={onFinalPick}
+          onFinalize={onFinalize}
+        />
+        {ownsRoom && hostMode === "human" ? (
+          <div>
+            <HostPhonePair
+              key="off"
+              code={code}
+              origin={origin}
+              connected={false}
+              compact
+            />
           </div>
         ) : null}
       </div>
@@ -917,42 +913,16 @@ function Results({ players }: { players: PlayerRow[] }) {
   );
 }
 
-function decisionsFrom(
-  sheet: HostSheet | null,
-  picks: Record<string, boolean>,
-) {
-  return (sheet?.rows ?? []).map((row) => ({
-    playerId: row.player_id,
-    correct: picks[row.player_id] ?? row.suggestion_correct === true,
-  }));
-}
-
 async function callHost(
   code: string,
   action: string,
   extra?: Record<string, unknown>,
 ) {
   const hostSecret = readHostSecret(code);
-  if (!hostSecret) return { ok: false, error: "not_host" };
-  const response = await fetch("/api/host/action", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, code, hostSecret, ...extra }),
-  });
-  return (await response.json()) as { ok?: boolean; error?: string };
-}
-
-/** Кого судит ведущий: отвечающий по кнопке или адресат «кота». */
-function answererId(match: {
-  game: GameRow;
-  board: BoardCell[];
-}): string | undefined {
-  const current = match.board.find(
-    (cell) => cell.id === match.game.current_question_id,
+  return callHostAction(
+    code,
+    action,
+    hostSecret ? { hostSecret } : null,
+    extra,
   );
-  const id =
-    current?.special === "cat"
-      ? current.assigned_player_id
-      : match.game.buzz_winner_player_id;
-  return id ?? undefined;
 }

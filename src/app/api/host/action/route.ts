@@ -9,6 +9,7 @@ export async function POST(request: Request) {
     action?: unknown;
     code?: unknown;
     hostSecret?: unknown;
+    phoneToken?: unknown;
     correct?: unknown;
     questionId?: unknown;
     playerId?: unknown;
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
   if (
     typeof body.action !== "string" ||
     typeof body.code !== "string" ||
-    typeof body.hostSecret !== "string"
+    (typeof body.hostSecret !== "string" && typeof body.phoneToken !== "string")
   ) {
     return Response.json({ error: "invalid_body" }, { status: 400 });
   }
@@ -45,14 +46,22 @@ export async function POST(request: Request) {
     const result = await hostAction({
       action: body.action,
       code: body.code,
-      hostSecret: body.hostSecret,
+      hostSecret:
+        typeof body.hostSecret === "string" ? body.hostSecret : undefined,
+      phoneToken:
+        typeof body.phoneToken === "string" ? body.phoneToken : undefined,
       correct: body.correct === true,
       questionId:
         typeof body.questionId === "string" ? body.questionId : undefined,
       playerId: typeof body.playerId === "string" ? body.playerId : undefined,
       decisions,
     });
-    if (body.action === "start" && result.ok === true && isTtsConfigured()) {
+    if (
+      body.action === "start" &&
+      result.ok === true &&
+      typeof body.hostSecret === "string" &&
+      isTtsConfigured()
+    ) {
       // Поле готово — заранее озвучиваем вопросы первого раунда голосом
       // Марины, чтобы на открытии вопроса звук уже был в кэше.
       const code = body.code;

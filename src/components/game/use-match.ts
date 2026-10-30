@@ -83,7 +83,9 @@ export function useMatch(code: string): MatchState {
     async function readRoom(): Promise<RoomRow | null | "error"> {
       const { data, error } = await supabase
         .from("rooms")
-        .select("id, code, status, host_mode, host_starts_media, created_at")
+        .select(
+          "id, code, status, host_mode, host_starts_media, host_phone, host_voice, created_at",
+        )
         .eq("code", normalized)
         .maybeSingle();
       if (error) return "error";

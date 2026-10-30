@@ -1,4 +1,5 @@
 import "server-only";
+import { displayPrompt } from "@/lib/game/prompt";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   TTS_MAX_CHARS,
@@ -52,14 +53,16 @@ export async function roomPhrases(
   if (revealed) answers.push(revealed);
   const round = (game.data as { round?: number } | null)?.round ?? null;
   return {
-    prompts: rows.flatMap((row) => (row.prompt ? [row.prompt] : [])),
+    prompts: rows.flatMap((row) =>
+      row.prompt ? [row.prompt, displayPrompt(row.prompt)] : [],
+    ),
     answers,
     round,
     upcoming: rows
       .filter(
         (row) => row.prompt && row.status !== "answered" && row.round === round,
       )
-      .map((row) => row.prompt as string),
+      .map((row) => displayPrompt(row.prompt as string)),
   };
 }
 
@@ -81,9 +84,9 @@ export async function isAllowedInRoom(
       .from("questions")
       .select("prompt")
       .eq("room_id", roomId);
-    const prompts = ((data ?? []) as Array<{ prompt: string | null }>)
-      .map((row) => row.prompt)
-      .filter((prompt): prompt is string => Boolean(prompt));
+    const prompts = ((data ?? []) as Array<{ prompt: string | null }>).flatMap(
+      (row) => (row.prompt ? [row.prompt, displayPrompt(row.prompt)] : []),
+    );
     return isAllowedPhrase(clean, { prompts, answers: [] });
   }
   const phrases = await roomPhrases(supabase, roomId);

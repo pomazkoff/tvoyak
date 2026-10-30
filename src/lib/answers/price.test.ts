@@ -10,7 +10,8 @@ describe("parsePrice", () => {
     });
     expect(parsePrice("$499")).toEqual({ value: 499, currency: "usd" });
     expect(parsePrice("450 000 000 долларов")?.value).toBe(450e6);
-    expect(parsePrice("около ста")).toBeNull();
+    expect(parsePrice("около ста")?.value).toBe(100);
+    expect(parsePrice("не помню")).toBeNull();
   });
 });
 

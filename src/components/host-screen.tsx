@@ -1,5 +1,6 @@
 "use client";
 
+import { displayPrompt } from "@/lib/game/prompt";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useBackgroundMusic } from "@/components/game/background-music";
@@ -151,8 +152,10 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const hostMode = match.status === "ready" ? match.room.host_mode : null;
   const questionPrompt =
     match.status === "ready"
-      ? match.board.find((cell) => cell.id === game?.current_question_id)
-          ?.prompt
+      ? displayPrompt(
+          match.board.find((cell) => cell.id === game?.current_question_id)
+            ?.prompt,
+        )
       : null;
 
   // Фоновая музыка: тихо в лобби и в игре, пауза на вопросах с видео и
@@ -736,7 +739,9 @@ function GameView({
               {current.special === "cat" ? " · кот" : ""}
             </p>
             <h2 className="question-copy mt-4">
-              {game.phase === "reveal" ? game.revealed_answer : current.prompt}
+              {game.phase === "reveal"
+                ? game.revealed_answer
+                : displayPrompt(current.prompt)}
             </h2>
             {hasMedia && hasPicture && current ? (
               <PictureTask

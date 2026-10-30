@@ -91,8 +91,21 @@ export async function judgeText(
   // Раньше нечёткой проверки: «25 копеек» и «20 копеек» отличаются одной
   // буквой, но это ошибка на 25%.
   if (/\d/.test(expected) && (await loadOnce())?.category === PRICE_CATEGORY) {
+    // Дословное совпадение с эталоном или вариантом («450», «$499») —
+    // засчитано сразу; опечатки здесь не прощаем, решает допуск.
+    const exact = checkAgainstVariants(given, expected, variants);
+    if (exact.correct && exact.method === "exact") {
+      return { correct: true, method: "exact" as const };
+    }
     const price = priceWithinTolerance(given, expected);
-    if (price !== null) return { correct: price, method: "fuzzy" as const };
+    if (price === true) return { correct: true, method: "fuzzy" as const };
+    if (price === false) {
+      const byVariant = variants.some(
+        (variant) =>
+          /\d/.test(variant) && priceWithinTolerance(given, variant) === true,
+      );
+      return { correct: byVariant, method: "fuzzy" as const };
+    }
   }
   const local = checkAgainstVariants(given, expected, variants);
   if (local.correct) return { correct: true, method: local.method };

@@ -1,5 +1,6 @@
 import { containsAsWords, levenshtein } from "@/lib/answers/fuzzy";
 import { normalizeAnswer } from "@/lib/answers/normalize";
+import { numberTokens } from "@/lib/answers/numbers";
 
 export type AnswerMethod = "exact" | "fuzzy";
 
@@ -46,6 +47,32 @@ export function checkAnswerLocally(
     };
   }
 
+  if (sameNumberAnswer(normalizedGiven, normalizedExpected)) {
+    return {
+      ...shared,
+      correct: true,
+      similarity: 0.95,
+      method: "fuzzy",
+      ambiguous: false,
+      scoreEffect: "add",
+    };
+  }
+
+  // Разные числа — разные ответы, даже если строки отличаются на букву:
+  // «10 раз» ≠ «1 раз», «1914» ≠ «1941».
+  const givenNumbers = numberTokens(normalizedGiven).sort().join(" ");
+  const wantNumbers = numberTokens(normalizedExpected).sort().join(" ");
+  if (givenNumbers && wantNumbers && givenNumbers !== wantNumbers) {
+    return {
+      ...shared,
+      correct: false,
+      similarity: 0,
+      method: "fuzzy",
+      ambiguous: false,
+      scoreEffect: "subtract",
+    };
+  }
+
   const distance = levenshtein(normalizedGiven, normalizedExpected);
   const maxLength = Math.max(normalizedGiven.length, normalizedExpected.length);
   const similarity = 1 - distance / maxLength;
@@ -74,6 +101,30 @@ export function checkAnswerLocally(
     ambiguous: similarity >= AMBIGUOUS_RATIO,
     scoreEffect: "subtract",
   };
+}
+
+/**
+ * Ответ-число: «4 кошки» на эталон «Четыре», «1» на «Один раз». Эталон —
+ * число и не больше одного слова (единица), у игрока то же число, та же
+ * единица (если назвал) и не больше трёх лишних слов. «Белоснежка и 7 гномов» так не засчитать за «7».
+ */
+function sameNumberAnswer(given: string, expected: string): boolean {
+  const wantNumbers = numberTokens(expected);
+  if (wantNumbers.length !== 1) return false;
+  const wantWords = expected.split(" ");
+  if (wantWords.length > 2 || !/^\d+$/.test(wantWords[0] ?? "")) return false;
+  const gotNumbers = numberTokens(given);
+  if (gotNumbers.length !== 1 || gotNumbers[0] !== wantNumbers[0]) {
+    return false;
+  }
+  const extra = given.split(" ").filter((word) => !/^\d+$/.test(word));
+  if (extra.length > 3) return false;
+  // Эталон с единицей («1 раз», «3 месяца»): у игрока либо только число,
+  // либо та же единица в любом падеже — «3 года» за «3 месяца» не пойдёт.
+  const unit = wantWords[1];
+  if (!unit || extra.length === 0) return true;
+  const stem = unit.slice(0, Math.min(3, unit.length));
+  return extra.some((word) => word.startsWith(stem));
 }
 
 export function checkAgainstVariants(

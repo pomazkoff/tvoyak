@@ -7,6 +7,7 @@ import {
   parseJson,
 } from "@/lib/packs/openrouter";
 import { specialCategory } from "@/lib/packs/categories";
+import { categoryMetaRows } from "@/lib/packs/category-meta";
 import { isAudioFx } from "@/lib/media/audio-fx";
 import { findItunesPreview } from "@/lib/media/itunes";
 import {
@@ -564,6 +565,14 @@ export async function approvePack(
       { onConflict: "category,prompt", ignoreDuplicates: true },
     );
     if (insertError) return { ok: false, copied: 0, error: "create_failed" };
+    // Тип новой темы для сбалансированного поля; существующие не трогаем.
+    const { error: metaError } = await supabase
+      .from("category_meta")
+      .upsert(categoryMetaRows(rows), {
+        onConflict: "category",
+        ignoreDuplicates: true,
+      });
+    if (metaError) console.error("category_meta", metaError.code);
     await supabase
       .from("pack_items")
       .update({ status: "approved" })

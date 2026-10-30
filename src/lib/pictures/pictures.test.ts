@@ -11,7 +11,9 @@ import {
   blurPx,
   openTiles,
   pixelBlocks,
+  pixelSteps,
   revealProgress,
+  revealStart,
   zoomScale,
 } from "./reveal";
 import { looksLikeEmoji, twemojiCode } from "./twemoji";
@@ -205,6 +207,26 @@ describe("раскрытие", () => {
     expect(revealProgress(opened, 20, 1_100_000)).toBe(1);
     expect(revealProgress(opened, 0, 0)).toBe(1);
     expect(revealProgress(null, 20, 0)).toBe(0);
+  });
+
+  it("раскрытие ждёт загрузки картинки", () => {
+    const opened = new Date(1_000_000).toISOString();
+    expect(revealStart(opened, 1_005_000)).toBe(1_005_000);
+    expect(revealStart(opened, 999_000)).toBe(1_000_000);
+    expect(revealStart(null, 1_234)).toBe(1_234);
+  });
+
+  it("«Один пиксель»: крупные блоки, резко — только в конце", () => {
+    expect(pixelSteps(0, 8)).toBe(8);
+    expect(pixelSteps(0.99, 8)).toBe(32);
+    expect(pixelSteps(0, 16)).toBe(16);
+    expect(pixelSteps(0.99, 16)).toBe(64);
+    expect(pixelSteps(1, 16)).toBe(0);
+    for (let i = 0; i < 19; i += 1) {
+      expect(pixelSteps(i / 20, 8)).toBeLessThanOrEqual(
+        pixelSteps((i + 1) / 20, 8),
+      );
+    }
   });
 
   it("эффекты монотонно слабеют и в конце исчезают", () => {

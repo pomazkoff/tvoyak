@@ -1853,6 +1853,41 @@ button {
     transform 120ms linear;
 }
 
+/* Пока картинка грузится — нейтральная заглушка, а не пустая белая карточка. */
+.picture-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2vh;
+  width: min(88vw, 760px);
+  height: min(42vh, 57vw);
+  background: #ecebe6;
+  color: rgba(0, 0, 0, 0.55);
+  font-size: clamp(14px, 1.1vw, 20px);
+}
+
+.picture-spinner {
+  width: 2.4em;
+  height: 2.4em;
+  border: 0.25em solid rgba(0, 0, 0, 0.12);
+  border-top-color: #c8372d;
+  border-radius: 50%;
+  animation: picture-spin 0.9s linear infinite;
+}
+
+@keyframes picture-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .picture-spinner {
+    animation-duration: 2.4s;
+  }
+}
+
 .picture-task.is-generated .picture-media {
   min-width: min(60vw, 900px);
   max-height: 56vh;
@@ -2016,6 +2051,11 @@ button {
 .review-image .picture-kind,
 .review-image .picture-credit {
   display: none;
+}
+
+.review-image .picture-loading {
+  width: 100%;
+  height: 200px;
 }
 
 .review-image .picture-media,

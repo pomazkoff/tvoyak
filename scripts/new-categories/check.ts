@@ -6,7 +6,14 @@ let bad = 0;
 for (const q of items) {
   const leak = leakCheck(q);
   if (leak.notes) {
-    console.log(leak.blocking ? "BLOCK" : "part ", q.category, "|", q.prompt.slice(0, 60), "|", leak.notes);
+    console.log(
+      leak.blocking ? "BLOCK" : "part ",
+      q.category,
+      "|",
+      q.prompt.slice(0, 60),
+      "|",
+      leak.notes,
+    );
     if (leak.blocking) bad++;
   }
   if (q.value < 100 || q.value > 500) console.log("VALUE", q.prompt);

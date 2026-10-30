@@ -268,9 +268,7 @@ export function PictureTask({
           <PixelCanvas
             src={src}
             progress={progress}
-            start={
-              format === "pixel" ? (fx.blocks === 16 ? 16 : 8) : undefined
-            }
+            start={format === "pixel" ? (fx.blocks === 16 ? 16 : 8) : undefined}
           />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element

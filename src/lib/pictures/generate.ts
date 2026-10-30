@@ -49,7 +49,9 @@ export function pictureGenerationUser(
   const avoid = avoidAnswers.length
     ? ` Эти ответы уже есть, не повторяй: ${avoidAnswers.slice(0, 150).join("; ")}.`
     : "";
-  const range = SMALL_RANGE.includes(format) ? "от 100 до 500" : "от 100 до 1000";
+  const range = SMALL_RANGE.includes(format)
+    ? "от 100 до 500"
+    : "от 100 до 1000";
   return `Тема (поле category, ровно так): «${PICTURE_CATEGORY[format]}». Составь ${count} заданий, сложность value ${range}. ${FORMAT_RULES[format]}${avoid} Поля каждого: category, prompt, answer, variants (другие написания ТОГО ЖЕ ответа), value, picture ("${format}"), picture_spec${PHOTO_FORMATS.includes(format) ? ", image_url, reveal_seconds" : ""}.`;
 }
 

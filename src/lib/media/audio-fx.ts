@@ -33,7 +33,9 @@ export function segmentFrames(
     Math.max(0, length - 1),
   );
   const rawTo =
-    end && end > start ? Math.floor(end * sampleRate) : Number.POSITIVE_INFINITY;
+    end && end > start
+      ? Math.floor(end * sampleRate)
+      : Number.POSITIVE_INFINITY;
   const to = Math.max(from + 1, Math.min(length, rawTo));
   return { from, to };
 }
@@ -78,7 +80,12 @@ export function reversedSegment(
     );
     for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
       buffer.copyToChannel(
-        sliceChannel(decoded.getChannelData(channel), from, to, reverse) as Float32Array<ArrayBuffer>,
+        sliceChannel(
+          decoded.getChannelData(channel),
+          from,
+          to,
+          reverse,
+        ) as Float32Array<ArrayBuffer>,
         channel,
       );
     }

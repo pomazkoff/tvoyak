@@ -21,7 +21,9 @@ export function parsePrice(raw: string): ParsedPrice | null {
     .toLowerCase()
     .replace(/ё/g, "е")
     .replace(/(\d)[\s\u00a0](?=\d{3}\b)/g, "$1");
-  const match = text.match(/(\d+(?:[.,]\d+)?)\s*([a-zа-я$€₽.]*)\s*([a-zа-я$€₽.]*)/i);
+  const match = text.match(
+    /(\d+(?:[.,]\d+)?)\s*([a-zа-я$€₽.]*)\s*([a-zа-я$€₽.]*)/i,
+  );
   if (!match) return null;
   let value = Number(match[1]!.replace(",", "."));
   if (!Number.isFinite(value)) return null;
@@ -67,7 +69,10 @@ export function priceWithinTolerance(
     // Голое число (или только «тыс/млн»): в единицах эталона.
     const unitless = parsePrice(given.replace(/[^\d.,\sа-яa-z]/gi, ""));
     value = unitless?.value ?? got.value;
-    if (/коп/.test(expected.toLowerCase()) && !/коп|руб/.test(given.toLowerCase())) {
+    if (
+      /коп/.test(expected.toLowerCase()) &&
+      !/коп|руб/.test(given.toLowerCase())
+    ) {
       value /= 100;
     }
   } else if (want.currency && got.currency !== want.currency) {

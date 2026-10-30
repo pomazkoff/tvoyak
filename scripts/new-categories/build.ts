@@ -45,7 +45,9 @@ const DIR = "scripts/new-categories";
 
 function load(name: string): Row[] {
   const path = `${DIR}/${name}`;
-  return existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")) as Row[]) : [];
+  return existsSync(path)
+    ? (JSON.parse(readFileSync(path, "utf8")) as Row[])
+    : [];
 }
 
 function pictureRows(): Row[] {
@@ -106,8 +108,10 @@ async function main() {
   ];
   for (const row of all) {
     const leak = leakCheck(row);
-    if (leak.blocking) failed.push(`${row.category} / ${row.answer}: утечка ${leak.notes}`);
-    else if (row.value < 100 || row.value > 500) failed.push(`${row.category} / ${row.answer}: номинал ${row.value}`);
+    if (leak.blocking)
+      failed.push(`${row.category} / ${row.answer}: утечка ${leak.notes}`);
+    else if (row.value < 100 || row.value > 500)
+      failed.push(`${row.category} / ${row.answer}: номинал ${row.value}`);
     else ok.push(row);
   }
   const pictures = pictureRows();
@@ -171,13 +175,17 @@ async function main() {
       sql(row.audio_fx),
       sql(row.image_url),
       sql(row.picture),
-      row.picture_spec ? `${sql(JSON.stringify(row.picture_spec))}::jsonb` : "null",
+      row.picture_spec
+        ? `${sql(JSON.stringify(row.picture_spec))}::jsonb`
+        : "null",
       sql(row.reveal_seconds || null),
       sql(row.image_credit),
       sql(row.image_license),
       sql(row.image_page),
     ].join(", ");
-    const note = row.source ? `  -- источник: ${row.source.replaceAll("\n", " ")}\n` : "";
+    const note = row.source
+      ? `  -- источник: ${row.source.replaceAll("\n", " ")}\n`
+      : "";
     return `${note}  (${tuple})`;
   });
   const header = [
@@ -193,7 +201,8 @@ async function main() {
   const body = `insert into public.question_bank (category, prompt, answer, variants, kind, curtain, value, enabled, youtube_id, vk_url, start_seconds, end_seconds, audio_url, audio_fx, image_url, picture, picture_spec, reveal_seconds, image_credit, image_license, image_page) values\n${values.join(",\n")}\non conflict (category, prompt) do nothing;\n`;
   writeFileSync(out, header + body);
   console.log(`written ${ok.length} rows to ${out}`);
-  for (const [category, count] of counts) console.log(`  ${category}: ${count}`);
+  for (const [category, count] of counts)
+    console.log(`  ${category}: ${count}`);
   if (failed.length) {
     console.log(`FAILED ${failed.length}:`);
     for (const line of failed) console.log(`  ${line}`);

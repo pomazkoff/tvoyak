@@ -4,7 +4,10 @@ import { parsePrice, priceWithinTolerance } from "@/lib/answers/price";
 describe("parsePrice", () => {
   it("reads units", () => {
     expect(parsePrice("20 копеек")).toEqual({ value: 0.2, currency: "rub" });
-    expect(parsePrice("1,5 млн долларов")).toEqual({ value: 1.5e6, currency: "usd" });
+    expect(parsePrice("1,5 млн долларов")).toEqual({
+      value: 1.5e6,
+      currency: "usd",
+    });
     expect(parsePrice("$499")).toEqual({ value: 499, currency: "usd" });
     expect(parsePrice("450 000 000 долларов")?.value).toBe(450e6);
     expect(parsePrice("около ста")).toBeNull();

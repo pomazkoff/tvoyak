@@ -102,7 +102,8 @@ function photoProblems(draft: PictureDraft, format: PictureFormat): string[] {
   }
   if (format === "pixel") {
     const spec = draft.picture_spec as PixelSpec | null;
-    if (!spec || spec.effect !== "pixel") problems.push("пиксель: effect pixel");
+    if (!spec || spec.effect !== "pixel")
+      problems.push("пиксель: effect pixel");
     if (spec?.blocks !== undefined && spec.blocks !== 8 && spec.blocks !== 16)
       problems.push("пиксель: blocks 8 или 16");
   }

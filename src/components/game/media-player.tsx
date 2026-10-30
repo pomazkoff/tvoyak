@@ -570,6 +570,7 @@ function TwistedAudio({
       sourceRef.current?.stop();
     } catch {}
     sourceRef.current = null;
+    setState((current) => (current === "playing" ? "finished" : current));
   }
 
   function play(which: "twisted" | "plain") {
@@ -582,7 +583,8 @@ function TwistedAudio({
     stop();
     const node = context.createBufferSource();
     node.buffer = buffers[which];
-    node.playbackRate.value = which === "twisted" && fx === "slow" ? SLOW_RATE : 1;
+    node.playbackRate.value =
+      which === "twisted" && fx === "slow" ? SLOW_RATE : 1;
     node.connect(context.destination);
     node.onended = () => {
       if (sourceRef.current === node) {
@@ -651,7 +653,7 @@ function TwistedAudio({
 
   // На вскрытии ответа перевёрнутый звук гасим — дальше кнопка оригинала.
   useEffect(() => {
-    if (revealed) stop();
+    if (revealed) queueMicrotask(stop);
   }, [revealed]);
 
   const label =

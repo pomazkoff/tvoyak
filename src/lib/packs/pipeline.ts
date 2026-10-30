@@ -8,7 +8,6 @@ import {
 } from "@/lib/packs/openrouter";
 import { specialCategory } from "@/lib/packs/categories";
 import { categoryMetaRows } from "@/lib/packs/category-meta";
-import { isAudioFx } from "@/lib/media/audio-fx";
 import { findItunesPreview } from "@/lib/media/itunes";
 import {
   calibrateValue,
@@ -269,11 +268,12 @@ function mediaFields(
     return {
       kind: "music",
       curtain: true,
-      audio_fx: isAudioFx(item.audio_fx) ? item.audio_fx : "reverse",
+      // Категория — «задом наперёд»: замедление больше не генерируем.
+      audio_fx: "reverse",
       itunes_query: item.itunes_query ? String(item.itunes_query) : null,
       start_seconds: 0,
-      end_seconds: 20,
-      media_note: `${item.itunes_query ?? item.answer} (${isAudioFx(item.audio_fx) ? item.audio_fx : "reverse"})`,
+      end_seconds: 30,
+      media_note: `${item.itunes_query ?? item.answer} (reverse)`,
     };
   }
   if (media === "video") {

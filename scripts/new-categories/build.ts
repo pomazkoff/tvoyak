@@ -50,12 +50,20 @@ function load(name: string): Row[] {
     : [];
 }
 
+/**
+ * Подсказка и есть вопрос: без служебной нумерации («№ 17») — игрокам она
+ * не нужна, а уникальность (category, prompt) держат разные подсказки.
+ */
+function hintPrompt(hint: string): string {
+  return `${hint.charAt(0).toLocaleUpperCase("ru")}${hint.slice(1)}.`;
+}
+
 function pictureRows(): Row[] {
   const out: Row[] = [];
-  PIXELS.forEach((item, index) =>
+  PIXELS.forEach((item) =>
     out.push({
       category: PICTURE_CATEGORY.pixel,
-      prompt: `Один пиксель № ${index + 1}: ${item.hint}.`,
+      prompt: hintPrompt(item.hint),
       answer: item.answer,
       variants: item.variants ?? [],
       value: item.value,
@@ -66,10 +74,10 @@ function pictureRows(): Row[] {
       image_url: commonsImageUrl(item.file),
     }),
   );
-  MACROS.forEach((item, index) =>
+  MACROS.forEach((item) =>
     out.push({
       category: PICTURE_CATEGORY.macro,
-      prompt: `Супер-зум № ${index + 1}: ${item.hint}.`,
+      prompt: hintPrompt(item.hint),
       answer: item.answer,
       variants: item.variants ?? [],
       value: item.value,
@@ -80,6 +88,13 @@ function pictureRows(): Row[] {
       image_url: commonsImageUrl(item.file),
     }),
   );
+  const seen = new Set<string>();
+  for (const row of out) {
+    const key = `${row.category}\u0000${row.prompt}`;
+    if (seen.has(key) || /№\s*\d/.test(row.prompt))
+      throw new Error(`${row.category}: повтор или нумерация — ${row.prompt}`);
+    seen.add(key);
+  }
   return out;
 }
 

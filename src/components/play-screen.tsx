@@ -1,5 +1,6 @@
 "use client";
 
+import { displayPrompt } from "@/lib/game/prompt";
 import { useState, type FormEvent } from "react";
 import { Board } from "@/components/game/board";
 import {
@@ -455,7 +456,7 @@ function PlayTurn({
       </div>
       {current?.prompt && game.phase !== "board" ? (
         <p className={`phone-q mt-1 ${otherName ? "struck" : ""}`}>
-          {current.prompt}
+          {displayPrompt(current.prompt)}
         </p>
       ) : null}
       {otherName ? <p className="name-sticker hand">{otherName}</p> : null}

@@ -1,8 +1,10 @@
 /**
  * «Сколько стоило?»: числовой ответ засчитывается с допуском ±20%.
- * Понимает «20 копеек», «0,2 руб», «1,5 млн долларов», «$499», «двадцать»
- * не понимает — тогда решает обычная проверка и LLM-судья.
+ * Понимает «20 копеек», «0,2 руб», «1,5 млн долларов», «$499»,
+ * «пятьдесят миллионов», «полтора миллиона»; голое «450» на эталон
+ * «450 млн долларов» читается в единицах эталона.
  */
+import { numberWordsToDigits } from "@/lib/answers/numbers";
 import { PRICE_TOLERANCE } from "@/lib/packs/categories";
 
 export type Currency = "rub" | "usd" | "eur" | null;
@@ -17,10 +19,7 @@ const SCALE: Array<[RegExp, number]> = [
 
 /** Первое число в строке с множителем и валютой (рубли = базовая единица). */
 export function parsePrice(raw: string): ParsedPrice | null {
-  const text = raw
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/(\d)[\s\u00a0](?=\d{3}\b)/g, "$1");
+  const text = priceText(raw);
   const match = text.match(
     /(\d+(?:[.,]\d+)?)\s*([a-zа-я$€₽.]*)\s*([a-zа-я$€₽.]*)/i,
   );
@@ -46,6 +45,33 @@ export function parsePrice(raw: string): ParsedPrice | null {
     currency = "rub";
   }
   return { value, currency };
+}
+
+const SCALE_WORD = /(^|\s)(млрд|миллиард|млн|миллион|тыс|тысяч)/;
+
+/** Нижний регистр, числительные словами → цифры, «миллион» → «1 миллион». */
+function priceText(raw: string): string {
+  let text = raw
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/(^|\s)(полтора|полторы)(?=\s|$)/g, "$11,5");
+  text = numberWordsToDigits(text)
+    // «2 сто» не бывает, а «5 тысяч 300» — бывает; склеиваем «тысяч N»
+    .replace(/(\d)\s(тысяч\S*)\s(\d{1,3})(?=\s|$)/g, (_, a, _w, b) =>
+      String(Number(a) * 1000 + Number(b)),
+    );
+  if (!/\d/.test(text) && SCALE_WORD.test(text)) text = `1 ${text}`;
+  return text.replace(/(\d)[\s\u00a0](?=\d{3}\b)/g, "$1");
+}
+
+function scaleOf(raw: string): number {
+  const text = priceText(raw);
+  const hit = SCALE.find(([pattern]) =>
+    text.split(/[\s\d.,]+/).some((word) => pattern.test(word)),
+  );
+  return hit?.[1] ?? 1;
 }
 
 /**
@@ -78,5 +104,11 @@ export function priceWithinTolerance(
   } else if (want.currency && got.currency !== want.currency) {
     return false;
   }
-  return Math.abs(value - want.value) <= want.value * tolerance + 1e-9;
+  const within = (candidate: number) =>
+    Math.abs(candidate - want.value) <= want.value * tolerance + 1e-9;
+  if (within(value)) return true;
+  // «450» на «450 млн долларов»: игрок не назвал множитель — берём эталонный.
+  const wantScale = scaleOf(expected);
+  if (wantScale > 1 && scaleOf(given) === 1) return within(value * wantScale);
+  return false;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { displayPrompt } from "@/lib/game/prompt";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Board } from "@/components/game/board";
@@ -328,7 +329,7 @@ function HostRemote({
   const inQuestion = !["lobby", "board", "cat_pick", "finished"].includes(
     phase,
   );
-  const prompt = sheet?.prompt ?? current?.prompt ?? null;
+  const prompt = displayPrompt(sheet?.prompt ?? current?.prompt ?? null);
   const variants = (sheet?.variants ?? []).filter(
     (variant) => variant && variant !== sheet?.expected,
   );

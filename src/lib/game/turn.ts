@@ -2,7 +2,7 @@ import "server-only";
 import { checkAgainstVariants } from "@/lib/answers/check";
 import { isLlmCheckEnabled, judgeWithOpenRouter } from "@/lib/answers/llm";
 import { priceWithinTolerance } from "@/lib/answers/price";
-import { requireHost } from "@/lib/game/host-auth";
+import { requireHostOrPhone } from "@/lib/game/host-auth";
 import { PICTURE_JUDGE_NOTE } from "@/lib/pictures/rules";
 import { PRICE_CATEGORY, specialCategory } from "@/lib/packs/categories";
 import { isPictureFormat } from "@/lib/pictures/types";
@@ -278,14 +278,30 @@ export async function settleFinal(
 export async function hostAction(input: {
   action: string;
   code: string;
-  hostSecret: string;
+  hostSecret?: string;
+  /** Телефон ведущего вместо ключа комнаты. */
+  phoneToken?: string;
   correct?: boolean;
   questionId?: string;
   playerId?: string;
   decisions?: Array<{ playerId: string; correct: boolean }>;
 }) {
-  const auth = await requireHost(input.code, input.hostSecret);
+  const auth = await requireHostOrPhone(input.code, {
+    hostSecret: input.hostSecret,
+    phoneToken: input.phoneToken,
+  });
   if (!auth.ok) return { ok: false, error: auth.error };
+
+  if (input.action === "voice") {
+    // «Читать вопрос вслух» — общий флаг: его видят и экран, и телефон.
+    const on = input.correct === true;
+    const { error } = await auth.supabase
+      .from("rooms")
+      .update({ host_voice: on })
+      .eq("id", auth.room.id);
+    if (error) return { ok: false, error: "rpc_failed" };
+    return { ok: true, host_voice: on };
+  }
 
   // Ленивый шаг серверных часов: просроченный срок закрывается до хода ведущего.
   if (input.action !== "start" && input.action !== "clue") {

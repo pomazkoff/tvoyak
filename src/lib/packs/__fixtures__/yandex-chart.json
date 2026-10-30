@@ -1,1 +1,23 @@
-{"invocationInfo":{"req-id":"fixture"},"result":{"chart":{"tracks":[{"track":{"id":"1","title":"Трек один","artists":[{"name":"Артист А"},{"name":"Артист Б"}]}},{"track":{"id":"2","title":"Трек два","artists":[{"name":"Артист В"}]}}]}}}
+{
+  "invocationInfo": { "req-id": "fixture" },
+  "result": {
+    "chart": {
+      "tracks": [
+        {
+          "track": {
+            "id": "1",
+            "title": "Трек один",
+            "artists": [{ "name": "Артист А" }, { "name": "Артист Б" }]
+          }
+        },
+        {
+          "track": {
+            "id": "2",
+            "title": "Трек два",
+            "artists": [{ "name": "Артист В" }]
+          }
+        }
+      ]
+    }
+  }
+}

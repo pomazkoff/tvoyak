@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { BoardCell } from "@/components/game/board";
+import { serverOffset } from "@/components/game/server-clock";
 import {
   blurPx,
   openTileSet,
@@ -18,24 +19,6 @@ import {
   isPictureFormat,
   type PictureFx,
 } from "@/lib/pictures/types";
-
-/** Смещение серверных часов: картинка раскрывается от opened_at на сервере. */
-let offsetPromise: Promise<number> | null = null;
-
-function serverOffset(): Promise<number> {
-  if (!offsetPromise) {
-    const started = Date.now();
-    offsetPromise = fetch("/api/time", { cache: "no-store" })
-      .then((response) => response.json() as Promise<{ now?: number }>)
-      .then((body) => {
-        const finished = Date.now();
-        if (typeof body.now !== "number") return 0;
-        return body.now - (started + finished) / 2;
-      })
-      .catch(() => 0);
-  }
-  return offsetPromise;
-}
 
 /** Картинка грузится заранее: пока её нет, раскрытие не идёт. */
 type LoadedImage = {
@@ -244,8 +227,8 @@ function Tiles({ fx, progress }: { fx: PictureFx; progress: number }) {
 }
 
 /**
- * Картиночное задание на экране ведущего. На телефоны картинка не уходит:
- * там «Смотрите экран ведущего».
+ * Картиночное задание на экране ведущего и на телефоне игрока «не у экрана»
+ * (обычным телефонам — «Смотрите экран ведущего»).
  */
 export function PictureTask({
   cell,

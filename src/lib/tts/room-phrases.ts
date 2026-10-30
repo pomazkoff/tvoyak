@@ -92,3 +92,35 @@ export async function isAllowedInRoom(
   const phrases = await roomPhrases(supabase, roomId);
   return isAllowedPhrase(clean, { prompts: [], answers: phrases.answers });
 }
+
+/**
+ * Телефону игрока «не у экрана» можно озвучить только открытый сейчас
+ * вопрос — ни будущие вопросы, ни ответы.
+ */
+export async function isCurrentPrompt(
+  supabase: SupabaseClient,
+  roomId: string,
+  text: string,
+): Promise<boolean> {
+  const clean = normalizeTtsText(text);
+  if (!clean || clean.length > TTS_MAX_CHARS) return false;
+  const { data: game } = await supabase
+    .from("game_states")
+    .select("current_question_id, phase")
+    .eq("room_id", roomId)
+    .maybeSingle();
+  const questionId = (game as { current_question_id?: string | null } | null)
+    ?.current_question_id;
+  if (!questionId) return false;
+  const { data } = await supabase
+    .from("questions")
+    .select("prompt, status")
+    .eq("id", questionId)
+    .eq("room_id", roomId)
+    .maybeSingle();
+  const row = data as { prompt: string | null; status: string } | null;
+  if (!row?.prompt || row.status === "hidden") return false;
+  return [row.prompt, displayPrompt(row.prompt)].some(
+    (prompt) => normalizeTtsText(prompt) === clean,
+  );
+}

@@ -573,6 +573,12 @@ function Lobby({
                 style={{ transform: `rotate(${index % 2 ? 4 : -3}deg)` }}
               >
                 {player.nickname}
+                {player.remote ? (
+                  <span className="remote-mark" title="Играет не у экрана">
+                    {" "}
+                    📱
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -754,6 +760,11 @@ function GameView({
                 cell={current}
                 autoplay={!(hostMode === "human" && hostStartsMedia)}
                 revealed={game.phase === "reveal"}
+                onStart={
+                  ownsRoom
+                    ? () => void callHost(code, "media_start")
+                    : undefined
+                }
               />
             ) : null}
             {answering &&

@@ -96,3 +96,33 @@ export async function requireHostOrPhone(
     via: viaScreen ? ("screen" as const) : ("phone" as const),
   };
 }
+
+/**
+ * Игрок комнаты по своему ключу (телефон «не у экрана» — озвучка вопроса).
+ * Ключ сверяется по хешу в player_secrets.
+ */
+export async function requirePlayer(code: string, token: string) {
+  if (!token || token.length < 8)
+    return { ok: false as const, error: "bad_token" };
+  const supabase = getServiceSupabase();
+  const normalized = code.trim().toUpperCase();
+  const { data: room, error } = await supabase
+    .from("rooms")
+    .select("id, code, host_mode, status")
+    .eq("code", normalized)
+    .maybeSingle();
+  if (error || !room) return { ok: false as const, error: "room_not_found" };
+  const { data: secret } = await supabase
+    .from("player_secrets")
+    .select("player_id, players!inner(room_id)")
+    .eq("token_hash", hashSecret(token))
+    .eq("players.room_id", room.id)
+    .maybeSingle();
+  if (!secret) return { ok: false as const, error: "not_in_room" };
+  return {
+    ok: true as const,
+    supabase,
+    room: room as HostRoom,
+    playerId: (secret as { player_id: string }).player_id,
+  };
+}

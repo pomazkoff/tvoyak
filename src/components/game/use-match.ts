@@ -97,7 +97,7 @@ export function useMatch(code: string): MatchState {
         await Promise.all([
           supabase
             .from("players")
-            .select("id, nickname, role, score, joined_at")
+            .select("id, nickname, role, score, joined_at, remote")
             .eq("room_id", room.id)
             .order("joined_at", { ascending: true }),
           supabase
@@ -108,7 +108,7 @@ export function useMatch(code: string): MatchState {
           supabase
             .from("question_board")
             .select(
-              "id, round, category, value, row_index, col_index, status, prompt, special, assigned_player_id, revealed_answer, kind, youtube_id, vk_url, rutube_url, image_url, audio_url, audio_fx, start_seconds, end_seconds, vk_start_seconds, vk_end_seconds, curtain, picture, picture_fx, reveal_seconds, opened_at, image_license, image_credit, image_page",
+              "id, round, category, value, row_index, col_index, status, prompt, special, assigned_player_id, revealed_answer, kind, youtube_id, vk_url, rutube_url, image_url, audio_url, audio_fx, start_seconds, end_seconds, vk_start_seconds, vk_end_seconds, curtain, picture, picture_fx, reveal_seconds, opened_at, media_started_at, image_license, image_credit, image_page",
             )
             .eq("room_id", room.id),
           supabase

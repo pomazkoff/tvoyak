@@ -3,6 +3,7 @@
 import { displayPrompt } from "@/lib/game/prompt";
 import { useState, type FormEvent } from "react";
 import { Board } from "@/components/game/board";
+import { RemoteStage, roomVoiceDefault } from "@/components/game/remote-stage";
 import {
   requestMatchReload,
   secondsLeft,
@@ -16,7 +17,12 @@ import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { lateAnswerMessage, messageFor } from "@/lib/rooms/messages";
 import {
   clearPlayer,
+  readRemote,
   savePlayer,
+  saveRemote,
+  saveRemoteVoice,
+  useRemote,
+  useRemoteVoice,
   useStoredPlayer,
   type StoredPlayer,
 } from "@/lib/rooms/storage";
@@ -38,6 +44,12 @@ export function PlayScreen({ code }: { code: string }) {
   const [bye, setBye] = useState(false);
   const match = useMatch(code);
   const now = useNow();
+  // «Я не у экрана»: на форме входа — черновик, после входа — флаг телефона.
+  const remote = useRemote(normalized);
+  const [remoteDraft, setRemoteDraft] = useState(false);
+  const voiceChoice = useRemoteVoice(normalized);
+  const voice =
+    voiceChoice ?? (match.status === "ready" ? roomVoiceDefault(match) : false);
 
   if (!normalized) {
     return (
@@ -88,12 +100,40 @@ export function PlayScreen({ code }: { code: string }) {
       };
       savePlayer(normalized, nextSession);
       setMemorySession(nextSession);
+      if (remoteDraft || readRemote(normalized)) {
+        void setRemote(true, nextSession);
+      }
     } catch {
       setError(messageFor("network"));
     } finally {
       setPending(false);
     }
   }
+
+  async function setRemote(on: boolean, who: StoredPlayer | null = session) {
+    if (!normalized) return;
+    saveRemote(normalized, on);
+    if (!who) return;
+    try {
+      // Отметка для ведущего и других экранов; сам режим живёт на телефоне.
+      await getBrowserSupabase().rpc("set_player_remote", {
+        p_code: normalized,
+        p_player_token: who.token,
+        p_on: on,
+      });
+    } catch {
+      // Не страшно: телефон всё равно покажет вопрос.
+    }
+  }
+
+  const toggles = session ? (
+    <RemoteToggles
+      remote={remote}
+      voice={voice}
+      onRemote={(on) => void setRemote(on)}
+      onVoice={(on) => normalized && saveRemoteVoice(normalized, on)}
+    />
+  ) : null;
 
   async function leave() {
     if (!session || !normalized) return;
@@ -118,7 +158,7 @@ export function PlayScreen({ code }: { code: string }) {
       match.players.find((player) => player.id === session.playerId)?.score ??
       0;
     return (
-      <div className="phone">
+      <div className={`phone${remote ? " phone-remote" : ""}`}>
         <header className="phone-bar">
           <Logo compact />
           <p className="hand phone-who">
@@ -145,6 +185,7 @@ export function PlayScreen({ code }: { code: string }) {
           )}
         </header>
         <div className="phone-body">
+          {toggles}
           {error ? (
             <p className="px-3 text-danger" role="alert">
               {error}
@@ -158,6 +199,8 @@ export function PlayScreen({ code }: { code: string }) {
             pending={pending}
             setPending={setPending}
             setError={setError}
+            remote={remote}
+            voice={voice}
           />
         </div>
       </div>
@@ -177,6 +220,7 @@ export function PlayScreen({ code }: { code: string }) {
             {session.role === "spectator" ? "Вы зритель" : "Вы в игре"},{" "}
             {session.nickname}
           </p>
+          {toggles}
           {match.status === "ready" ? (
             <PlayTurn
               code={normalized}
@@ -186,6 +230,8 @@ export function PlayScreen({ code }: { code: string }) {
               pending={pending}
               setPending={setPending}
               setError={setError}
+              remote={remote}
+              voice={voice}
             />
           ) : (
             <p className="text-muted">Подключаемся к партии…</p>
@@ -223,6 +269,22 @@ export function PlayScreen({ code }: { code: string }) {
                 />
               </div>
             </fieldset>
+            <label className="mt-4 flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                role="switch"
+                className="remote-switch mt-1"
+                checked={remoteDraft}
+                onChange={(event) => setRemoteDraft(event.target.checked)}
+                name="remote"
+              />
+              <span>
+                Я не у экрана
+                <span className="block text-sm text-muted">
+                  Вопросы, картинки, видео и музыка — прямо на телефоне.
+                </span>
+              </span>
+            </label>
             <button
               type="submit"
               disabled={pending}
@@ -245,6 +307,8 @@ function PlayTurn({
   pending,
   setPending,
   setError,
+  remote,
+  voice,
 }: {
   code: string;
   session: StoredPlayer;
@@ -253,6 +317,9 @@ function PlayTurn({
   pending: boolean;
   setPending: (value: boolean) => void;
   setError: (value: string | null) => void;
+  /** «Я не у экрана»: телефон показывает лист вопроса целиком. */
+  remote: boolean;
+  voice: boolean;
 }) {
   const { game, players, board } = match;
   const [text, setText] = useState("");
@@ -454,7 +521,15 @@ function PlayTurn({
           </p>
         ) : null}
       </div>
-      {current?.prompt && game.phase !== "board" ? (
+      {remote ? (
+        <RemoteStage
+          code={code}
+          playerToken={session.token}
+          match={match}
+          voice={voice}
+        />
+      ) : null}
+      {current?.prompt && game.phase !== "board" && !remote ? (
         <p className={`phone-q mt-1 ${otherName ? "struck" : ""}`}>
           {displayPrompt(current.prompt)}
         </p>
@@ -471,11 +546,12 @@ function PlayTurn({
         </p>
       ) : null}
 
-      {game.phase === "board" ? (
+      {game.phase === "board" || (remote && game.phase === "cat_pick") ? (
         <Board
           cells={board}
           round={game.round}
-          canPick={iChoose && !pending}
+          activeId={remote ? game.current_question_id : undefined}
+          canPick={game.phase === "board" && iChoose && !pending}
           onPick={(cell) =>
             void rpc("pick_cell", {
               p_code: code,
@@ -526,7 +602,7 @@ function PlayTurn({
         </Panel>
       ) : null}
 
-      {game.phase === "cat_pick" && !iChoose ? (
+      {game.phase === "cat_pick" && !iChoose && !remote ? (
         <Panel>
           <p>
             Кот в мешке. {chooser?.nickname ?? "Игрок"} выбирает, кому отдать
@@ -535,7 +611,8 @@ function PlayTurn({
         </Panel>
       ) : null}
 
-      {current &&
+      {!remote &&
+      current &&
       (current.kind === "video" ||
         current.kind === "music" ||
         current.picture) &&
@@ -543,7 +620,8 @@ function PlayTurn({
         <p className="mt-2 text-[17px]">Смотрите экран ведущего.</p>
       ) : null}
       {/* Картиночные задания (ребус, размытие…) — только на экране ведущего. */}
-      {current?.kind === "image" &&
+      {!remote &&
+      current?.kind === "image" &&
       current.image_url &&
       !current.picture &&
       game.phase !== "board" ? (
@@ -731,5 +809,46 @@ function RoleChoice({
       />
       {label}
     </label>
+  );
+}
+
+function RemoteToggles({
+  remote,
+  voice,
+  onRemote,
+  onVoice,
+}: {
+  remote: boolean;
+  voice: boolean;
+  onRemote: (on: boolean) => void;
+  onVoice: (on: boolean) => void;
+}) {
+  return (
+    <div className="remote-toggles">
+      <label>
+        <input
+          type="checkbox"
+          role="switch"
+          className="remote-switch"
+          checked={remote}
+          onChange={(event) => onRemote(event.target.checked)}
+          aria-label="Я не у экрана"
+        />
+        Я не у экрана
+      </label>
+      {remote ? (
+        <label>
+          <input
+            type="checkbox"
+            role="switch"
+            className="remote-switch"
+            checked={voice}
+            onChange={(event) => onVoice(event.target.checked)}
+            aria-label="Голос ведущего"
+          />
+          Голос ведущего
+        </label>
+      ) : null}
+    </div>
   );
 }

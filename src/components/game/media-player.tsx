@@ -109,6 +109,9 @@ function nextProvider(cell: BoardCell, failed: Provider): Provider {
 }
 
 function firstProvider(cell: BoardCell): Provider {
+  // Вопрос только на слух со своим звуком (/media/…) — играем его сразу:
+  // YouTube в России без VPN не открывается, а свой файл грузится всегда.
+  if (cell.audio_url && (cell.kind === "music" || cell.curtain)) return "none";
   if (hasVk(cell)) return "vk";
   if (cell.youtube_id) return "youtube";
   return cell.rutube_url ? "rutube" : "none";
@@ -137,6 +140,11 @@ function loadYouTubeApi(): Promise<void> {
 const END_GUARD_SECONDS = 0.35;
 const YT_ENDED = 0;
 const YT_PLAYING = 1;
+/**
+ * YouTube заблокирован или не отвечает: если плеер не готов за это время,
+ * уходим на следующий источник (VK → Rutube → свой звук), а не висим молча.
+ */
+const YT_GIVE_UP_MS = 10000;
 /** Удалённый телефон: если ролик не пошёл сам (iOS), даём нажать на плеер. */
 const REMOTE_TAP_MS = 3500;
 /** Расхождение с общим экраном, после которого перематываем. */
@@ -187,6 +195,10 @@ export function MediaPlayer({
     let timer = 0;
     let touchTimer = 0;
     let synced = false;
+    let ready = false;
+    const giveUp = window.setTimeout(() => {
+      if (!ready && !stopped) setProvider(nextProvider(cell, "youtube"));
+    }, YT_GIVE_UP_MS);
     const start = cell.start_seconds ?? 0;
     const endAt =
       cell.end_seconds && cell.end_seconds > start ? cell.end_seconds : null;
@@ -221,6 +233,8 @@ export function MediaPlayer({
         events: {
           onError: () => setProvider(nextProvider(cell, "youtube")),
           onReady: (event) => {
+            ready = true;
+            window.clearTimeout(giveUp);
             const frame = event.target.getIframe?.();
             if (frame) {
               frame.setAttribute("tabindex", "-1");
@@ -271,6 +285,7 @@ export function MediaPlayer({
       stopped = true;
       window.clearInterval(timer);
       window.clearTimeout(touchTimer);
+      window.clearTimeout(giveUp);
       playerRef.current?.destroy();
       playerRef.current = null;
     };

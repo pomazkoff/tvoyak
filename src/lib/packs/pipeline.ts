@@ -422,18 +422,31 @@ export type ExistingQuestion = {
 /** Банк и ещё не отклонённые черновики — чтобы пачки не повторяли друг друга. */
 export async function loadExisting(): Promise<ExistingQuestion[]> {
   const supabase = getServiceSupabase();
+  // PostgREST отдаёт не больше 1000 строк за запрос (max_rows), а банк уже
+  // больше — читаем страницами, иначе дедупликация видит только часть банка.
+  const PAGE = 1000;
+  async function readAll(table: "question_bank" | "pack_items") {
+    const rows: Array<{ category: unknown; prompt: unknown; answer: unknown }> =
+      [];
+    for (let from = 0; from < 50_000; from += PAGE) {
+      let query = supabase
+        .from(table)
+        .select("id, category, prompt, answer")
+        .order("id")
+        .range(from, from + PAGE - 1);
+      if (table === "pack_items") query = query.eq("status", "draft");
+      const { data, error } = await query;
+      if (error) throw new Error(`load_existing_${table}: ${error.message}`);
+      rows.push(...(data ?? []));
+      if (!data || data.length < PAGE) break;
+    }
+    return rows;
+  }
   const [bank, drafts] = await Promise.all([
-    supabase
-      .from("question_bank")
-      .select("category, prompt, answer")
-      .limit(5000),
-    supabase
-      .from("pack_items")
-      .select("category, prompt, answer")
-      .eq("status", "draft")
-      .limit(5000),
+    readAll("question_bank"),
+    readAll("pack_items"),
   ]);
-  return [...(bank.data ?? []), ...(drafts.data ?? [])].map((row) => ({
+  return [...bank, ...drafts].map((row) => ({
     category: String(row.category),
     prompt: String(row.prompt),
     answer: String(row.answer),

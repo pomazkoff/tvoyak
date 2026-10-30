@@ -1,5 +1,5 @@
 import "server-only";
-import { checkAgainstVariants } from "@/lib/answers/check";
+import { checkAgainstVariants, needsLlm } from "@/lib/answers/check";
 import { isLlmCheckEnabled, judgeWithOpenRouter } from "@/lib/answers/llm";
 import { priceWithinTolerance } from "@/lib/answers/price";
 import { requireHostOrPhone } from "@/lib/game/host-auth";
@@ -51,18 +51,23 @@ function asVariants(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-type QuestionContext = { note: string | null; category: string | null };
+type QuestionContext = {
+  note: string | null;
+  category: string | null;
+  prompt: string | null;
+};
 
 /**
  * Тема и формат вопроса — чтобы подсказать судье, как принимать ответ
  * (картинки, «Сколько стоило?» с допуском ±20% и другие особые темы).
  */
 async function questionContext(questionId: unknown): Promise<QuestionContext> {
-  if (typeof questionId !== "string") return { note: null, category: null };
+  const empty = { note: null, category: null, prompt: null };
+  if (typeof questionId !== "string") return empty;
   try {
     const { data } = await getServiceSupabase()
       .from("questions")
-      .select("picture, category")
+      .select("picture, category, prompt")
       .eq("id", questionId)
       .maybeSingle();
     const picture = data?.picture;
@@ -70,9 +75,10 @@ async function questionContext(questionId: unknown): Promise<QuestionContext> {
     const note = isPictureFormat(picture)
       ? PICTURE_JUDGE_NOTE[picture]
       : (specialCategory(category)?.judge ?? null);
-    return { note, category };
+    const prompt = typeof data?.prompt === "string" ? data.prompt : null;
+    return { note, category, prompt };
   } catch {
-    return { note: null, category: null };
+    return empty;
   }
 }
 
@@ -109,17 +115,20 @@ export async function judgeText(
   }
   const local = checkAgainstVariants(given, expected, variants);
   if (local.correct) return { correct: true, method: local.method };
-  await loadOnce();
-  if (local.ambiguous && isLlmCheckEnabled()) {
+  // Раньше LLM спрашивали только про «похожие» строки (сходство ≥ 0.55), и
+  // перевод, транслит или другое название («Stranger Things» на «Очень
+  // странные дела») до него не доходили. Теперь — про всё, что не точно мимо.
+  if (needsLlm(local) && isLlmCheckEnabled()) {
+    const ctx = (await loadOnce()) as QuestionContext | null;
     try {
-      const hint = variants.length
-        ? `${expected}. Также засчитай совпадение с: ${variants.join(", ")}`
-        : expected;
-      const correct = await judgeWithOpenRouter(
+      const correct = await judgeWithOpenRouter({
         given,
-        hint,
-        (context as QuestionContext | null)?.note,
-      );
+        expected,
+        variants,
+        question: ctx?.prompt,
+        category: ctx?.category,
+        note: ctx?.note,
+      });
       return { correct, method: "llm" as const };
     } catch {
       return { correct: false, method: "fuzzy" as const };

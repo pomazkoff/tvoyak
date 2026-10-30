@@ -1,0 +1,254 @@
+[
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 100,
+  "prompt": "Голос из прошлого № 1: переговоры с Землёй 12 апреля 1961 года — чей это голос?",
+  "answer": "Юрий Гагарин",
+  "variants": [
+   "Гагарин"
+  ],
+  "youtube_id": "t3yh7fMfxnk",
+  "start_seconds": 21,
+  "end_seconds": 55,
+  "source": "Радиообмен перед стартом «Востока», 12.04.1961; позывной «Кедр»; https://youtu.be/t3yh7fMfxnk"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 200,
+  "prompt": "Голос из прошлого № 2: знаменитый хоккейный комментарий — чей это голос?",
+  "answer": "Николай Озеров",
+  "variants": [
+   "Озеров"
+  ],
+  "youtube_id": "fQmPXbRlMoE",
+  "start_seconds": 0,
+  "end_seconds": 14,
+  "source": "Н. Озеров, «Такой хоккей нам не нужен!», Суперсерия СССР — Канада, 1972; https://youtu.be/fQmPXbRlMoE"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 100,
+  "prompt": "Голос из прошлого № 3: запись с Луны, 21 июля 1969 года — чей это голос?",
+  "answer": "Нил Армстронг",
+  "variants": [
+   "Армстронг",
+   "Neil Armstrong"
+  ],
+  "youtube_id": "kY4iToWbTcE",
+  "start_seconds": 0,
+  "end_seconds": 14,
+  "source": "NASA, Apollo 11: «That's one small step for man...»; https://youtu.be/kY4iToWbTcE"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 200,
+  "prompt": "Голос из прошлого № 4: презентация 9 января 2007 года — чей это голос?",
+  "answer": "Стив Джобс",
+  "variants": [
+   "Джобс",
+   "Steve Jobs"
+  ],
+  "youtube_id": "GK55ElsVzxM",
+  "start_seconds": 0,
+  "end_seconds": 30,
+  "source": "Macworld 2007, анонс iPhone; https://youtu.be/GK55ElsVzxM"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 300,
+  "prompt": "Голос из прошлого № 5: кто из актёров озвучил этого мультгероя?",
+  "answer": "Анатолий Папанов",
+  "variants": [
+   "Папанов"
+  ],
+  "youtube_id": "01HV5o2xoUE",
+  "start_seconds": 0,
+  "end_seconds": 15,
+  "source": "Папанов озвучивал Волка в «Ну, погоди!» (1969–1986); https://youtu.be/01HV5o2xoUE"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 300,
+  "prompt": "Голос из прошлого № 6: кто из актёров озвучил главного героя этого мультфильма?",
+  "answer": "Евгений Леонов",
+  "variants": [
+   "Леонов"
+  ],
+  "youtube_id": "kcinaQXzTlU",
+  "start_seconds": 30,
+  "end_seconds": 60,
+  "source": "«Винни-Пух идёт в гости», Союзмультфильм, 1971; Винни-Пуха озвучил Е. Леонов; https://youtu.be/kcinaQXzTlU"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 400,
+  "prompt": "Голос из прошлого № 7: реклама 1994 года — какую компанию рекламирует этот герой?",
+  "answer": "МММ",
+  "variants": [
+   "АО МММ",
+   "ммм",
+   "Мавроди"
+  ],
+  "youtube_id": "qZAejyN9Hxo",
+  "start_seconds": 0,
+  "end_seconds": 18,
+  "source": "Рекламная кампания АО «МММ» с Лёней Голубковым, 1994; https://youtu.be/qZAejyN9Hxo"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 100,
+  "prompt": "Голос из прошлого № 8: из какого фильма эта фраза?",
+  "answer": "Бриллиантовая рука",
+  "variants": [],
+  "youtube_id": "E0jqZQrnTE0",
+  "start_seconds": 0,
+  "end_seconds": 20,
+  "source": "«Бриллиантовая рука», Л. Гайдай, 1968; https://youtu.be/E0jqZQrnTE0"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 200,
+  "prompt": "Голос из прошлого № 9: из какого фильма эта фраза?",
+  "answer": "Бриллиантовая рука",
+  "variants": [],
+  "youtube_id": "XYl3k_q5GTI",
+  "start_seconds": 0,
+  "end_seconds": 30,
+  "source": "«Бриллиантовая рука», Л. Гайдай, 1968; https://youtu.be/XYl3k_q5GTI"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 200,
+  "prompt": "Голос из прошлого № 10: из какого фильма эта фраза?",
+  "answer": "Белое солнце пустыни",
+  "variants": [],
+  "youtube_id": "B-JMkYBQsuY",
+  "start_seconds": 0,
+  "end_seconds": 20,
+  "source": "«Белое солнце пустыни», В. Мотыль, 1969 (канал Мосфильма); https://youtu.be/B-JMkYBQsuY"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 100,
+  "prompt": "Голос из прошлого № 11: из какого фильма эта фраза?",
+  "answer": "Операция «Ы» и другие приключения Шурика",
+  "variants": [
+   "Операция Ы",
+   "Операция «Ы»"
+  ],
+  "youtube_id": "y1UVoJ4Wp-o",
+  "start_seconds": 0,
+  "end_seconds": 23,
+  "source": "«Операция „Ы“...», Л. Гайдай, 1965, новелла «Напарник»; https://youtu.be/y1UVoJ4Wp-o"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 200,
+  "prompt": "Голос из прошлого № 12: из какого фильма эта фраза?",
+  "answer": "Кавказская пленница",
+  "variants": [
+   "Кавказская пленница, или Новые приключения Шурика"
+  ],
+  "youtube_id": "ZY9kR-antsI",
+  "start_seconds": 0,
+  "end_seconds": 51,
+  "source": "«Кавказская пленница», Л. Гайдай, 1966; https://youtu.be/ZY9kR-antsI"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 300,
+  "prompt": "Голос из прошлого № 13: из какого фильма эта фраза?",
+  "answer": "Кавказская пленница",
+  "variants": [
+   "Кавказская пленница, или Новые приключения Шурика"
+  ],
+  "youtube_id": "YhX8oAM92Rk",
+  "start_seconds": 0,
+  "end_seconds": 16,
+  "source": "«Кавказская пленница», Л. Гайдай, 1966; https://youtu.be/YhX8oAM92Rk"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 100,
+  "prompt": "Голос из прошлого № 14: из какого фильма эта фраза?",
+  "answer": "Иван Васильевич меняет профессию",
+  "variants": [
+   "Иван Васильевич"
+  ],
+  "youtube_id": "56X9AP6R8v8",
+  "start_seconds": 0,
+  "end_seconds": 22,
+  "source": "«Иван Васильевич меняет профессию», Л. Гайдай, 1973 (канал Мосфильма); https://youtu.be/56X9AP6R8v8"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 200,
+  "prompt": "Голос из прошлого № 15: из какого фильма эта фраза?",
+  "answer": "Иван Васильевич меняет профессию",
+  "variants": [
+   "Иван Васильевич"
+  ],
+  "youtube_id": "vWNspf8IGZQ",
+  "start_seconds": 0,
+  "end_seconds": 12,
+  "source": "«Иван Васильевич меняет профессию», Л. Гайдай, 1973; https://youtu.be/vWNspf8IGZQ"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 300,
+  "prompt": "Голос из прошлого № 16: из какого фильма эта фраза?",
+  "answer": "Ирония судьбы, или С лёгким паром!",
+  "variants": [
+   "Ирония судьбы"
+  ],
+  "youtube_id": "qR9MJYRla_Q",
+  "start_seconds": 0,
+  "end_seconds": 11,
+  "source": "«Ирония судьбы, или С лёгким паром!», Э. Рязанов, 1975; https://youtu.be/qR9MJYRla_Q"
+ },
+ {
+  "category": "Голос из прошлого",
+  "kind": "video",
+  "curtain": true,
+  "value": 400,
+  "prompt": "Голос из прошлого № 17: из какого мультфильма эта фраза?",
+  "answer": "Тайна третьей планеты",
+  "variants": [],
+  "youtube_id": "Q-vn3rf2ZOk",
+  "start_seconds": 0,
+  "end_seconds": 23,
+  "source": "«Тайна третьей планеты», Р. Качанов, 1981; https://youtu.be/Q-vn3rf2ZOk"
+ }
+]

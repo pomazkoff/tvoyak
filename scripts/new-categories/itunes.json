@@ -1,0 +1,233 @@
+[
+ {
+  "artist": "Michael Jackson",
+  "title": "Billie Jean",
+  "fx": "slow",
+  "value": 100,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/dc/bc/8a/dcbc8a3e-4ce1-c00d-cc02-eda2212053c7/mzaf_8347559338388601510.plus.aac.p.m4a",
+  "track": "Billie Jean",
+  "found_artist": "Michael Jackson",
+  "country": "ru",
+  "ms": 293802
+ },
+ {
+  "artist": "ABBA",
+  "title": "Dancing Queen",
+  "fx": "slow",
+  "value": 200,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/ec/b1/63/ecb163bc-aff2-4dd2-d40b-c044f0b9fa4d/mzaf_4358783485405794088.plus.aac.p.m4a",
+  "track": "Dancing Queen",
+  "found_artist": "ABBA",
+  "country": "ru",
+  "ms": 231844
+ },
+ {
+  "artist": "Nirvana",
+  "title": "Smells Like Teen Spirit",
+  "fx": "reverse",
+  "value": 400,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/f3/44/8e/f3448ec9-0637-5596-0591-64967a1b91e0/mzaf_48309923359714877.plus.aac.p.m4a",
+  "track": "Smells Like Teen Spirit",
+  "found_artist": "Nirvana",
+  "country": "ru",
+  "ms": 301096
+ },
+ {
+  "artist": "Кино",
+  "title": "Группа крови",
+  "fx": "slow",
+  "value": 100,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/16/fa/e1/16fae13f-5a75-56e9-beba-dbefd2275513/mzaf_11963562901282853013.plus.aac.p.m4a",
+  "track": "Группа крови",
+  "found_artist": "Кино",
+  "country": "ru",
+  "ms": 239827
+ },
+ {
+  "artist": "Руки Вверх!",
+  "title": "Крошка моя",
+  "fx": "slow",
+  "value": 200,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/a8/b5/78/a8b578cb-890a-0d16-36c0-d37889bd6884/mzaf_15065480111231795238.plus.aac.p.m4a",
+  "track": "Крошка моя",
+  "found_artist": "Руки Вверх",
+  "country": "ru",
+  "ms": 250749
+ },
+ {
+  "artist": "Король и Шут",
+  "title": "Лесник",
+  "fx": "reverse",
+  "value": 500,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/16/5b/19/165b19ac-8c37-1dd8-ff41-4f63d1ca83d2/mzaf_11400848126157062154.plus.aac.p.m4a",
+  "track": "Лесник",
+  "found_artist": "Король и Шут",
+  "country": "ru",
+  "ms": 191613
+ },
+ {
+  "artist": "Земфира",
+  "title": "Хочешь?",
+  "fx": "slow",
+  "value": 300,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/b9/65/a0/b965a0d7-9e3c-f4b6-90e9-a4da36dc8042/mzaf_10308222466667582625.plus.aac.p.m4a",
+  "track": "ХОЧЕШЬ?",
+  "found_artist": "Земфира",
+  "country": "ru",
+  "ms": 198000
+ },
+ {
+  "artist": "t.A.T.u.",
+  "title": "Нас не догонят",
+  "fx": "reverse",
+  "value": 400,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/67/8d/2e/678d2e96-0e14-49dc-66bb-b9430ee888a2/mzaf_10153827792025984305.plus.aac.p.m4a",
+  "track": "Нас не догонят",
+  "found_artist": "t.A.T.u.",
+  "country": "ru",
+  "ms": 276000
+ },
+ {
+  "artist": "Ed Sheeran",
+  "title": "Shape of You",
+  "fx": "slow",
+  "value": 200,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/44/c7/4f/44c74f0d-72dc-6143-d4d0-ba14d661ca0d/mzaf_9566898362556366703.plus.aac.p.m4a",
+  "track": "Shape of You",
+  "found_artist": "Ed Sheeran",
+  "country": "ru",
+  "ms": 233713
+ },
+ {
+  "artist": "PSY",
+  "title": "Gangnam Style",
+  "fx": "reverse",
+  "value": 300,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/00/53/c6/0053c6f7-6342-7a3d-37c5-60b896948bdb/mzaf_10727579274479911915.plus.aac.p.m4a",
+  "track": "Gangnam Style",
+  "found_artist": "PSY",
+  "country": "ru",
+  "ms": 219493
+ },
+ {
+  "artist": "Luis Fonsi",
+  "title": "Despacito",
+  "fx": "slow",
+  "value": 100,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/0d/cb/ec/0dcbec41-5e9e-bd09-7cdd-fdff44acdf78/mzaf_17345185466754008149.plus.aac.p.m4a",
+  "track": "Despacito",
+  "found_artist": "Luis Fonsi & Daddy Yankee",
+  "country": "ru",
+  "ms": 229387
+ },
+ {
+  "artist": "The Beatles",
+  "title": "Yesterday",
+  "fx": "slow",
+  "value": 300,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/d1/69/2d/d1692d74-fe32-c676-7a1d-00deacae1644/mzaf_11316115358642175957.plus.aac.p.m4a",
+  "track": "Yesterday",
+  "found_artist": "The Beatles",
+  "country": "ru",
+  "ms": 125667
+ },
+ {
+  "artist": "Coldplay",
+  "title": "Viva la Vida",
+  "fx": "reverse",
+  "value": 400,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/8c/bb/68/8cbb6818-175a-d46c-93de-7145fc66d332/mzaf_5442307369244073775.plus.aac.p.m4a",
+  "track": "Viva la Vida",
+  "found_artist": "Coldplay",
+  "country": "ru",
+  "ms": 241445
+ },
+ {
+  "artist": "Eminem",
+  "title": "Lose Yourself",
+  "fx": "slow",
+  "value": 300,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/13/5a/61/135a6154-8ca2-0523-1fa2-f4ac0ea9e1e7/mzaf_13242749689945681184.plus.aac.p.m4a",
+  "track": "Lose Yourself",
+  "found_artist": "Eminem",
+  "country": "ru",
+  "ms": 321960
+ },
+ {
+  "artist": "Adele",
+  "title": "Rolling in the Deep",
+  "fx": "slow",
+  "value": 300,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/89/27/1b/89271b8c-74c5-955a-ed3b-86e44e5012bf/mzaf_14153268409398031391.plus.aac.p.m4a",
+  "track": "Rolling In the Deep",
+  "found_artist": "Adele",
+  "country": "ru",
+  "ms": 228093
+ },
+ {
+  "artist": "Сплин",
+  "title": "Выхода нет",
+  "fx": "slow",
+  "value": 400,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/4c/55/ff/4c55ff85-7312-52a9-b0d6-e5d281ed8244/mzaf_8619854647132315838.plus.aac.p.m4a",
+  "track": "Выхода нет",
+  "found_artist": "Сплин",
+  "country": "ru",
+  "ms": 227653
+ },
+ {
+  "artist": "Linkin Park",
+  "title": "Numb",
+  "fx": "reverse",
+  "value": 500,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/93/dc/45/93dc455c-483f-8931-ef2e-cec30e2ed4bb/mzaf_3013383482601094146.plus.aac.p.m4a",
+  "track": "Numb",
+  "found_artist": "LINKIN PARK",
+  "country": "ru",
+  "ms": 187508
+ },
+ {
+  "artist": "Мумий Тролль",
+  "title": "Владивосток 2000",
+  "fx": "slow",
+  "value": 400,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/dc/76/8c/dc768cdc-2683-48b9-4134-44e002bc0f2b/mzaf_9423482610402942563.plus.aac.p.m4a",
+  "track": "Владивосток 2000",
+  "found_artist": "Мумий Тролль",
+  "country": "ru",
+  "ms": 161707
+ },
+ {
+  "artist": "Daft Punk",
+  "title": "Get Lucky",
+  "fx": "slow",
+  "value": 200,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/33/9c/29/339c2970-e296-b109-c11a-878534d40067/mzaf_12572643936196072909.plus.aac.p.m4a",
+  "track": "Get Lucky (feat. Pharrell Williams) [Radio Edit]",
+  "found_artist": "Daft Punk",
+  "country": "ru",
+  "ms": 247633
+ },
+ {
+  "artist": "Алла Пугачёва",
+  "title": "Миллион алых роз",
+  "fx": "slow",
+  "value": 100,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/a2/ce/5d/a2ce5d63-27a1-0e5b-4955-73e136353f69/mzaf_4380538342471648293.plus.aac.p.m4a",
+  "track": "Миллион алых роз",
+  "found_artist": "Алла Пугачёва",
+  "country": "ru",
+  "ms": 353733
+ },
+ {
+  "artist": "Imagine Dragons",
+  "title": "Believer",
+  "fx": "reverse",
+  "value": 300,
+  "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/c0/3f/36/c03f367a-b66b-fd0a-a54c-30f8250c4410/mzaf_12768434238801682952.plus.aac.p.m4a",
+  "track": "Believer",
+  "found_artist": "Imagine Dragons",
+  "country": "ru",
+  "ms": 204345
+ }
+]

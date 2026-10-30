@@ -1,8 +1,10 @@
 import "server-only";
 import { checkAgainstVariants } from "@/lib/answers/check";
 import { isLlmCheckEnabled, judgeWithOpenRouter } from "@/lib/answers/llm";
+import { priceWithinTolerance } from "@/lib/answers/price";
 import { requireHost } from "@/lib/game/host-auth";
 import { PICTURE_JUDGE_NOTE } from "@/lib/pictures/rules";
+import { PRICE_CATEGORY, specialCategory } from "@/lib/packs/categories";
 import { isPictureFormat } from "@/lib/pictures/types";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 
@@ -49,19 +51,28 @@ function asVariants(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-/** Формат картиночного задания — чтобы подсказать судье, как принимать ответ. */
-async function pictureNote(questionId: unknown): Promise<string | null> {
-  if (typeof questionId !== "string") return null;
+type QuestionContext = { note: string | null; category: string | null };
+
+/**
+ * Тема и формат вопроса — чтобы подсказать судье, как принимать ответ
+ * (картинки, «Сколько стоило?» с допуском ±20% и другие особые темы).
+ */
+async function questionContext(questionId: unknown): Promise<QuestionContext> {
+  if (typeof questionId !== "string") return { note: null, category: null };
   try {
     const { data } = await getServiceSupabase()
       .from("questions")
-      .select("picture")
+      .select("picture, category")
       .eq("id", questionId)
       .maybeSingle();
     const picture = data?.picture;
-    return isPictureFormat(picture) ? PICTURE_JUDGE_NOTE[picture] : null;
+    const category = typeof data?.category === "string" ? data.category : null;
+    const note = isPictureFormat(picture)
+      ? PICTURE_JUDGE_NOTE[picture]
+      : (specialCategory(category)?.judge ?? null);
+    return { note, category };
   } catch {
-    return null;
+    return { note: null, category: null };
   }
 }
 
@@ -69,16 +80,33 @@ export async function judgeText(
   given: string,
   expected: string,
   variants: string[],
-  loadNote?: () => Promise<string | null>,
+  loadContext?: () => Promise<QuestionContext>,
 ) {
+  let context: QuestionContext | null = null;
+  const loadOnce = async () => {
+    if (!context && loadContext) context = await loadContext();
+    return context;
+  };
+  // Цена: число в пределах ±20% от эталона — засчитано, дальше — нет.
+  // Раньше нечёткой проверки: «25 копеек» и «20 копеек» отличаются одной
+  // буквой, но это ошибка на 25%.
+  if (/\d/.test(expected) && (await loadOnce())?.category === PRICE_CATEGORY) {
+    const price = priceWithinTolerance(given, expected);
+    if (price !== null) return { correct: price, method: "fuzzy" as const };
+  }
   const local = checkAgainstVariants(given, expected, variants);
-  if (!local.correct && local.ambiguous && isLlmCheckEnabled()) {
+  if (local.correct) return { correct: true, method: local.method };
+  await loadOnce();
+  if (local.ambiguous && isLlmCheckEnabled()) {
     try {
       const hint = variants.length
         ? `${expected}. Также засчитай совпадение с: ${variants.join(", ")}`
         : expected;
-      const note = loadNote ? await loadNote() : null;
-      const correct = await judgeWithOpenRouter(given, hint, note);
+      const correct = await judgeWithOpenRouter(
+        given,
+        hint,
+        (context as QuestionContext | null)?.note,
+      );
       return { correct, method: "llm" as const };
     } catch {
       return { correct: false, method: "fuzzy" as const };
@@ -102,7 +130,7 @@ export async function submitPlayerAnswer(
       String(begun.raw_text ?? text),
       String(begun.expected ?? ""),
       asVariants(begun.variants),
-      () => pictureNote(begun.question_id),
+      () => questionContext(begun.question_id),
     );
     if (begun.host_mode === "bot") {
       const applied = await callRpc("apply_verdict", {
@@ -190,6 +218,7 @@ async function loadFinalDecisions(code: string): Promise<
       row.raw_text ?? "",
       String(sheet.expected ?? ""),
       asVariants(sheet.variants),
+      () => questionContext(sheet.question_id),
     );
     decisions.push({
       player_id: row.player_id,

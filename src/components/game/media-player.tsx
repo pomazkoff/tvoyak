@@ -9,6 +9,13 @@ import {
   vkSegment,
 } from "@/lib/media/vk";
 import { fallbackSrc, youtubeEmbedVars } from "@/lib/media/youtube";
+import {
+  AUDIO_FX_LABEL,
+  SLOW_RATE,
+  isAudioFx,
+  reversedSegment,
+  type AudioFx,
+} from "@/lib/media/audio-fx";
 
 type Provider = "youtube" | "vk" | "rutube" | "none";
 
@@ -348,6 +355,19 @@ export function MediaPlayer({
 
   if (cell.kind !== "video" && cell.kind !== "music") return null;
 
+  if (cell.audio_url && provider === "none" && isAudioFx(cell.audio_fx)) {
+    return (
+      <TwistedAudio
+        src={cell.audio_url}
+        fx={cell.audio_fx}
+        start={cell.start_seconds ?? 0}
+        end={cell.end_seconds}
+        autoplay={autoplay}
+        revealed={revealed}
+      />
+    );
+  }
+
   if (cell.audio_url && provider === "none") {
     return (
       <AudioPreview
@@ -506,6 +526,175 @@ function AudioPreview({
                 : "Слушаем"}
           </p>
           <p className="media-audio-note poster">музыкальный вопрос</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * «Звук наоборот»: то же 30-секундное превью iTunes, но задом наперёд или
+ * замедленно. Файл не копируется и не хранится: браузер сам скачивает
+ * превью (у audio-ssl.itunes.apple.com открыт CORS), декодирует в Web Audio
+ * и играет перевёрнутый буфер или с пониженной скоростью. После ответа —
+ * кнопка «Как в оригинале».
+ */
+function TwistedAudio({
+  src,
+  fx,
+  start,
+  end,
+  autoplay,
+  revealed,
+}: {
+  src: string;
+  fx: AudioFx;
+  start: number;
+  end: number | null;
+  autoplay: boolean;
+  revealed: boolean;
+}) {
+  const contextRef = useRef<AudioContext | null>(null);
+  const bufferRef = useRef<{ twisted: AudioBuffer; plain: AudioBuffer } | null>(
+    null,
+  );
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const [state, setState] = useState<
+    "loading" | "ready" | "playing" | "finished" | "failed"
+  >("loading");
+  const [needsTap, setNeedsTap] = useState(!autoplay);
+  const wantPlay = useRef(autoplay);
+
+  function stop() {
+    try {
+      sourceRef.current?.stop();
+    } catch {}
+    sourceRef.current = null;
+    setState((current) => (current === "playing" ? "finished" : current));
+  }
+
+  function play(which: "twisted" | "plain") {
+    const context = contextRef.current;
+    const buffers = bufferRef.current;
+    if (!context || !buffers) {
+      wantPlay.current = true;
+      return;
+    }
+    stop();
+    const node = context.createBufferSource();
+    node.buffer = buffers[which];
+    node.playbackRate.value =
+      which === "twisted" && fx === "slow" ? SLOW_RATE : 1;
+    node.connect(context.destination);
+    node.onended = () => {
+      if (sourceRef.current === node) {
+        sourceRef.current = null;
+        setState("finished");
+      }
+    };
+    sourceRef.current = node;
+    const begin = () => {
+      node.start();
+      setState("playing");
+      setNeedsTap(false);
+    };
+    if (context.state === "suspended") {
+      // Без жеста пользователя браузер не даст звук — остаётся кнопка.
+      context
+        .resume()
+        .then(() => (context.state === "running" ? begin() : setNeedsTap(true)))
+        .catch(() => setNeedsTap(true));
+      window.setTimeout(() => {
+        if (context.state !== "running") setNeedsTap(true);
+      }, 400);
+    } else begin();
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    const Context =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!Context) {
+      queueMicrotask(() => {
+        if (!cancelled) setState("failed");
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    const context = new Context();
+    contextRef.current = context;
+    fetch(src, { mode: "cors", credentials: "omit" })
+      .then((response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        return response.arrayBuffer();
+      })
+      .then((data) => context.decodeAudioData(data))
+      .then((decoded) => {
+        if (cancelled) return;
+        const segment = reversedSegment(context, decoded, start, end, fx);
+        bufferRef.current = segment;
+        setState("ready");
+        if (wantPlay.current) play("twisted");
+      })
+      .catch(() => {
+        if (!cancelled) setState("failed");
+      });
+    return () => {
+      cancelled = true;
+      stop();
+      contextRef.current = null;
+      void context.close().catch(() => undefined);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, fx, start, end]);
+
+  // На вскрытии ответа перевёрнутый звук гасим — дальше кнопка оригинала.
+  useEffect(() => {
+    if (revealed) queueMicrotask(stop);
+  }, [revealed]);
+
+  const label =
+    state === "failed"
+      ? "Трек не открылся"
+      : state === "loading"
+        ? "Готовим звук…"
+        : state === "finished"
+          ? "Трек закончился"
+          : state === "playing"
+            ? "Слушаем"
+            : "Звук готов";
+
+  return (
+    <div className="media-block" data-audio-fx={fx} data-audio-state={state}>
+      {needsTap && !revealed && state !== "failed" && state !== "finished" ? (
+        <button
+          type="button"
+          onClick={() => play("twisted")}
+          className="action media-start"
+        >
+          Включить трек
+        </button>
+      ) : null}
+      {revealed && state !== "failed" && state !== "loading" ? (
+        <button
+          type="button"
+          onClick={() => play("plain")}
+          className="action media-start"
+        >
+          Как в оригинале
+        </button>
+      ) : null}
+      <div className={`media-frame is-audio${revealed ? " is-revealed" : ""}`}>
+        <div className="media-audio">
+          <span
+            className={`media-disc${fx === "reverse" ? " is-reverse" : ""}`}
+            aria-hidden="true"
+          />
+          <p className="media-audio-label hand">{label}</p>
+          <p className="media-audio-note poster">{AUDIO_FX_LABEL[fx]}</p>
         </div>
       </div>
     </div>

@@ -24,6 +24,8 @@ export type BoardCell = {
   image_url: string | null;
   /** Превью трека (iTunes) для музыкальных вопросов без видео. */
   audio_url?: string | null;
+  /** «Звук наоборот»: reverse — задом наперёд, slow — замедленно (Web Audio). */
+  audio_fx?: string | null;
   start_seconds: number | null;
   end_seconds: number | null;
   /** Свой фрагмент для VK-копии (если не совпадает с YouTube). */

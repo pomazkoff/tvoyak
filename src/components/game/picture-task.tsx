@@ -6,6 +6,7 @@ import {
   blurPx,
   openTileSet,
   pixelBlocks,
+  pixelSteps,
   revealProgress,
   zoomScale,
 } from "@/lib/pictures/reveal";
@@ -66,8 +67,56 @@ function useRevealProgress(cell: BoardCell, revealed: boolean): number {
   return animated ? progress : 1;
 }
 
+/**
+ * Уменьшение половинками: каждый «пиксель» — среднее цвета своего квадрата,
+ * а не случайная точка (при сжатии 960 → 8 за один шаг цвета «скачут»).
+ */
+function averaged(
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+): HTMLCanvasElement {
+  let source: CanvasImageSource = image;
+  let w = image.naturalWidth;
+  let h = image.naturalHeight;
+  let canvas = document.createElement("canvas");
+  while (w / 2 >= width && h / 2 >= height) {
+    w = Math.max(width, Math.floor(w / 2));
+    h = Math.max(height, Math.floor(h / 2));
+    const next = document.createElement("canvas");
+    next.width = w;
+    next.height = h;
+    const context = next.getContext("2d");
+    if (!context) break;
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(source, 0, 0, w, h);
+    source = next;
+    canvas = next;
+  }
+  const out = document.createElement("canvas");
+  out.width = width;
+  out.height = height;
+  const context = out.getContext("2d");
+  if (context) {
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(source === image ? image : canvas, 0, 0, width, height);
+  }
+  return out;
+}
+
 /** Пикселизация на canvas: уменьшаем и растягиваем без сглаживания. */
-function PixelCanvas({ src, progress }: { src: string; progress: number }) {
+function PixelCanvas({
+  src,
+  progress,
+  start,
+}: {
+  src: string;
+  progress: number;
+  /** «Один пиксель»: ступени start → 2·start → … вместо плавного прояснения. */
+  start?: number;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
 
@@ -81,7 +130,7 @@ function PixelCanvas({ src, progress }: { src: string; progress: number }) {
     };
   }, [src]);
 
-  const blocks = pixelBlocks(progress);
+  const blocks = start ? pixelSteps(progress, start) : pixelBlocks(progress);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !image) return;
@@ -96,18 +145,25 @@ function PixelCanvas({ src, progress }: { src: string; progress: number }) {
       context.drawImage(image, 0, 0, width, height);
       return;
     }
-    const small = Math.max(1, blocks);
-    const smallHeight = Math.max(1, Math.round((small * height) / width));
-    const buffer = document.createElement("canvas");
-    buffer.width = small;
-    buffer.height = smallHeight;
-    const bufferContext = buffer.getContext("2d");
-    if (!bufferContext) return;
-    bufferContext.drawImage(image, 0, 0, small, smallHeight);
+    // «Один пиксель»: сетка по длинной стороне (8×8 — 8 «пикселей» по ней);
+    // размытое фото — как раньше, по ширине.
+    const long = start ? Math.max(width, height) : width;
+    const small = Math.max(1, Math.round((blocks * width) / long));
+    const smallHeight = Math.max(1, Math.round((blocks * height) / long));
+    const buffer = start
+      ? averaged(image, small, smallHeight)
+      : document.createElement("canvas");
+    if (!start) {
+      buffer.width = small;
+      buffer.height = smallHeight;
+      const bufferContext = buffer.getContext("2d");
+      if (!bufferContext) return;
+      bufferContext.drawImage(image, 0, 0, small, smallHeight);
+    }
     context.imageSmoothingEnabled = false;
     context.clearRect(0, 0, width, height);
     context.drawImage(buffer, 0, 0, small, smallHeight, 0, 0, width, height);
-  }, [image, blocks]);
+  }, [image, blocks, start]);
 
   return (
     <canvas
@@ -170,6 +226,8 @@ export function PictureTask({
       fx.effect === "blur" ? "blur" : fx.effect === "tiles" ? "tiles" : "none";
   }
   if (format === "kids" && fx.effect === "blur") effect = "blur";
+  if (format === "pixel") effect = "pixel";
+  if (format === "macro") effect = "zoom";
   if (progress >= 1) effect = "none";
 
   const imageStyle: React.CSSProperties = {};
@@ -180,7 +238,8 @@ export function PictureTask({
   }
   if (effect === "zoom") {
     const [fxX, fxY] = fx.focus ?? [0.5, 0.5];
-    imageStyle.transform = `scale(${zoomScale(progress, fx.scale ?? 6)})`;
+    const scale = fx.scale ?? (format === "macro" ? 8 : 6);
+    imageStyle.transform = `scale(${zoomScale(progress, scale)})`;
     imageStyle.transformOrigin = `${fxX * 100}% ${fxY * 100}%`;
   }
 
@@ -206,7 +265,11 @@ export function PictureTask({
         style={fx.background ? { background: fx.background } : undefined}
       >
         {effect === "pixel" ? (
-          <PixelCanvas src={src} progress={progress} />
+          <PixelCanvas
+            src={src}
+            progress={progress}
+            start={format === "pixel" ? (fx.blocks === 16 ? 16 : 8) : undefined}
+          />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={src} alt="" className="picture-media" style={imageStyle} />

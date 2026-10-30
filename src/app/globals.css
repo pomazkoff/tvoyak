@@ -1692,6 +1692,11 @@ button {
   animation: disc-spin 3.2s linear infinite;
 }
 
+/* «Звук наоборот»: пластинка крутится в обратную сторону. */
+.media-disc.is-reverse {
+  animation-direction: reverse;
+}
+
 .media-audio-label {
   margin: 0;
   color: #d7261e;

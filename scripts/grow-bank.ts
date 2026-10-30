@@ -8,6 +8,9 @@
  * OPENROUTER_MODEL):
  *   npx tsx --conditions=react-server scripts/grow-bank.ts [media.json ...]
  * Переменная GROW_ONLY="Кино,Игры" ограничивает темы.
+ * GROW_ADD=8 — добавить по 8 новых к тому, что уже есть в теме (вместо
+ * общего потолка GROW_TARGET); так плановое пополнение работает и для тем,
+ * которые уже набрали потолок.
  * GROW_PICTURES="rebus,emoji,hidden,fragment,blur,logo,pixel,macro" — вместо тем пополнить
  * картиночные задания (каждый формат — своя пачка, те же проверки плюс
  * проход picture: ребус однозначен, эмодзи есть, лицензия свободная, 200).
@@ -203,6 +206,10 @@ const PACKS: Theme[][] = [
 ];
 
 const TARGET = Number(process.env.GROW_TARGET ?? 26);
+const ADD = Number(process.env.GROW_ADD ?? 0);
+const TODAY = new Date().toLocaleDateString("ru-RU", {
+  timeZone: "Asia/Omsk",
+});
 const PER_CALL = 12;
 const MAX_CALLS = 5;
 
@@ -225,18 +232,20 @@ async function main() {
     for (const format of pictureFormats) {
       const category = PICTURE_CATEGORY[format];
       const packId = await createPack(
-        `Пополнение — картинки (${format}): ${category}`,
+        `Пополнение ${TODAY} — картинки (${format}): ${category}`,
       );
       let total = 0;
+      let goal = TARGET;
       for (let call = 0; call < MAX_CALLS; call += 1) {
         const existing = await loadExisting();
         const mine = existing.filter((item) => item.category === category);
-        if (mine.length >= TARGET) break;
+        if (call === 0 && ADD) goal = mine.length + ADD;
+        if (mine.length >= goal) break;
         let drafts: DraftQuestion[] = [];
         try {
           drafts = await generatePictureDrafts(
             format,
-            Math.min(PER_CALL, TARGET - mine.length + 4),
+            Math.min(PER_CALL, goal - mine.length + 4),
             mine.map((item) => item.answer),
           );
         } catch (error) {
@@ -265,7 +274,7 @@ async function main() {
       const drafts = JSON.parse(readFileSync(file, "utf8")) as DraftQuestion[];
       const cats = [...new Set(drafts.map((draft) => draft.category))];
       const packId = await createPack(
-        `Пополнение 29.10.2026 — медиа (${basename(file, ".json")}): ${drafts.length} вопросов; ${cats.join(", ")}`,
+        `Пополнение ${TODAY} — медиа (${basename(file, ".json")}): ${drafts.length} вопросов; ${cats.join(", ")}`,
       );
       const ok = await reviewDrafts(
         packId,
@@ -290,16 +299,18 @@ async function main() {
       : group;
     if (!themes.length) continue;
     const packId = await createPack(
-      `Пополнение 29.10.2026 — темы: ${themes.map((theme) => theme.category).join(", ")}`,
+      `Пополнение ${TODAY} — темы: ${themes.map((theme) => theme.category).join(", ")}`,
     );
     let total = 0;
     for (const theme of themes) {
+      let goal = TARGET;
       for (let call = 0; call < MAX_CALLS; call += 1) {
         const existing = await loadExisting();
         const have = existing.filter(
           (item) => item.category === theme.category,
         ).length;
-        if (have >= TARGET) break;
+        if (call === 0 && ADD) goal = have + ADD;
+        if (have >= goal) break;
         const avoid = existing
           .filter((item) => item.category === theme.category)
           .map((item) => item.answer);
@@ -308,7 +319,7 @@ async function main() {
           drafts = await generateForCategory(
             theme.category,
             theme.brief,
-            Math.min(PER_CALL, TARGET - have + 4),
+            Math.min(PER_CALL, goal - have + 4),
             avoid,
             call === 0 ? trends : [],
           );

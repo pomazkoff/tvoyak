@@ -7,7 +7,7 @@ import {
   openTileSet,
   pixelBlocks,
   pixelSteps,
-  revealProgress,
+  revealStart,
   zoomScale,
 } from "@/lib/pictures/reveal";
 import { TWEMOJI_CREDIT } from "@/lib/pictures/twemoji";
@@ -37,33 +37,87 @@ function serverOffset(): Promise<number> {
   return offsetPromise;
 }
 
-function useRevealProgress(cell: BoardCell, revealed: boolean): number {
+/** Картинка грузится заранее: пока её нет, раскрытие не идёт. */
+type LoadedImage = {
+  image: HTMLImageElement | null;
+  /** Когда загрузилась (серверное время, мс). */
+  loadedAt: number | null;
+  failed: boolean;
+};
+
+function useLoadedImage(src: string | null): LoadedImage {
+  const [state, setState] = useState<LoadedImage & { src: string | null }>({
+    src: null,
+    image: null,
+    loadedAt: null,
+    failed: false,
+  });
+  useEffect(() => {
+    if (!src) return;
+    let cancelled = false;
+    const element = new Image();
+    element.decoding = "async";
+    const done = (failed: boolean) => {
+      void serverOffset().then((offset) => {
+        if (cancelled) return;
+        setState({
+          src,
+          image: failed ? null : element,
+          loadedAt: Date.now() + offset,
+          failed,
+        });
+      });
+    };
+    element.onload = () => {
+      // decode() — чтобы первый кадр не был пустым на медленных телефонах.
+      const decoded = element.decode?.() ?? Promise.resolve();
+      decoded.then(
+        () => done(false),
+        () => done(false),
+      );
+    };
+    element.onerror = () => done(true);
+    element.src = src;
+    return () => {
+      cancelled = true;
+      element.onload = null;
+      element.onerror = null;
+    };
+  }, [src]);
+  if (state.src !== src) return { image: null, loadedAt: null, failed: false };
+  return state;
+}
+
+function useRevealProgress(
+  cell: BoardCell,
+  revealed: boolean,
+  loadedAt: number | null,
+): number {
   const [progress, setProgress] = useState(0);
   const animated = !revealed && Boolean(cell.reveal_seconds);
   useEffect(() => {
-    if (!animated) return;
+    if (!animated || loadedAt === null) return;
     let frame = 0;
-    let offset = 0;
     let cancelled = false;
-    void serverOffset().then((value) => {
-      offset = value;
+    const seconds = cell.reveal_seconds ?? 0;
+    const start = revealStart(cell.opened_at, loadedAt);
+    // Ждём смещение часов: без него часы телевизора, спешащие на полминуты,
+    // сразу дали бы прогресс 1 — и картинка показалась бы резкой.
+    void serverOffset().then((offset) => {
+      const tick = () => {
+        if (cancelled) return;
+        const elapsed = Date.now() + offset - start;
+        const next = Math.min(1, Math.max(0, elapsed / (seconds * 1000)));
+        setProgress(next);
+        if (next < 1) frame = requestAnimationFrame(tick);
+      };
+      if (!cancelled) frame = requestAnimationFrame(tick);
     });
-    const tick = () => {
-      if (cancelled) return;
-      const next = revealProgress(
-        cell.opened_at,
-        cell.reveal_seconds,
-        Date.now() + offset,
-      );
-      setProgress(next);
-      if (next < 1) frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
     return () => {
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [animated, cell.opened_at, cell.reveal_seconds]);
+  }, [animated, loadedAt, cell.opened_at, cell.reveal_seconds]);
   return animated ? progress : 1;
 }
 
@@ -108,32 +162,21 @@ function averaged(
 
 /** Пикселизация на canvas: уменьшаем и растягиваем без сглаживания. */
 function PixelCanvas({
-  src,
+  image,
   progress,
   start,
 }: {
-  src: string;
+  image: HTMLImageElement;
   progress: number;
-  /** «Один пиксель»: ступени start → 2·start → … вместо плавного прояснения. */
+  /** «Один пиксель»: ступени start → 1,5·start → … вместо плавного прояснения. */
   start?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [image, setImage] = useState<HTMLImageElement | null>(null);
-
-  useEffect(() => {
-    const element = new Image();
-    element.decoding = "async";
-    element.onload = () => setImage(element);
-    element.src = src;
-    return () => {
-      element.onload = null;
-    };
-  }, [src]);
 
   const blocks = start ? pixelSteps(progress, start) : pixelBlocks(progress);
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !image) return;
+    if (!canvas) return;
     const width = image.naturalWidth;
     const height = image.naturalHeight;
     canvas.width = width;
@@ -211,8 +254,10 @@ export function PictureTask({
   cell: BoardCell;
   revealed: boolean;
 }) {
-  const progress = useRevealProgress(cell, revealed);
+  const loaded = useLoadedImage(cell.image_url ?? null);
+  const progress = useRevealProgress(cell, revealed, loaded.loadedAt);
   if (!isPictureFormat(cell.picture) || !cell.image_url) return null;
+  const loading = !loaded.image && !loaded.failed;
   const format = cell.picture;
   const fx: PictureFx = (cell.picture_fx ?? {}) as PictureFx;
   const generated = GENERATED_FORMATS.includes(format);
@@ -228,7 +273,7 @@ export function PictureTask({
   if (format === "kids" && fx.effect === "blur") effect = "blur";
   if (format === "pixel") effect = "pixel";
   if (format === "macro") effect = "zoom";
-  if (progress >= 1) effect = "none";
+  if (progress >= 1 || loaded.failed) effect = "none";
 
   const imageStyle: React.CSSProperties = {};
   if (effect === "blur") {
@@ -258,15 +303,21 @@ export function PictureTask({
       className={`picture-task picture-${format} ${generated ? "is-generated" : ""}`}
       data-picture={format}
       data-progress={progress.toFixed(2)}
+      data-loading={loading ? "1" : undefined}
     >
       <p className="picture-kind hand">{PICTURE_TITLE[format]}</p>
       <div
         className="picture-frame"
         style={fx.background ? { background: fx.background } : undefined}
       >
-        {effect === "pixel" ? (
+        {loading ? (
+          <span className="picture-loading" role="status">
+            <span className="picture-spinner" aria-hidden />
+            Загружаем картинку…
+          </span>
+        ) : effect === "pixel" && loaded.image ? (
           <PixelCanvas
-            src={src}
+            image={loaded.image}
             progress={progress}
             start={format === "pixel" ? (fx.blocks === 16 ? 16 : 8) : undefined}
           />
@@ -274,8 +325,10 @@ export function PictureTask({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={src} alt="" className="picture-media" style={imageStyle} />
         )}
-        {effect === "tiles" ? <Tiles fx={fx} progress={progress} /> : null}
-        {!revealed && progress < 1 ? (
+        {effect === "tiles" && !loading ? (
+          <Tiles fx={fx} progress={progress} />
+        ) : null}
+        {!revealed && !loading && progress < 1 ? (
           <span className="picture-progress" aria-hidden>
             <span style={{ width: `${Math.round(progress * 100)}%` }} />
           </span>

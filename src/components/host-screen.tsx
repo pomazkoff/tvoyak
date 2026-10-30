@@ -574,6 +574,15 @@ function GameView({
   onBlockedPick: (nickname: string) => void;
 }) {
   const current = board.find((cell) => cell.id === game.current_question_id);
+  // Картинку задания начинаем грузить сразу, как только клетку выбрали
+  // (ещё во время «кота в мешке» и озвучки вопроса), а не когда появится лист.
+  const pictureUrl = current?.picture ? current.image_url : null;
+  useEffect(() => {
+    if (!pictureUrl) return;
+    const preload = new Image();
+    preload.decoding = "async";
+    preload.src = pictureUrl;
+  }, [pictureUrl]);
   const chooser = players.find(
     (player) => player.id === game.chooser_player_id,
   );

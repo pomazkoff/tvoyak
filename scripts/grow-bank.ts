@@ -8,7 +8,7 @@
  * OPENROUTER_MODEL):
  *   npx tsx --conditions=react-server scripts/grow-bank.ts [media.json ...]
  * Переменная GROW_ONLY="Кино,Игры" ограничивает темы.
- * GROW_PICTURES="rebus,emoji,hidden,fragment,blur,logo" — вместо тем пополнить
+ * GROW_PICTURES="rebus,emoji,hidden,fragment,blur,logo,pixel,macro" — вместо тем пополнить
  * картиночные задания (каждый формат — своя пачка, те же проверки плюс
  * проход picture: ребус однозначен, эмодзи есть, лицензия свободная, 200).
  *
@@ -30,6 +30,7 @@ import {
 import { PICTURE_CATEGORY, isPictureFormat } from "@/lib/pictures/types";
 import type { DraftQuestion } from "@/lib/packs/review";
 import { calibrateValue } from "@/lib/packs/review";
+import { SPECIAL_CATEGORIES, specialCategory } from "@/lib/packs/categories";
 import { collectTrendSources, topicsFrom } from "@/lib/packs/trend-sources";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 
@@ -195,6 +196,10 @@ const PACKS: Theme[][] = [
       brief: "электронная и танцевальная музыка: диджеи, фестивали, жанры",
     },
   ],
+  // Особые темы (src/lib/packs/categories.ts): свой формат, правила ревью,
+  // номинал 100–500. «Звук наоборот» ищет превью в iTunes, «Голос из
+  // прошлого» проходит проверку встраивания VK/YouTube.
+  SPECIAL_CATEGORIES.map(({ category, brief }) => ({ category, brief })),
 ];
 
 const TARGET = Number(process.env.GROW_TARGET ?? 26);
@@ -266,7 +271,10 @@ async function main() {
         packId,
         drafts.map((draft) => ({
           ...draft,
-          value: calibrateValue(draft.value),
+          value: calibrateValue(
+            draft.value,
+            specialCategory(draft.category) ? 500 : 1000,
+          ),
         })),
         { concurrency: 6 },
       );

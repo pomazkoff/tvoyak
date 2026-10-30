@@ -37,6 +37,10 @@ export type DraftQuestion = {
   vk_duration?: number | null;
   image_url?: string | null;
   audio_url?: string | null;
+  /** «Звук наоборот»: reverse/slow поверх превью iTunes (Web Audio). */
+  audio_fx?: string | null;
+  /** Запрос к iTunes Search для поиска превью (генератор «Звук наоборот»). */
+  itunes_query?: string | null;
   start_seconds?: number | null;
   end_seconds?: number | null;
   media_note?: string | null;
@@ -49,9 +53,9 @@ export type DraftQuestion = {
   image_page?: string | null;
 };
 
-export function calibrateValue(raw: number): number {
+export function calibrateValue(raw: number, max = 1000): number {
   const target = Number.isFinite(raw) ? raw : 100;
-  return VALUE_STEPS.reduce((best, step) =>
+  return VALUE_STEPS.filter((step) => step <= max).reduce((best, step) =>
     Math.abs(step - target) < Math.abs(best - target) ? step : best,
   );
 }

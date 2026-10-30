@@ -18,7 +18,9 @@ import {
   type FragmentSpec,
   type HiddenSpec,
   type KidsSpec,
+  type MacroSpec,
   type PictureFormat,
+  type PixelSpec,
   type RebusSpec,
 } from "./types";
 import {
@@ -40,6 +42,7 @@ export type PictureDraft = {
   image_credit?: string | null;
   image_license?: string | null;
   image_page?: string | null;
+  value?: number | null;
 };
 
 function emojiProblems(spec: EmojiSpec, answer: string): string[] {
@@ -96,6 +99,32 @@ function photoProblems(draft: PictureDraft, format: PictureFormat): string[] {
     if (!spec || (spec.mode !== "tiles" && spec.mode !== "zoom")) {
       problems.push("фрагмент: mode tiles или zoom");
     }
+  }
+  if (format === "pixel") {
+    const spec = draft.picture_spec as PixelSpec | null;
+    if (!spec || spec.effect !== "pixel") problems.push("пиксель: effect pixel");
+    if (spec?.blocks !== undefined && spec.blocks !== 8 && spec.blocks !== 16)
+      problems.push("пиксель: blocks 8 или 16");
+  }
+  if (format === "macro") {
+    const spec = draft.picture_spec as MacroSpec | null;
+    const focus = spec?.focus;
+    if (
+      !spec ||
+      spec.mode !== "zoom" ||
+      !Array.isArray(focus) ||
+      focus.length !== 2 ||
+      focus.some((value) => typeof value !== "number" || value < 0 || value > 1)
+    ) {
+      problems.push("супер-зум: mode zoom и focus [x, y] в долях 0..1");
+    }
+    if (!spec || !(spec.scale >= 3 && spec.scale <= 14))
+      problems.push("супер-зум: scale 3–14");
+  }
+  if ((format === "pixel" || format === "macro") && draft.value !== undefined) {
+    const value = Number(draft.value);
+    if (!(value >= 100 && value <= 500))
+      problems.push("номинал: 100–500 для этой темы");
   }
   const reveal = draft.reveal_seconds ?? 0;
   if (format !== "logo" && (reveal < 8 || reveal > 30)) {

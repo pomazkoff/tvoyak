@@ -22,8 +22,22 @@ const FORMAT_RULES: Record<PictureFormat, string> = {
   hidden: `Картинка — сетка одинаковых эмодзи, среди которых один «лишний» похожий. picture_spec = {"base":"🍅","odd":"🍎","cols":8,"rows":5,"seed":<число>}. Пара должна быть похожей по форме или цвету, но однозначно различимой; ответ — как называется лишний предмет (одно-два слова). Стандартные эмодзи Unicode 15.`,
   blur: `Фото предмета, животного или блюда с Wikimedia Commons, свободная лицензия; один крупный объект на простом фоне. image_url = "https://commons.wikimedia.org/wiki/Special:FilePath/<ИМЯ_ФАЙЛА>?width=960". picture_spec = {"effect":"blur"} или {"effect":"pixel"}. reveal_seconds ${DEFAULT_REVEAL.blur}.`,
   logo: `Логотип без названия с Wikimedia Commons — только файлы со свободной лицензией или в общественном достоянии (простые геометрические знаки, PD-textlogo, CC BY). На картинке не должно быть букв названия. image_url = "https://commons.wikimedia.org/wiki/Special:FilePath/<ИМЯ_ФАЙЛА>?width=960". picture_spec = {"effect":"blur","background":"#ffffff"} или {"effect":"none"}. reveal_seconds ${DEFAULT_REVEAL.logo}. Без логотипов Meta (Instagram, Facebook), политических и военных символов. Постеры фильмов не используй: они несвободны.`,
+  pixel: `«Один пиксель»: картинка сжимается до 8×8 или 16×16 «пикселей» и ступенями проясняется (16 → 32 → 64 → целиком). Постеры и кадры фильмов НЕ брать — они несвободны. Только файлы Wikimedia Commons со свободной лицензией или в общественном достоянии: знаменитые картины (PD-Art), достопримечательности, флаги и гербы не берём (слишком просто), известные животные и предметы с яркой узнаваемой формой и цветом. image_url = "https://commons.wikimedia.org/wiki/Special:FilePath/<ИМЯ_ФАЙЛА>?width=960" — реально существующий файл. picture_spec = {"effect":"pixel","blocks":8} для лёгких (яркий силуэт) или {"effect":"pixel","blocks":16} для трудных. reveal_seconds ${DEFAULT_REVEAL.pixel}. value 100–500.`,
+  macro: `«Супер-зум»: обычный бытовой предмет, продукт или материал под микроскопом (электронный микроскоп) или в макросъёмке; камера отъезжает от детали. Только файлы Wikimedia Commons со свободной лицензией или PD (у снимков NIH, Dartmouth EM Facility и т. п. часто PD). image_url = "https://commons.wikimedia.org/wiki/Special:FilePath/<ИМЯ_ФАЙЛА>?width=960". picture_spec = {"mode":"zoom","focus":[x,y],"scale":6..10} (focus — неочевидная деталь, доли 0..1). reveal_seconds ${DEFAULT_REVEAL.macro}. Ответ — простое слово («соль», «губка», «липучка», «клубника»), его знают все. value 100–500.`,
   kids: `Детский рисунок по мотивам очень известного фильма или мультфильма (голливудский хит, советская классика, российский хит, мультфильм), нарисованный ИИ. Рисунки готовятся заранее и лежат в public/pictures/k/; LLM этот формат не генерирует.`,
 };
+
+/** Форматы с фото Commons (ссылка и время раскрытия обязательны). */
+const PHOTO_FORMATS: readonly PictureFormat[] = [
+  "fragment",
+  "blur",
+  "logo",
+  "pixel",
+  "macro",
+];
+
+/** Новые темы держат лесенку 100–500 (как клетки первого раунда). */
+const SMALL_RANGE: readonly PictureFormat[] = ["pixel", "macro"];
 
 export const PICTURE_GENERATION_SYSTEM = `Ты составитель картиночных заданий для «Своей игры». ${AUDIENCE} ${PROMPT_RULE} Перед ответом перепроверь каждое задание. Верни только JSON-массив.`;
 
@@ -35,7 +49,8 @@ export function pictureGenerationUser(
   const avoid = avoidAnswers.length
     ? ` Эти ответы уже есть, не повторяй: ${avoidAnswers.slice(0, 150).join("; ")}.`
     : "";
-  return `Тема (поле category, ровно так): «${PICTURE_CATEGORY[format]}». Составь ${count} заданий, сложность value от 100 до 1000. ${FORMAT_RULES[format]}${avoid} Поля каждого: category, prompt, answer, variants (другие написания ТОГО ЖЕ ответа), value, picture ("${format}"), picture_spec${["fragment", "blur", "logo"].includes(format) ? ", image_url, reveal_seconds" : ""}.`;
+  const range = SMALL_RANGE.includes(format) ? "от 100 до 500" : "от 100 до 1000";
+  return `Тема (поле category, ровно так): «${PICTURE_CATEGORY[format]}». Составь ${count} заданий, сложность value ${range}. ${FORMAT_RULES[format]}${avoid} Поля каждого: category, prompt, answer, variants (другие написания ТОГО ЖЕ ответа), value, picture ("${format}"), picture_spec${PHOTO_FORMATS.includes(format) ? ", image_url, reveal_seconds" : ""}.`;
 }
 
 /** Что дополнительно проверяют LLM-рецензенты в картиночных заданиях. */
@@ -50,5 +65,9 @@ export const PICTURE_REVIEW_RULE: Record<PictureFormat, string> = {
     "Это «найди лишнее»: сетка эмодзи base с одним odd. Проверь, что odd отличим от base и answer — понятное название odd.",
   blur: "Это размытое фото по ссылке Commons. Проверь, что объект — один, узнаваемый, и answer называет его; prompt не подсказывает.",
   kids: "Это детский рисунок по мотивам фильма (файл в public/pictures/k/). Проверь: фильм или мультфильм известен в России, answer — его название, variants — оригинальное и русское названия без года; на рисунке нет текста; prompt не подсказывает.",
+  pixel:
+    "Это «Один пиксель»: фото Commons сжимается до 8×8/16×16. Проверь: лицензия свободная (не постер и не кадр фильма), объект знаменит и узнаваем по цвету и силуэту даже в 16×16, по имени файла в image_url это действительно answer; value растёт со сложностью (100–500); prompt не подсказывает.",
+  macro:
+    "Это «Супер-зум»: макро или микроскоп по ссылке Commons. Проверь: на снимке действительно answer (по имени файла и описанию), предмет бытовой и всем знакомый, ответ — простое слово; value 100–500 растёт со сложностью; prompt не подсказывает и не называет материал.",
   logo: "Это логотип без названия по ссылке Commons. Проверь, что бренд известен в России, на логотипе нет букв названия, это не Meta, не политика; prompt не подсказывает.",
 };

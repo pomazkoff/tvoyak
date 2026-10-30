@@ -49,3 +49,15 @@ export function zoomScale(progress: number, scale = 6): number {
   if (progress >= 1) return 1;
   return Math.pow(scale, 1 - progress);
 }
+
+/**
+ * «Один пиксель»: сетка растёт ступенями, а не плавно — сначала долго
+ * держится start×start (8 или 16), потом ×2 на каждой ступени.
+ * 0 — картинка целиком.
+ */
+export function pixelSteps(progress: number, start = 8): number {
+  if (progress >= 1) return 0;
+  const steps = [start, start * 2, start * 4, start * 8];
+  const index = Math.min(steps.length - 1, Math.floor(progress * steps.length));
+  return steps[index]!;
+}

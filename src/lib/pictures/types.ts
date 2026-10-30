@@ -10,6 +10,8 @@ export const PICTURE_FORMATS = [
   "blur",
   "logo",
   "kids",
+  "pixel",
+  "macro",
 ] as const;
 
 export type PictureFormat = (typeof PICTURE_FORMATS)[number];
@@ -30,6 +32,8 @@ export const PICTURE_CATEGORY: Record<PictureFormat, string> = {
   blur: "Размытое фото",
   logo: "Логотипы",
   kids: "Детский рисунок",
+  pixel: "Один пиксель",
+  macro: "Супер-зум",
 };
 
 export const PICTURE_TITLE: Record<PictureFormat, string> = {
@@ -40,6 +44,8 @@ export const PICTURE_TITLE: Record<PictureFormat, string> = {
   blur: "Размытая картинка",
   logo: "Логотип без названия",
   kids: "Детский рисунок: что за фильм?",
+  pixel: "Один пиксель: что на картинке?",
+  macro: "Супер-зум: что это?",
 };
 
 /** Картинка собирается сервером в SVG — внешний файл не нужен. */
@@ -58,6 +64,8 @@ export const DEFAULT_REVEAL: Record<PictureFormat, number> = {
   blur: 18,
   logo: 12,
   kids: 10,
+  pixel: 24,
+  macro: 20,
 };
 
 /**
@@ -134,6 +142,8 @@ export type LogoSpec = {
   effect: "none" | "blur" | "tiles";
   /** Белый фон под прозрачным логотипом. */
   background?: string;
+  /** «Один пиксель»: стартовая сетка. */
+  blocks?: number;
 };
 
 // ---- Детский рисунок ----------------------------------------------------
@@ -143,6 +153,27 @@ export type KidsSpec = {
   effect: "none" | "blur";
 };
 
+// ---- Один пиксель ------------------------------------------------------
+
+/**
+ * Картинка сжата до blocks×blocks (8 или 16) и проясняется ступенями:
+ * 8 → 16 → 32 → 64 → целиком.
+ */
+export type PixelSpec = {
+  effect: "pixel";
+  /** С какой сетки начинать: 8 (труднее) или 16. */
+  blocks?: 8 | 16;
+};
+
+// ---- Супер-зум ---------------------------------------------------------
+
+/** Макро/микроскоп: камера отъезжает от детали (как fragment/zoom). */
+export type MacroSpec = {
+  mode: "zoom";
+  focus: [number, number];
+  scale: number;
+};
+
 export type PictureSpec =
   | RebusSpec
   | EmojiSpec
@@ -150,7 +181,9 @@ export type PictureSpec =
   | FragmentSpec
   | BlurSpec
   | LogoSpec
-  | KidsSpec;
+  | KidsSpec
+  | PixelSpec
+  | MacroSpec;
 
 /** Что видит экран ведущего: picture_spec без «содержимого» (оно выдало бы ответ). */
 export type PictureFx = {
@@ -162,4 +195,6 @@ export type PictureFx = {
   scale?: number;
   effect?: BlurSpec["effect"] | LogoSpec["effect"];
   background?: string;
+  /** «Один пиксель»: стартовая сетка. */
+  blocks?: number;
 };

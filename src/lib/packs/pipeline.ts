@@ -6,6 +6,9 @@ import {
   OpenRouterMissingError,
   parseJson,
 } from "@/lib/packs/openrouter";
+import { specialCategory } from "@/lib/packs/categories";
+import { isAudioFx } from "@/lib/media/audio-fx";
+import { findItunesPreview } from "@/lib/media/itunes";
 import {
   calibrateValue,
   answerDuplicateIndexes,
@@ -179,7 +182,10 @@ export async function reviewDrafts(
         continue;
       }
       const reviewed = await reviewItem(draft);
-      const value = calibrateValue(reviewed.value ?? draft.value);
+      const value = calibrateValue(
+        reviewed.value ?? draft.value,
+        valueCap(draft),
+      );
       // Факт-чекер мог поправить эталон — утечку проверяем ещё раз по итоговому.
       const finalLeak = leakCheck({
         ...draft,
@@ -227,7 +233,9 @@ export async function generateForCategory(
     GENERATION_SYSTEM,
     themedGenerationUser(category, brief, count, avoidAnswers, trends),
   );
-  return parseJson<DraftQuestion[]>(text)
+  const special = specialCategory(category);
+  const max = special ? 500 : 1000;
+  const drafts = parseJson<DraftQuestion[]>(text)
     .filter((item) => item && item.prompt && item.answer)
     .slice(0, count)
     .map((item) => ({
@@ -235,10 +243,61 @@ export async function generateForCategory(
       prompt: String(item.prompt).trim(),
       answer: String(item.answer).trim(),
       variants: Array.isArray(item.variants) ? item.variants.map(String) : [],
-      value: calibrateValue(Number(item.value)),
-      kind: "text" as const,
+      value: calibrateValue(Number(item.value), max),
+      kind: "text" as DraftQuestion["kind"],
       curtain: false,
+      ...mediaFields(special?.media, item),
     }));
+  if (special?.media !== "music") return drafts;
+  // «Звук наоборот»: превью ищем в iTunes по itunes_query; без превью — мимо.
+  const resolved: DraftQuestion[] = [];
+  for (const draft of drafts) {
+    const preview = draft.itunes_query
+      ? await findItunesPreview(draft.itunes_query)
+      : null;
+    if (preview) resolved.push({ ...draft, audio_url: preview.audioUrl });
+  }
+  return resolved;
+}
+
+function mediaFields(
+  media: "music" | "video" | undefined,
+  item: DraftQuestion,
+): Partial<DraftQuestion> {
+  if (media === "music") {
+    return {
+      kind: "music",
+      curtain: true,
+      audio_fx: isAudioFx(item.audio_fx) ? item.audio_fx : "reverse",
+      itunes_query: item.itunes_query ? String(item.itunes_query) : null,
+      start_seconds: 0,
+      end_seconds: 20,
+      media_note: `${item.itunes_query ?? item.answer} (${isAudioFx(item.audio_fx) ? item.audio_fx : "reverse"})`,
+    };
+  }
+  if (media === "video") {
+    return {
+      kind: "video",
+      curtain: true,
+      youtube_id: item.youtube_id ? String(item.youtube_id) : null,
+      vk_query: item.vk_query ? String(item.vk_query) : null,
+      start_seconds: Number.isFinite(Number(item.start_seconds))
+        ? Number(item.start_seconds)
+        : null,
+      end_seconds: Number.isFinite(Number(item.end_seconds))
+        ? Number(item.end_seconds)
+        : null,
+      media_note: item.media_note ? String(item.media_note) : null,
+    };
+  }
+  return {};
+}
+
+/** Особые темы и картинки «Один пиксель»/«Супер-зум» — номинал до 500. */
+function valueCap(draft: DraftQuestion): number {
+  if (specialCategory(draft.category)) return 500;
+  if (draft.picture === "pixel" || draft.picture === "macro") return 500;
+  return 1000;
 }
 
 /** Черновики картиночных заданий одного формата (проверяет reviewDrafts). */
@@ -319,9 +378,12 @@ async function reviewItem(draft: DraftQuestion): Promise<{
 
   for (const pass of ["fact", "freshness", "difficulty"] as const) {
     try {
+      const special = specialCategory(draft.category);
       const pictureRule = isPictureFormat(draft.picture)
         ? ` ${PICTURE_REVIEW_RULE[draft.picture]}`
-        : "";
+        : special
+          ? ` ${special.review}`
+          : "";
       const text = await completeOpenRouter(
         reviewSystem(pass) + pictureRule,
         JSON.stringify(draft),
@@ -339,7 +401,7 @@ async function reviewItem(draft: DraftQuestion): Promise<{
         notes: verdict.notes ?? "",
       });
       if (pass === "difficulty" && typeof verdict.value === "number")
-        value = calibrateValue(verdict.value);
+        value = calibrateValue(verdict.value, valueCap(draft));
       if (typeof verdict.answer === "string" && verdict.answer.trim())
         answer = verdict.answer.trim();
       if (verdict.agent_mark) agentMark = String(verdict.agent_mark);
@@ -401,6 +463,7 @@ async function insertItem(
       vk_end_seconds: draft.vk_end_seconds ?? null,
       image_url: draft.image_url ?? null,
       audio_url: draft.audio_url ?? null,
+      audio_fx: draft.audio_fx ?? null,
       start_seconds: draft.start_seconds ?? null,
       end_seconds: draft.end_seconds ?? null,
       media_note: draft.media_note ?? null,
@@ -443,7 +506,7 @@ export async function approvePack(
   const { data: items, error } = await supabase
     .from("pack_items")
     .select(
-      "id, category, prompt, answer, variants, value, kind, curtain, youtube_id, vk_url, vk_start_seconds, vk_end_seconds, image_url, audio_url, start_seconds, end_seconds, picture, picture_spec, reveal_seconds, image_credit, image_license, image_page",
+      "id, category, prompt, answer, variants, value, kind, curtain, youtube_id, vk_url, vk_start_seconds, vk_end_seconds, image_url, audio_url, audio_fx, start_seconds, end_seconds, picture, picture_spec, reveal_seconds, image_credit, image_license, image_page",
     )
     .eq("pack_id", packId)
     .eq("status", "draft");
@@ -484,6 +547,7 @@ export async function approvePack(
         vk_checked_at: row.vk_url ? new Date().toISOString() : null,
         image_url: row.image_url,
         audio_url: row.audio_url,
+        audio_fx: row.audio_fx,
         value: row.value,
         start_seconds: row.start_seconds,
         end_seconds: row.end_seconds,

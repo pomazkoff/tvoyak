@@ -21,6 +21,8 @@ export type PlayerRow = {
   role: PlayerRole;
   score: number;
   joined_at: string;
+  /** «Я не у экрана»: телефон показывает вопрос, картинки и медиа. */
+  remote?: boolean;
 };
 
 export type RpcOk = {

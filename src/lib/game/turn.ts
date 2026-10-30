@@ -317,7 +317,11 @@ export async function hostAction(input: {
   }
 
   // Ленивый шаг серверных часов: просроченный срок закрывается до хода ведущего.
-  if (input.action !== "start" && input.action !== "clue") {
+  if (
+    input.action !== "start" &&
+    input.action !== "clue" &&
+    input.action !== "media_start"
+  ) {
     await callRpc("advance_clock", { p_code: input.code });
   }
 
@@ -346,6 +350,11 @@ export async function hostAction(input: {
   }
   if (input.action === "finalize") {
     return settleFinal(input.code, input.decisions ?? null, true);
+  }
+  if (input.action === "media_start") {
+    // Ведущий включил трек/видео на общем экране — телефоны «не у экрана»
+    // стартуют с той же секунды.
+    return callRpc("mark_media_started", { p_code: input.code });
   }
   if (input.action === "media_cue") {
     return callRpc("set_host_starts_media", {

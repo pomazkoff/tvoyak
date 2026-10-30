@@ -171,3 +171,57 @@ export function useStoredPlayer(code: string | null): StoredPlayer | null {
     () => null,
   );
 }
+
+function remoteKey(code: string): string {
+  return `tvoyak.remote.${code}`;
+}
+
+function remoteVoiceKey(code: string): string {
+  return `tvoyak.remoteVoice.${code}`;
+}
+
+/** «Я не у экрана» на этом телефоне (по комнате). */
+export function readRemote(code: string): boolean {
+  return safeGet(remoteKey(code)) === "1";
+}
+
+export function saveRemote(code: string, on: boolean): void {
+  try {
+    if (on) localStorage.setItem(remoteKey(code), "1");
+    else localStorage.removeItem(remoteKey(code));
+  } catch {
+    // Без localStorage режим живёт до перезагрузки страницы.
+  }
+  emit();
+}
+
+export function useRemote(code: string | null): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => (code ? readRemote(code) : false),
+    () => false,
+  );
+}
+
+/** Голос ведущего на телефоне «не у экрана»: null — как в комнате. */
+export function readRemoteVoice(code: string): boolean | null {
+  const raw = safeGet(remoteVoiceKey(code));
+  return raw === "1" ? true : raw === "0" ? false : null;
+}
+
+export function saveRemoteVoice(code: string, on: boolean): void {
+  try {
+    localStorage.setItem(remoteVoiceKey(code), on ? "1" : "0");
+  } catch {
+    // Не страшно: выбор останется до перезагрузки.
+  }
+  emit();
+}
+
+export function useRemoteVoice(code: string | null): boolean | null {
+  return useSyncExternalStore(
+    subscribe,
+    () => (code ? readRemoteVoice(code) : null),
+    () => null,
+  );
+}

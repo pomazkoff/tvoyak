@@ -38,6 +38,8 @@ export type BoardCell = {
   picture_fx?: Record<string, unknown> | null;
   reveal_seconds?: number | null;
   opened_at?: string | null;
+  /** Когда медиа вопроса запустилось на общем экране (серверное время). */
+  media_started_at?: string | null;
   image_license?: string | null;
   /** Автор и страница файла — только после ответа. */
   image_credit?: string | null;

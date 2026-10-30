@@ -11,7 +11,6 @@ International (CC BY 4.0)**: https://creativecommons.org/licenses/by/4.0/
 | ----------------------------------------- | -------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------- | --------- |
 | `uncan-new-friend.mp3`                    | New Friend (альбом «4Songs»)                                                     | Uncan       | https://freemusicarchive.org/music/Uncanny/4Songs/Uncanny_-01-__New_Friend/                                      | CC BY 4.0 |
 | `uncan-aetheric.mp3`                      | Aetheric (альбом «4Songs»)                                                       | Uncan       | https://freemusicarchive.org/music/Uncanny/4Songs/Uncanny_-02-_Aetheric/                                         | CC BY 4.0 |
-| `uncan-lazy-sunday.mp3`                   | Lazy Sunday (альбом «4Songs»)                                                    | Uncan       | https://freemusicarchive.org/music/Uncanny/4Songs/Uncanny_-03-_Lazy_Sunday/                                      | CC BY 4.0 |
 | `uncan-harx-hitter.mp3`                   | Harx Hitter (альбом «4Songs»)                                                    | Uncan       | https://freemusicarchive.org/music/Uncanny/4Songs/Uncanny_-04-_Harx_Hitter/                                      | CC BY 4.0 |
 | `alex-morgan-tropical-house-paradise.mp3` | Tropical House Paradise With Bright Pluck (альбом «Electronic Dance Vol. 2»)     | Alex Morgan | https://freemusicarchive.org/music/alex-morgan/electronic-dance-vol-2/tropical-house-paradise-with-bright-pluck/ | CC BY 4.0 |
 | `alex-morgan-neon-snap.mp3`               | Neon Snap With Bright Punchy Groove (альбом «Games, Animation & Action, Vol. 2») | Alex Morgan | https://freemusicarchive.org/music/alex-morgan/games-animation-action-vol-2/neon-snap-with-bright-punchy-groove/ | CC BY 4.0 |
@@ -25,7 +24,7 @@ International (CC BY 4.0)**: https://creativecommons.org/licenses/by/4.0/
 
 Атрибуция (для титров / страницы «О проекте»):
 
-- “New Friend”, “Aetheric”, “Lazy Sunday”, “Harx Hitter” by Uncan — Free Music
+- “New Friend”, “Aetheric”, “Harx Hitter” by Uncan — Free Music
   Archive, CC BY 4.0.
 - “Tropical House Paradise With Bright Pluck”, “Neon Snap With Bright Punchy
   Groove”, “House Music Classic Four Minute Set”, “DJ Music”, “Hot Amapiano

@@ -19,7 +19,6 @@ import { useEffect, useSyncExternalStore } from "react";
 import { isSpeaking, subscribeSpeaking } from "@/components/game/speech";
 
 export const MUSIC_TRACKS = [
-  "/music/uncan-lazy-sunday.mp3",
   "/music/uncan-new-friend.mp3",
   "/music/alex-morgan-tropical-house-paradise.mp3",
   "/music/uncan-aetheric.mp3",

@@ -1,4 +1,4 @@
-import { checkAnswerLocally } from "@/lib/answers/check";
+import { checkAnswerLocally, needsLlm } from "@/lib/answers/check";
 import { isLlmCheckEnabled, judgeWithOpenRouter } from "@/lib/answers/llm";
 
 const MAX_LENGTH = 300;
@@ -29,9 +29,9 @@ export async function POST(request: Request) {
   }
 
   const local = checkAnswerLocally(given, expected);
-  if (local.ambiguous && isLlmCheckEnabled()) {
+  if (needsLlm(local) && isLlmCheckEnabled()) {
     try {
-      const correct = await judgeWithOpenRouter(given, expected);
+      const correct = await judgeWithOpenRouter({ given, expected });
       return Response.json({
         correct,
         method: "llm",

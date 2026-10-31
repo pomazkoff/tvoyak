@@ -1,66 +1,106 @@
 import "server-only";
+import {
+  judgeMessages,
+  parseJudgeReply,
+  type JudgeInput,
+} from "@/lib/answers/judge-prompt";
 
 export function isLlmCheckEnabled(): boolean {
   const flag = process.env.ANSWER_CHECK_USE_LLM;
   return flag === "true" || flag === "1";
 }
 
-export async function judgeWithOpenRouter(
-  given: string,
-  expected: string,
-  note?: string | null,
-): Promise<boolean> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  const model = process.env.OPENROUTER_MODEL;
-  if (!apiKey || !model) {
-    throw new Error("OpenRouter не настроен");
-  }
+const DEFAULT_MODEL = "google/gemini-2.5-flash";
 
+/**
+ * Ключи по порядку: основной и запасной. Если основной отозван (401/403),
+ * пробуем запасной, чтобы судейство не падало в строгое сравнение.
+ */
+function apiKeys(): string[] {
+  return [
+    process.env.OPENROUTER_API_KEY,
+    process.env.OPENROUTER_API_KEY_FALLBACK,
+  ].filter((key, index, all): key is string =>
+    Boolean(key && all.indexOf(key) === index),
+  );
+}
+
+class JudgeHttpError extends Error {
+  constructor(readonly status: number) {
+    super(`OpenRouter ${status}`);
+  }
+}
+
+async function callOnce(
+  apiKey: string,
+  model: string,
+  input: JudgeInput,
+  timeoutMs: number,
+): Promise<boolean> {
   const response = await fetch(
     "https://openrouter.ai/api/v1/chat/completions",
     {
       method: "POST",
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(timeoutMs),
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        "X-Title": "Tvoyak answer judge",
       },
       body: JSON.stringify({
         model,
         temperature: 0,
-        messages: [
-          {
-            role: "system",
-            content:
-              'Ты проверяешь ответ в викторине «Своя игра». Сравни ответ игрока с эталоном по смыслу. Опечатки и другой порядок слов допустимы. Лишние подробности не делают ответ неверным, если суть совпала. Ответь только JSON: {"correct": true} или {"correct": false}.' +
-              (note ? `\n${note}` : ""),
-          },
-          {
-            role: "user",
-            content: `Эталон: ${expected}\nОтвет игрока: ${given}`,
-          },
-        ],
+        max_tokens: 200,
+        // Gemini 2.5 Flash по умолчанию «думает» — для да/нет это лишние
+        // секунды; просим ответить сразу.
+        reasoning: { effort: "low", exclude: true },
+        messages: judgeMessages(input),
       }),
     },
   );
-
-  if (!response.ok) {
-    throw new Error(`OpenRouter ${response.status}`);
-  }
-
+  if (!response.ok) throw new JudgeHttpError(response.status);
   const payload = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
-  const text = payload.choices?.[0]?.message?.content ?? "";
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) {
-    throw new Error("OpenRouter вернул не JSON");
-  }
+  return parseJudgeReply(payload.choices?.[0]?.message?.content ?? "");
+}
 
-  const parsed = JSON.parse(match[0]) as { correct?: unknown };
-  if (typeof parsed.correct !== "boolean") {
-    throw new Error("OpenRouter вернул неверный JSON");
-  }
+/**
+ * Судья по смыслу: переводы, транслит, другие названия засчитывает, другой
+ * объект и слишком общий ответ — нет. Две попытки на ключ (сбой сети, 429,
+ * 5xx), затем запасной ключ. Если ничего не вышло — бросает ошибку, и
+ * вызывающий оставляет локальный вердикт.
+ */
+export async function judgeWithOpenRouter(input: JudgeInput): Promise<boolean> {
+  const keys = apiKeys();
+  const model = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
+  if (!keys.length) throw new Error("OpenRouter не настроен");
 
-  return parsed.correct;
+  let lastError: unknown = null;
+  for (const key of keys) {
+    for (const timeoutMs of [8_000, 6_000]) {
+      try {
+        return await callOnce(key, model, input, timeoutMs);
+      } catch (error) {
+        lastError = error;
+        if (error instanceof JudgeHttpError) {
+          // Ключ не принят — повторять с ним бессмысленно, берём следующий.
+          if (
+            error.status === 401 ||
+            error.status === 402 ||
+            error.status === 403
+          ) {
+            console.error("answer_judge_key_rejected", error.status);
+            break;
+          }
+          if (error.status < 500 && error.status !== 429) break;
+        }
+      }
+    }
+  }
+  console.error(
+    "answer_judge_failed",
+    lastError instanceof Error ? lastError.message : "error",
+  );
+  throw lastError instanceof Error ? lastError : new Error("judge_failed");
 }

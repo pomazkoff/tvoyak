@@ -449,7 +449,6 @@ function PlayTurn({
       formatWarned !== text
     ) {
       setFormatWarned(text);
-      setError(`${formatRule(format)} Нажмите ещё раз, чтобы отправить так.`);
       return;
     }
     setPending(true);
@@ -802,6 +801,11 @@ function PlayTurn({
               autoCapitalize={format === "caps" ? "characters" : undefined}
               className="field mt-2"
             />
+            {format && formatWarned !== null && formatWarned === text ? (
+              <p className="mt-2 text-danger" role="alert" data-format-warning>
+                {formatRule(format)} Нажмите ещё раз, чтобы отправить так.
+              </p>
+            ) : null}
             <button
               type="submit"
               disabled={pending}

@@ -1,8 +1,16 @@
 "use client";
 
 import { displayPrompt } from "@/lib/game/prompt";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Board } from "@/components/game/board";
+import {
+  EffectBadges,
+  SurpriseChooser,
+  SurpriseRoulette,
+  SurpriseStrip,
+  currentSurprise,
+  isSurprisePhase,
+} from "@/components/game/surprise";
 import { RemoteStage, roomVoiceDefault } from "@/components/game/remote-stage";
 import {
   requestMatchReload,
@@ -13,6 +21,14 @@ import {
 import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
+import {
+  answerFormatOk,
+  formatRule,
+  hasEffect,
+  playerEffects,
+  scrambleWords,
+  type AnswerFormat,
+} from "@/lib/game/surprises";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { lateAnswerMessage, messageFor } from "@/lib/rooms/messages";
 import {
@@ -164,6 +180,13 @@ export function PlayScreen({ code }: { code: string }) {
           <p className="hand phone-who">
             {session.nickname} · {meScore}
           </p>
+          <EffectBadges
+            effects={playerEffects(
+              match.effects,
+              session.playerId,
+              match.game.current_question_id,
+            )}
+          />
           <p className="mono text-xs">{normalized}</p>
           {bye ? (
             <button
@@ -342,6 +365,35 @@ function PlayTurn({
   const left = secondsLeft(game.deadline, now);
   const iChoose =
     session.role === "player" && game.chooser_player_id === session.playerId;
+  // «Сюрпризы» этого телефона.
+  const surprise = currentSurprise(match);
+  const questionId = game.current_question_id;
+  const frozen = hasEffect(
+    match.effects,
+    "freeze",
+    session.playerId,
+    questionId,
+  );
+  const hinted = hasEffect(match.effects, "hint", session.playerId, questionId);
+  const scrambled = hasEffect(match.effects, "scramble", null, questionId);
+  const myEffects = playerEffects(match.effects, session.playerId, questionId);
+  const format: AnswerFormat | null = myEffects.includes("caps")
+    ? "caps"
+    : myEffects.includes("one_word")
+      ? "one_word"
+      : null;
+  const [formatWarned, setFormatWarned] = useState<string | null>(null);
+  const hint = useHint(
+    code,
+    session.token,
+    hinted ? questionId : null,
+    game.phase,
+  );
+  const shownPrompt = current?.prompt
+    ? scrambled && questionId
+      ? scrambleWords(displayPrompt(current.prompt) ?? "", questionId)
+      : displayPrompt(current.prompt)
+    : null;
   const iAnswer =
     session.role === "player" &&
     ((game.phase === "answering" &&
@@ -388,6 +440,17 @@ function PlayTurn({
 
   async function sendAnswer(event: FormEvent) {
     event.preventDefault();
+    // «КАПС» / «одно слово»: не тот формат засчитают неверным — сначала
+    // предупреждаем, второе нажатие отправляет как есть.
+    if (
+      format &&
+      game.phase === "answering" &&
+      !answerFormatOk(format, text) &&
+      formatWarned !== text
+    ) {
+      setFormatWarned(text);
+      return;
+    }
     setPending(true);
     setError(null);
     try {
@@ -529,10 +592,56 @@ function PlayTurn({
           voice={voice}
         />
       ) : null}
+      {isSurprisePhase(game.phase) && surprise ? (
+        <SurpriseRoulette
+          key={surprise.id}
+          surprise={surprise}
+          players={players}
+          left={left}
+          variant="phone"
+        >
+          {game.phase === "surprise_pick" &&
+          surprise.opener_player_id === session.playerId ? (
+            <SurpriseChooser
+              players={players}
+              pending={pending}
+              onChoose={(playerId) =>
+                void rpc("surprise_choose", {
+                  p_code: code,
+                  p_player_token: session.token,
+                  p_target_id: playerId,
+                })
+              }
+            />
+          ) : game.phase === "surprise_pick" ? (
+            <p className="hand surprise-note">
+              {players.find((p) => p.id === surprise.opener_player_id)
+                ?.nickname ?? "Игрок"}{" "}
+              выбирает, кто выберет следующую клетку.
+            </p>
+          ) : null}
+        </SurpriseRoulette>
+      ) : null}
+      {current?.prompt &&
+      !isSurprisePhase(game.phase) &&
+      game.phase !== "board" ? (
+        <SurpriseStrip match={match} className="mt-1" />
+      ) : null}
       {current?.prompt && game.phase !== "board" && !remote ? (
-        <p className={`phone-q mt-1 ${otherName ? "struck" : ""}`}>
-          {displayPrompt(current.prompt)}
+        <p
+          className={`phone-q mt-1 ${otherName ? "struck" : ""}`}
+          data-scrambled={scrambled ? "yes" : undefined}
+        >
+          {shownPrompt}
         </p>
+      ) : null}
+      {hint && !["board", "reveal"].includes(game.phase) ? (
+        <p className="surprise-note hand mt-1 text-2xl" role="status">
+          💡 Подсказка: ответ начинается на «{hint}»
+        </p>
+      ) : null}
+      {format && session.role === "player" && game.round !== 3 ? (
+        <p className="surprise-note mt-1 text-danger">{formatRule(format)}</p>
       ) : null}
       {otherName ? <p className="name-sticker hand">{otherName}</p> : null}
       {timedOut && game.phase !== "reveal" ? (
@@ -635,7 +744,12 @@ function PlayTurn({
         </div>
       ) : null}
 
-      {game.phase === "buzzing" && session.role === "player" ? (
+      {game.phase === "buzzing" && session.role === "player" && frozen ? (
+        <button type="button" disabled className="buzz is-done" data-frozen>
+          ❄ Заморожены
+        </button>
+      ) : null}
+      {game.phase === "buzzing" && session.role === "player" && !frozen ? (
         <button
           type="button"
           disabled={pending || alreadyBuzzed}
@@ -677,9 +791,21 @@ function PlayTurn({
               spellCheck={false}
               enterKeyHint="send"
               autoFocus
-              placeholder="Напишите ответ"
+              placeholder={
+                format === "caps"
+                  ? "ОТВЕТ ЗАГЛАВНЫМИ"
+                  : format === "one_word"
+                    ? "Одно слово"
+                    : "Напишите ответ"
+              }
+              autoCapitalize={format === "caps" ? "characters" : undefined}
               className="field mt-2"
             />
+            {format && formatWarned !== null && formatWarned === text ? (
+              <p className="mt-2 text-danger" role="alert" data-format-warning>
+                {formatRule(format)} Нажмите ещё раз, чтобы отправить так.
+              </p>
+            ) : null}
             <button
               type="submit"
               disabled={pending}
@@ -851,4 +977,42 @@ function RemoteToggles({
       ) : null}
     </div>
   );
+}
+
+/**
+ * «Подсказка»: первая буква ответа приходит только этому игроку (my_hint
+ * проверяет токен и действующий эффект на сервере).
+ */
+function useHint(
+  code: string,
+  token: string,
+  questionId: string | null,
+  phase: string,
+): string | null {
+  const [hint, setHint] = useState<{
+    questionId: string;
+    letter: string;
+  } | null>(null);
+  const active =
+    questionId !== null &&
+    ["question", "buzzing", "answering", "judging"].includes(phase);
+  useEffect(() => {
+    if (!active || !questionId) return;
+    if (hint?.questionId === questionId) return;
+    let cancelled = false;
+    void getBrowserSupabase()
+      .rpc("my_hint", { p_code: code, p_player_token: token })
+      .then(({ data }) => {
+        const result = data as {
+          letter?: string | null;
+          question_id?: string;
+        } | null;
+        if (cancelled || !result?.letter) return;
+        setHint({ questionId, letter: result.letter });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [active, questionId, code, token, hint?.questionId]);
+  return hint && hint.questionId === questionId ? hint.letter : null;
 }

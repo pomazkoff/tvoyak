@@ -12,6 +12,7 @@ import {
 } from "@/components/game/speech";
 import type { MatchState } from "@/components/game/use-match";
 import { displayPrompt } from "@/lib/game/prompt";
+import { hasEffect, scrambleWords } from "@/lib/game/surprises";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import type { PlayerRow } from "@/lib/supabase/types";
 
@@ -93,6 +94,8 @@ export function RemoteStage({
       ? players.find((player) => player.id === current.assigned_player_id)
       : undefined;
   const autoplay = !(room.host_mode === "human" && room.host_starts_media);
+  // «Перемешка»: на телефонах слова вопроса вразнобой (экран — как есть).
+  const scrambled = hasEffect(match.effects, "scramble", null, questionId);
 
   return (
     <section className="remote-stage" data-remote-phase={game.phase}>
@@ -140,7 +143,14 @@ export function RemoteStage({
           {assigned ? (
             <p className="remote-cat-note hand">Отвечает {assigned.nickname}</p>
           ) : null}
-          <h2 className="remote-q">{prompt}</h2>
+          <h2
+            className="remote-q"
+            data-scrambled={scrambled ? "yes" : undefined}
+          >
+            {scrambled && prompt && questionId
+              ? scrambleWords(prompt, questionId)
+              : prompt}
+          </h2>
           <RemoteMedia cell={current} phase={game.phase} autoplay={autoplay} />
         </article>
       ) : null}

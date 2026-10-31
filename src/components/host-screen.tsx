@@ -6,6 +6,14 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useBackgroundMusic } from "@/components/game/background-music";
 import { Board, PlayerRail, type BoardCell } from "@/components/game/board";
 import {
+  SurpriseChooser,
+  SurpriseRoulette,
+  SurpriseStrip,
+  badgesByPlayer,
+  currentSurprise,
+  isSurprisePhase,
+} from "@/components/game/surprise";
+import {
   HoldToReveal,
   HostMoves,
   HostToggles,
@@ -32,12 +40,18 @@ import {
   useMatch,
   useNow,
   type GameRow,
+  type MatchState,
 } from "@/components/game/use-match";
 import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
 import { StyledQr } from "@/components/styled-qr";
 import { mediaPlaysSound } from "@/lib/game/music-pause";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
+import {
+  ROULETTE_SPIN_MS,
+  SURPRISE_META,
+  isSurpriseEffect,
+} from "@/lib/game/surprises";
 import { verdictLine } from "@/lib/game/verdict-speech";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { messageFor } from "@/lib/rooms/messages";
@@ -194,7 +208,10 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   useEffect(() => {
     if (game?.phase !== "question") {
       // На поле не обрываем: бот договаривает вердикт после вскрытия.
-      if (game?.phase !== "board" || !voiceOn) stopSpeech();
+      // На рулетке «Сюрприза» — договаривает объявление эффекта.
+      const keep =
+        game?.phase === "board" || isSurprisePhase(game?.phase ?? "");
+      if (!keep || !voiceOn) stopSpeech();
       return;
     }
     if (!questionPrompt || !normalized || !game.current_question_id) return;
@@ -261,6 +278,29 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     }, 700);
     return () => window.clearTimeout(timer);
   }, [phaseNow, roundNow, voiceOn, hostMode, normalized, ownsRoom]);
+  // «Сюрприз»: когда барабан остановился, ведущий (бот или голос экрана)
+  // объявляет эффект — фиксированной фразой из кэша.
+  const rolling =
+    match.status === "ready" && game?.phase === "surprise"
+      ? currentSurprise(match)
+      : null;
+  const rollingId = rolling?.id ?? null;
+  const rollingEffect = rolling?.effect ?? null;
+  const announced = useRef<string | null>(null);
+  useEffect(() => {
+    if (!voiceOn || !rollingId || !isSurpriseEffect(rollingEffect)) return;
+    if (announced.current === rollingId) return;
+    const timer = window.setTimeout(() => {
+      announced.current = rollingId;
+      speakRussian(
+        SURPRISE_META[rollingEffect].speech,
+        undefined,
+        ttsAuth(normalized, ownsRoom),
+      );
+    }, ROULETTE_SPIN_MS + 300);
+    return () => window.clearTimeout(timer);
+  }, [voiceOn, rollingId, rollingEffect, normalized, ownsRoom]);
+
   // После эффекта вердикта: там scoresRef ещё хранит очки прошлого рендера.
   const revealedAnswer = game?.revealed_answer ?? null;
   useEffect(() => {
@@ -376,6 +416,8 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
           origin={origin}
           hostMode={match.room.host_mode}
           phoneHost={phoneHost}
+          surprises={match.room.surprises === true}
+          onSurprises={(on) => void run("surprises", { correct: on })}
         />
       </>
     );
@@ -384,6 +426,11 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   return (
     <>
       <GameView
+        match={match}
+        phoneHost={phoneHost}
+        onSurpriseChoose={(playerId) =>
+          void run("surprise_choose", { playerId })
+        }
         code={normalized}
         players={match.players}
         board={match.board}
@@ -473,6 +520,8 @@ function Lobby({
   origin,
   hostMode,
   phoneHost,
+  surprises,
+  onSurprises,
 }: {
   code: string;
   players: PlayerRow[];
@@ -488,6 +537,8 @@ function Lobby({
   origin: string;
   hostMode: "human" | "bot";
   phoneHost: boolean;
+  surprises: boolean;
+  onSurprises: (on: boolean) => void;
 }) {
   const seated = scoreboardPlayers(players);
   // На сервере ключа не видно — табличку показываем только в браузере.
@@ -612,6 +663,25 @@ function Lobby({
             </div>
           </div>
         )}
+        {ownsRoom ? (
+          <label className="surprise-toggle mt-6">
+            <input
+              type="checkbox"
+              role="switch"
+              className="remote-switch"
+              checked={surprises}
+              disabled={pending}
+              onChange={(event) => onSurprises(event.target.checked)}
+              name="surprises"
+            />
+            <span>
+              Сюрпризы
+              <span className="block text-sm text-muted">
+                2–3 клетки с баффами, дебаффами и хаосом. Не в финале.
+              </span>
+            </span>
+          </label>
+        ) : null}
         <button
           type="button"
           disabled={!ownsRoom || seated.length < 2 || pending}
@@ -631,6 +701,9 @@ function Lobby({
 }
 
 function GameView({
+  match,
+  phoneHost,
+  onSurpriseChoose,
   code,
   players,
   board,
@@ -644,6 +717,9 @@ function GameView({
   onHostPick,
   onBlockedPick,
 }: {
+  match: Extract<MatchState, { status: "ready" }>;
+  phoneHost: boolean;
+  onSurpriseChoose: (playerId: string) => void;
   code: string;
   players: PlayerRow[];
   board: BoardCell[];
@@ -693,6 +769,15 @@ function GameView({
   const chooserName = chooser?.nickname ?? "игрок";
   // В обоих режимах ведущий может выбрать клетку за игрока (телефон отвалился).
   const hostCanPick = ownsRoom && game.phase === "board" && !pending;
+  const surprise = currentSurprise(match);
+  const opener = players.find(
+    (player) => player.id === surprise?.opener_player_id,
+  );
+  const badges = badgesByPlayer(
+    match.effects,
+    game.current_question_id,
+    players,
+  );
 
   return (
     <main className="stage">
@@ -702,6 +787,7 @@ function GameView({
           players={players}
           activeId={game.chooser_player_id}
           note={game.phase === "board" ? "выбирает" : undefined}
+          badges={badges}
         />
         <p className="enter-code mono">войти: {code}</p>
       </header>
@@ -736,6 +822,34 @@ function GameView({
             Кот в мешке. {chooser?.nickname ?? "Игрок"} выбирает, кому отдать.
           </p>
         ) : null}
+        {isSurprisePhase(game.phase) && surprise ? (
+          <SurpriseRoulette
+            key={surprise.id}
+            surprise={surprise}
+            players={players}
+            left={left}
+            variant="tv"
+          >
+            {game.phase === "surprise_pick" ? (
+              <>
+                <p className="hand surprise-note">
+                  {opener?.nickname ?? "Игрок"} выбирает с телефона, кто выберет
+                  следующую клетку
+                  {hostMode === "human" ? " — или ведущий" : ""}.
+                </p>
+                {ownsRoom && hostMode === "human" && !phoneHost ? (
+                  <SurpriseChooser
+                    players={players}
+                    pending={pending}
+                    onChoose={onSurpriseChoose}
+                    title="Ведущий может выбрать сам:"
+                  />
+                ) : null}
+              </>
+            ) : null}
+          </SurpriseRoulette>
+        ) : null}
+        {showSheet && current ? <SurpriseStrip match={match} /> : null}
         {showSheet && current ? (
           <article className={`question-sheet ${hasMedia ? "has-media" : ""}`}>
             <span className="corner-tape a" />

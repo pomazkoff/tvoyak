@@ -12,6 +12,8 @@ export type RoomRow = {
   host_phone?: boolean;
   /** Читать вопрос вслух; null — по умолчанию режима (бот — да). */
   host_voice?: boolean | null;
+  /** «Сюрпризы»: баффы и дебаффы на 2–3 клетках. null — выключены (старые комнаты). */
+  surprises?: boolean | null;
   created_at: string;
 };
 

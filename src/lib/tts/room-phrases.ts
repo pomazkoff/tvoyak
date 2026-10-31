@@ -1,4 +1,5 @@
 import "server-only";
+import { SURPRISE_SPEECH } from "@/lib/game/surprises";
 import { displayPrompt } from "@/lib/game/prompt";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -77,6 +78,7 @@ export async function isAllowedInRoom(
 ): Promise<boolean> {
   const clean = normalizeTtsText(text);
   if (!clean || clean.length > TTS_MAX_CHARS) return false;
+  if (SURPRISE_SPEECH.includes(clean)) return true;
   const verdict = parseVerdictPhrase(clean);
   if (verdict && verdict.answer === null) return true;
   if (!verdict) {

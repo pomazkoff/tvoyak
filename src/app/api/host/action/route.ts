@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { requireHost } from "@/lib/game/host-auth";
+import { SURPRISE_SPEECH } from "@/lib/game/surprises";
 import { hostAction } from "@/lib/game/turn";
 import { roomPhrases } from "@/lib/tts/room-phrases";
 import { isTtsConfigured, prewarmSpeech } from "@/lib/tts/speechkit";
@@ -75,6 +76,8 @@ export async function POST(request: Request) {
             "Верно!",
             "Неверно.",
             ...phrases.upcoming,
+            // Фразы «Сюрпризов» общие для всех комнат: кэш один раз.
+            ...SURPRISE_SPEECH,
           ]);
         } catch {
           console.error("tts_prewarm_start");

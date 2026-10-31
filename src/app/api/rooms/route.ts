@@ -34,6 +34,16 @@ export async function POST(request: Request) {
       return Response.json({ error: result.error }, { status: 400 });
     }
 
+    if (result.room_id) {
+      // Новые комнаты — со «Сюрпризами» (в лобби можно выключить). Старые
+      // комнаты (null) живут без них.
+      const { error: surpriseError } = await supabase
+        .from("rooms")
+        .update({ surprises: true })
+        .eq("id", result.room_id);
+      if (surpriseError) console.error("room_surprises", surpriseError.code);
+    }
+
     if (result.room_id && company) {
       // Не критично: без компании игра просто не учитывает прошлые вопросы.
       const { error: companyError } = await supabase

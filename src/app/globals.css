@@ -2427,3 +2427,245 @@ button {
   flex: none;
   min-height: 22dvh;
 }
+
+/* ---------- «Сюрпризы» ---------- */
+
+.surprise {
+  --reel-row: 1.3em;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.6em;
+  margin: 0 auto;
+  padding: 1.2em 1.4em 1.6em;
+  background: var(--color-sheet);
+  border: 3px solid var(--color-ink);
+  box-shadow:
+    0 1px 2px rgba(40, 32, 18, 0.22),
+    0 18px 26px -14px rgba(40, 32, 18, 0.32);
+  text-align: center;
+  animation: surprise-pop 320ms ease-out;
+}
+
+.surprise-tv {
+  width: min(70vw, 1100px);
+  font-size: clamp(22px, 2.2vw, 48px);
+  align-self: center;
+}
+
+.surprise-phone {
+  width: 100%;
+  margin-top: 8px;
+  font-size: 20px;
+}
+
+.surprise-head {
+  font-size: 1.4em;
+  transform: rotate(-2deg);
+}
+
+.surprise-who {
+  font-family: var(--font-hand);
+}
+
+.surprise-window {
+  height: calc(var(--reel-row) * 1);
+  overflow: hidden;
+  width: 100%;
+  font-size: 2em;
+  border-top: 3px solid var(--color-ink);
+  border-bottom: 3px solid var(--color-ink);
+}
+
+.surprise-reel {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  animation: surprise-spin var(--spin-ms, 4200ms)
+    cubic-bezier(0.12, 0.62, 0.18, 1) forwards;
+}
+
+.surprise-reel li {
+  height: var(--reel-row);
+  line-height: var(--reel-row);
+  white-space: nowrap;
+}
+
+.surprise-reel li.is-buff,
+.surprise.is-buff .surprise-title {
+  color: #1f7a3a;
+}
+
+.surprise-reel li.is-debuff,
+.surprise.is-debuff .surprise-title {
+  color: #d7261e;
+}
+
+.surprise-reel li.is-chaos,
+.surprise.is-chaos .surprise-title {
+  color: #2b4a9a;
+}
+
+.surprise-card {
+  display: grid;
+  justify-items: center;
+  gap: 0.3em;
+  animation: surprise-pop 360ms ease-out;
+}
+
+.surprise-kind {
+  font-size: 1.3em;
+  color: var(--color-muted);
+}
+
+.surprise-icon {
+  font-size: 3em;
+  line-height: 1;
+}
+
+.surprise-title {
+  font-size: 2em;
+  line-height: 1;
+}
+
+.surprise-text {
+  max-width: 34em;
+  font-size: 0.9em;
+}
+
+.surprise-lines {
+  margin: 0.2em 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 1.3em;
+}
+
+.surprise-clock {
+  position: absolute;
+  right: 0.8em;
+  top: 0.6em;
+  font-size: 0.8em;
+  color: var(--color-muted);
+}
+
+.surprise-chooser {
+  width: 100%;
+  margin-top: 0.4em;
+}
+
+.surprise-choice {
+  min-height: 48px;
+  border: 2px solid var(--color-ink);
+  background: #fff;
+  padding: 0 1em;
+  text-align: left;
+  font-size: 18px;
+}
+
+.surprise-choice:disabled {
+  opacity: 0.6;
+}
+
+.surprise-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.85em;
+}
+
+.surprise-strip-main {
+  padding: 0.15em 0.6em;
+  border: 2px solid currentColor;
+  background: var(--color-sheet);
+}
+
+.surprise-strip-main.is-buff {
+  color: #1f7a3a;
+}
+
+.surprise-strip-main.is-debuff {
+  color: #d7261e;
+}
+
+.surprise-strip-main.is-chaos {
+  color: #2b4a9a;
+}
+
+.effect-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25em;
+}
+
+.effect-badge {
+  display: inline-block;
+  padding: 0.05em 0.45em;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  background: #fff;
+  font-size: max(12px, 0.75em);
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.effect-badge.is-buff {
+  color: #1f7a3a;
+}
+
+.effect-badge.is-debuff {
+  color: #d7261e;
+}
+
+.effect-badge.is-chaos {
+  color: #2b4a9a;
+}
+
+.player-chip .effect-badges {
+  display: flex;
+  margin-top: 0.15em;
+  font-size: clamp(12px, 1vw, 22px);
+}
+
+.surprise-note {
+  padding: 0.4em 0.6em;
+  border: 2px dashed currentColor;
+  font-weight: 600;
+}
+
+.surprise-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+@keyframes surprise-spin {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(var(--spin-to));
+  }
+}
+
+@keyframes surprise-pop {
+  from {
+    transform: scale(0.92) rotate(-1deg);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surprise,
+  .surprise-card {
+    animation: none;
+  }
+  .surprise-reel {
+    animation-duration: 1ms;
+  }
+}

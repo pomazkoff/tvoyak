@@ -59,13 +59,21 @@ def find_track(artist,title,classical=False):
         if best: return {'url':best['previewUrl'],'track':best['trackName'],'artist':best['artistName'],'album':best.get('collectionName'),'country':country,'ms':best.get('trackTimeMillis'),'year':(best.get('releaseDate') or '')[:4]}
     return None
 
+POOLS=json.load(open(f'{W}/pools.json')) if os.path.exists(f'{W}/pools.json') else {}
+def pool_text(c,used):
+    p=POOLS.get(c)
+    if not p: return ''
+    un={norm(u) for u in used}
+    lines=[f"{x['artist']} — {x['it']['track']} ({x['it']['year']})" for x in p if norm(f"{x['artist']} — {x['it']['track']}") not in un and norm(f"{x['artist']} — {x['title']}") not in un]
+    random.shuffle(lines)
+    return "\nВыбирай треки ТОЛЬКО из этого списка проверенных записей iTunes (artist и title копируй точно как в списке, без года):\n"+"\n".join(lines[:150])+"\n"
 def gen_prompt(c,want,banned,used):
     brief=T.B.get(c, 'очень известные песни для угадывания по 30-секундному фрагменту')
     if c=='Угадай мелодию': brief='самые узнаваемые песни всех эпох — русские и зарубежные хиты, от советской классики до хитов 2024 года'
     if c=='Звук наоборот': brief='очень известный трек (русский или мировой хит), который играет задом наперёд'
     wl=', '.join(f'{v} — {n} шт.' for v,n in sorted(want.items()))
     return f"""Ты готовишь музыкальные вопросы для русской викторины в стиле «Своя игра» (тема «{c}»: {brief}). Игроки слышат 30-секундное превью трека из iTunes и отвечают.
-Шаблон вопроса: {HINT.get(c,DEFAULT_HINT)}
+Шаблон вопроса: {HINT.get(c,DEFAULT_HINT)}{pool_text(c,used)}
 Подсказка короткая (3–8 слов), верная, без названия трека, без имени исполнителя и их частей/транслита; у каждого вопроса своя подсказка.
 Номиналы: {wl}. {T.DIFF} Чем узнаваемее трек и исполнитель для массовой русскоязычной компании — тем ниже номинал.
 Требования: только реальные, широко известные студийные записи, которые есть в iTunes/Apple Music; мейнстрим и побольше современных хитов (2000–2024), но без сомнительных фактов; без иноагентов и 18+.
@@ -88,7 +96,7 @@ def review_prompt(c,items):
 Вопросы: {js}
 Верни JSON: {{"r":[{{"id":"...","fact":"ok","value":300,"add_variants":["..."]}}]}} — для каждого id обязательно fact, value и add_variants (хотя бы один вариант, если он возможен); поля leak, popular, bad_variants, why пиши ТОЛЬКО если они отличаются от нормы (leak:true, popular:false, непустой bad_variants, why при fact не ok)."""
 
-def process(c,need,used_global,rounds=4):
+def process(c,need,used_global,rounds=int(os.environ.get('ROUNDS','4'))):
     exq=ex_music(c)
     banned={q['answer'] for q in exq}
     ex_urls={q['audio_url'] for q in bank if q.get('audio_url')}
@@ -129,7 +137,8 @@ def process(c,need,used_global,rounds=4):
             if not it: append(REJ,{**q,'reasons':['no_itunes_preview'],'stage':'media'}); continue
             if it['url'] in ex_urls: append(REJ,{**q,'reasons':['dup_preview'],'stage':'media'}); continue
             q['it']=it; ok2.append(q)
-        json.dump(cache,open(CACHE,'w'))
+        
+
         # leaks: answer + title + artist (title only matters if answer is artist, etc.)
         lk=T.run_leaks([{'id':q['id'],'prompt':q['prompt'],'answer':q['answer'],'variants':q['variants']+[q['title'],q['artist']] + ([] if c!='Саундтреки' else [])} for q in ok2]) if ok2 else {}
         ok3=[]

@@ -24,7 +24,7 @@ for q in readl(f'{W}/text_acc.jsonl'):
 for q in readl(f'{W}/music_acc.jsonl'):
     rev=q['category']=='Звук наоборот'
     add({'category':q['category'],'prompt':q['prompt'],'answer':q['answer'],'variants':q['variants'],'kind':'music','value':q['value'],'audio_url':q['it']['url'],'audio_fx':'reverse' if rev else None,'start_seconds':0,'end_seconds':30,'curtain':True,'enabled':True})
-for q in readl(f'{W}/video_acc.jsonl'):
+for q in readl(f'{W}/video_acc_final.jsonl'):
     s,e=(20,36) if q['category']=='Трейлеры' else ((0,16) if q['category']=='ТВ-шоу' else (40,56))
     vk=q.get('vk')
     add({'category':q['category'],'prompt':q['prompt'],'answer':q['answer'],'variants':q['variants'],'kind':'video','value':q['value_new'],'youtube_id':q['yt']['id'],'vk_url':vk and vk['url'],'vk_start_seconds':s if vk else None,'vk_end_seconds':e if vk else None,'start_seconds':s,'end_seconds':e,'curtain':bool(q.get('curtain')) if q['category']!='ТВ-шоу' else True,'enabled':True})

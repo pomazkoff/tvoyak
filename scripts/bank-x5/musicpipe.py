@@ -2,9 +2,10 @@ import json, sys, os, random, statistics, uuid, collections, time, urllib.parse,
 from concurrent.futures import ThreadPoolExecutor
 from common import *
 from llm import chat
+FITREJ={x['key'] for x in readl(f'{W}/fit.jsonl') if not x['keep']}
 from textpipe import RREASON
 import textpipe as T
-GEN_MODEL='anthropic/claude-haiku-5.5'
+GEN_MODEL=os.environ.get('GEN_MODEL','anthropic/claude-haiku-5.5')
 bank=T.bank; targets=T.targets
 CAND=f'{W}/music_cand.jsonl'; ACC=f'{W}/music_acc.jsonl'; REJ=f'{W}/music_rej.jsonl'
 CACHE=f'{W}/itunes_cache.json'
@@ -100,7 +101,7 @@ def process(c,need,used_global,rounds=int(os.environ.get('ROUNDS','4'))):
     exq=ex_music(c)
     banned={q['answer'] for q in exq}
     ex_urls={q['audio_url'] for q in bank if q.get('audio_url')}
-    acc=[q for q in readl(ACC) if q['category']==c]
+    acc=[q for q in readl(ACC) if q['category']==c and c+'|'+q['prompt'] not in FITREJ]
     for rnd in range(rounds):
         have=collections.Counter(q['value'] for q in acc)
         deficit={v:n-have[v] for v,n in need.items() if n-have[v]>0}
@@ -111,7 +112,7 @@ def process(c,need,used_global,rounds=int(os.environ.get('ROUNDS','4'))):
         for i in range(0,len(queue),20):
             want=collections.Counter(queue[i:i+20])
             used=used_global|{f"{q['artist']} — {q['title']}" for q in cands}
-            r,_=chat(GEN_MODEL,[{'role':'user','content':gen_prompt(c,want,banned,used)}],temperature=0.9,reasoning={'enabled':False})
+            r,_=chat(GEN_MODEL,[{'role':'user','content':gen_prompt(c,want,banned,used)}],temperature=0.9,reasoning=T.GREASON)
             for x in (r or {}).get('q',[]):
                 try:
                     v=int(x['value'])

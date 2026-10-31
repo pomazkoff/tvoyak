@@ -11,6 +11,12 @@ else:
     skip=set(sys.argv[4].split(',')) if len(sys.argv)>4 and sys.argv[4] else set()
     fit={x['key']:x['keep'] for x in map(json.loads,open('fit.jsonl'))}
     rows=[r for r in rows if (r['category'],r['prompt']) not in keys and r['kind'] in kinds and r['category'] not in skip and (r['kind']=='video' or fit.get(r['category']+'|'+r['prompt']))]
+import re
+MIXED=re.compile(r'(?=\w*[a-zA-Z])(?=\w*[а-яА-ЯёЁ])\w+')
+INO=re.compile(r'оксимирон|oxxxymiron|noize|нойз|моргенштерн|morgenshtern|пугачёв|пугачев|земфир|макаревич|гребенщиков|монеточк|\bface\b|фейс|ic3peak|галкин',re.I)
+nb=len(rows)
+rows=[r for r in rows if not MIXED.search(r['answer']) and not MIXED.search(r['prompt']) and not INO.search(r['prompt']+' '+r['answer']+' '+' '.join(r['variants'] or []))]
+print('filtered mixed/ino',nb-len(rows))
 # leak + picture validation via repo code
 json.dump([{**r,'id':str(i)} for i,r in enumerate(rows)],open('/tmp/mig_chk_in.json','w'),ensure_ascii=False)
 subprocess.run(['/workspace/bankx5/tsx/node_modules/.bin/tsx','scripts/_leak_tmp.ts','/tmp/mig_chk_in.json','/tmp/mig_chk_out.json'],cwd='/workspace/bankx5/repo',check=True)

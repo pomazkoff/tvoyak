@@ -2,8 +2,10 @@ import json, sys, os, random, statistics, subprocess, uuid, collections, time
 from concurrent.futures import ThreadPoolExecutor
 from common import *
 from llm import chat
+FITREJ={x['key'] for x in readl(f'{W}/fit.jsonl') if not x['keep']}
 from briefs import B, SPECIAL
 GEN_MODEL=os.environ.get('GEN_MODEL','anthropic/claude-haiku-5.5')
+GREASON={'effort':'low'} if GEN_MODEL.startswith('openai') else {'enabled':False}
 RREASON={'deepseek/deepseek-v4.1-flash':{'enabled':False},'openai/gpt-6-luna-pro':{'effort':'low'},'google/gemini-3.1-flash-lite':{'effort':'low'}}
 REVIEWERS=['openai/gpt-6-luna-pro','deepseek/deepseek-v4.1-flash','google/gemini-3.1-flash-lite']
 bank=json.load(open('../bank_before.json'))
@@ -142,9 +144,9 @@ def decide(q, revs, scale):
     if not var2: reasons.append('no_variants')
     return (not reasons), reasons, var2
 
-def process_category(c, need, rounds=6):
+def process_category(c, need, rounds=int(os.environ.get('ROUNDS','6'))):
     scale=[100,200,300,400,500] if c in SPECIAL else SCALE
-    acc=[q for q in readl(ACC) if q['category']==c]
+    acc=[q for q in readl(ACC) if q['category']==c and c+'|'+q['prompt'] not in FITREJ]
     allc=[q for q in readl(CAND) if q['category']==c]
     for rnd in range(rounds):
         have=collections.Counter(q['value'] for q in acc)
@@ -158,7 +160,7 @@ def process_category(c, need, rounds=6):
         batch_new=[]
         for i in range(0,len(queue),20):
             want=collections.Counter(queue[i:i+20])
-            r,_=chat(GEN_MODEL,[{'role':'user','content':gen_prompt(c,want,ctx_for(c,acc+allc+batch_new))}],temperature=0.9,reasoning={'enabled':False})
+            r,_=chat(GEN_MODEL,[{'role':'user','content':gen_prompt(c,want,ctx_for(c,acc+allc+batch_new))}],temperature=0.9,reasoning=GREASON)
             for x in (r or {}).get('q',[]):
                 try:
                     v=int(x['value']); 

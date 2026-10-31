@@ -3,6 +3,7 @@ import { checkAgainstVariants, needsLlm } from "@/lib/answers/check";
 import { isLlmCheckEnabled, judgeWithOpenRouter } from "@/lib/answers/llm";
 import { priceWithinTolerance } from "@/lib/answers/price";
 import { requireHostOrPhone } from "@/lib/game/host-auth";
+import { answerFormatOk, isAnswerFormat } from "@/lib/game/surprises";
 import { PICTURE_JUDGE_NOTE } from "@/lib/pictures/rules";
 import { PRICE_CATEGORY, specialCategory } from "@/lib/packs/categories";
 import { isPictureFormat } from "@/lib/pictures/types";
@@ -148,12 +149,19 @@ export async function submitPlayerAnswer(
     p_text: text,
   });
   if (begun.ok) {
-    const verdict = await judgeText(
-      String(begun.raw_text ?? text),
-      String(begun.expected ?? ""),
-      asVariants(begun.variants),
-      () => questionContext(begun.question_id),
-    );
+    const raw = String(begun.raw_text ?? text);
+    // «Сюрприз»: ответ только КАПСОМ / одним словом. Не тот формат —
+    // неверно без проверки по смыслу (сервер всё равно это перепроверит).
+    const format = isAnswerFormat(begun.format) ? begun.format : null;
+    const verdict =
+      format && !answerFormatOk(format, raw)
+        ? { correct: false, method: "format" as const }
+        : await judgeText(
+            raw,
+            String(begun.expected ?? ""),
+            asVariants(begun.variants),
+            () => questionContext(begun.question_id),
+          );
     if (begun.host_mode === "bot") {
       const applied = await callRpc("apply_verdict", {
         p_code: code,
@@ -325,6 +333,19 @@ export async function hostAction(input: {
     return { ok: true, host_voice: on };
   }
 
+  if (input.action === "surprises") {
+    // «Сюрпризы» включаются только в лобби: клетки отмечает start_game.
+    const on = input.correct === true;
+    if (auth.room.status !== "lobby") return { ok: false, error: "bad_phase" };
+    const { error } = await auth.supabase
+      .from("rooms")
+      .update({ surprises: on })
+      .eq("id", auth.room.id)
+      .eq("status", "lobby");
+    if (error) return { ok: false, error: "rpc_failed" };
+    return { ok: true, surprises: on };
+  }
+
   // Ленивый шаг серверных часов: просроченный срок закрывается до хода ведущего.
   if (
     input.action !== "start" &&
@@ -369,6 +390,14 @@ export async function hostAction(input: {
     return callRpc("set_host_starts_media", {
       p_code: input.code,
       p_on: input.correct === true,
+    });
+  }
+  if (input.action === "surprise_choose") {
+    // «Выбор хода»: ведущий назначает, кто выберет следующую клетку.
+    if (!input.playerId) return { ok: false, error: "player_not_found" };
+    return callRpc("host_surprise_choose", {
+      p_code: input.code,
+      p_target_id: input.playerId,
     });
   }
   if (input.action === "pick") {

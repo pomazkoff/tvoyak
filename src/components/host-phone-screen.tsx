@@ -5,6 +5,14 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Board } from "@/components/game/board";
 import {
+  EffectBadges,
+  SurpriseChooser,
+  SurpriseRoulette,
+  SurpriseStrip,
+  currentSurprise,
+  isSurprisePhase,
+} from "@/components/game/surprise";
+import {
   HostMoves,
   HostToggles,
   PendingAnswers,
@@ -22,6 +30,7 @@ import {
 import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
+import { playerEffects } from "@/lib/game/surprises";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import {
   PAIR_LENGTH,
@@ -326,9 +335,15 @@ function HostRemote({
     (player) => player.id === match.game.chooser_player_id,
   );
   const voiceOn = room.host_voice ?? room.host_mode === "bot";
-  const inQuestion = !["lobby", "board", "cat_pick", "finished"].includes(
-    phase,
-  );
+  const surprise = currentSurprise(match);
+  const inQuestion = ![
+    "lobby",
+    "board",
+    "cat_pick",
+    "finished",
+    "surprise",
+    "surprise_pick",
+  ].includes(phase);
   const prompt = displayPrompt(sheet?.prompt ?? current?.prompt ?? null);
   const variants = (sheet?.variants ?? []).filter(
     (variant) => variant && variant !== sheet?.expected,
@@ -367,7 +382,16 @@ function HostRemote({
               key={player.id}
               className={player.id === answering?.id ? "is-active" : undefined}
             >
-              <span className="hand">{player.nickname}</span>
+              <span className="hand">
+                {player.nickname}{" "}
+                <EffectBadges
+                  effects={playerEffects(
+                    match.effects,
+                    player.id,
+                    match.game.current_question_id,
+                  )}
+                />
+              </span>
               <span className={`mono ${player.score < 0 ? "text-danger" : ""}`}>
                 {player.score}
               </span>
@@ -388,6 +412,25 @@ function HostRemote({
                 ? "Ждём игроков: нужно хотя бы двое"
                 : `За столом ${seated.length}`}
             </p>
+            <label className="surprise-toggle">
+              <input
+                type="checkbox"
+                role="switch"
+                className="remote-switch"
+                checked={room.surprises === true}
+                disabled={pending}
+                onChange={(event) =>
+                  void run("surprises", { correct: event.target.checked })
+                }
+                name="surprises"
+              />
+              <span>
+                Сюрпризы
+                <span className="block text-sm text-muted">
+                  2–3 клетки с баффами, дебаффами и хаосом
+                </span>
+              </span>
+            </label>
             <button
               type="button"
               className="action w-full"
@@ -420,6 +463,29 @@ function HostRemote({
             Кот в мешке. {chooser?.nickname ?? "Игрок"} выбирает, кому отдать.
           </p>
         ) : null}
+
+        {isSurprisePhase(phase) && surprise ? (
+          <SurpriseRoulette
+            key={surprise.id}
+            surprise={surprise}
+            players={players}
+            left={left}
+            variant="phone"
+          >
+            {phase === "surprise_pick" ? (
+              <SurpriseChooser
+                players={players}
+                pending={pending}
+                onChoose={(playerId) =>
+                  void run("surprise_choose", { playerId })
+                }
+                title="Выберите за игрока, кто выберет следующую клетку:"
+              />
+            ) : null}
+          </SurpriseRoulette>
+        ) : null}
+
+        {inQuestion ? <SurpriseStrip match={match} /> : null}
 
         {inQuestion ? (
           <section className="sheet panel grid gap-2">

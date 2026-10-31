@@ -13,6 +13,7 @@ import {
   getBrowserSupabase,
   isSupabaseConfigured,
 } from "@/lib/supabase/browser";
+import type { EffectRow, SurpriseRow } from "@/lib/game/surprises";
 import type { PlayerRow, RoomRow } from "@/lib/supabase/types";
 
 export type GameRow = {
@@ -46,6 +47,10 @@ export type MatchState =
       game: GameRow;
       board: BoardCell[];
       buzzes: BuzzMark[];
+      /** Сюрпризы партии (открытые клетки-сюрпризы). */
+      surprises: SurpriseRow[];
+      /** Действующие эффекты сюрпризов. */
+      effects: EffectRow[];
     };
 
 const gameColumns =
@@ -84,7 +89,7 @@ export function useMatch(code: string): MatchState {
       const { data, error } = await supabase
         .from("rooms")
         .select(
-          "id, code, status, host_mode, host_starts_media, host_phone, host_voice, created_at",
+          "id, code, status, host_mode, host_starts_media, host_phone, host_voice, surprises, created_at",
         )
         .eq("code", normalized)
         .maybeSingle();
@@ -93,29 +98,48 @@ export function useMatch(code: string): MatchState {
     }
 
     async function load(room: RoomRow) {
-      const [playersResult, gameResult, boardResult, buzzResult] =
-        await Promise.all([
-          supabase
-            .from("players")
-            .select("id, nickname, role, score, joined_at, remote")
-            .eq("room_id", room.id)
-            .order("joined_at", { ascending: true }),
-          supabase
-            .from("game_states")
-            .select(gameColumns)
-            .eq("room_id", room.id)
-            .single(),
-          supabase
-            .from("question_board")
-            .select(
-              "id, round, category, value, row_index, col_index, status, prompt, special, assigned_player_id, revealed_answer, kind, youtube_id, vk_url, rutube_url, image_url, audio_url, audio_fx, start_seconds, end_seconds, vk_start_seconds, vk_end_seconds, curtain, picture, picture_fx, reveal_seconds, opened_at, media_started_at, image_license, image_credit, image_page",
-            )
-            .eq("room_id", room.id),
-          supabase
-            .from("buzzes")
-            .select("question_id, player_id")
-            .eq("room_id", room.id),
-        ]);
+      const [
+        playersResult,
+        gameResult,
+        boardResult,
+        buzzResult,
+        surpriseResult,
+        effectResult,
+      ] = await Promise.all([
+        supabase
+          .from("players")
+          .select("id, nickname, role, score, joined_at, remote")
+          .eq("room_id", room.id)
+          .order("joined_at", { ascending: true }),
+        supabase
+          .from("game_states")
+          .select(gameColumns)
+          .eq("room_id", room.id)
+          .single(),
+        supabase
+          .from("question_board")
+          .select(
+            "id, round, category, value, row_index, col_index, status, prompt, special, assigned_player_id, revealed_answer, kind, youtube_id, vk_url, rutube_url, image_url, audio_url, audio_fx, start_seconds, end_seconds, vk_start_seconds, vk_end_seconds, curtain, picture, picture_fx, reveal_seconds, opened_at, media_started_at, image_license, image_credit, image_page",
+          )
+          .eq("room_id", room.id),
+        supabase
+          .from("buzzes")
+          .select("question_id, player_id")
+          .eq("room_id", room.id),
+        supabase
+          .from("room_surprises")
+          .select(
+            "id, question_id, round, opener_player_id, effect, status, outcome, created_at",
+          )
+          .eq("room_id", room.id)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("room_effects")
+          .select("id, player_id, effect, question_id, status")
+          .eq("room_id", room.id)
+          .eq("status", "active")
+          .order("created_at", { ascending: true }),
+      ]);
       if (
         playersResult.error ||
         gameResult.error ||
@@ -129,6 +153,13 @@ export function useMatch(code: string): MatchState {
         game: gameResult.data as GameRow,
         board: (boardResult.data ?? []) as BoardCell[],
         buzzes: (buzzResult.data ?? []) as BuzzMark[],
+        // Таблиц сюрпризов может не быть на старой базе — тогда пусто.
+        surprises: surpriseResult.error
+          ? []
+          : ((surpriseResult.data ?? []) as SurpriseRow[]),
+        effects: effectResult.error
+          ? []
+          : ((effectResult.data ?? []) as EffectRow[]),
       };
     }
 
@@ -181,7 +212,13 @@ export function useMatch(code: string): MatchState {
     function subscribe(id: string) {
       const onChange = () => void refresh().catch(() => undefined);
       const nextChannel = supabase.channel(`match:${id}`);
-      for (const table of ["players", "game_states", "buzzes"]) {
+      for (const table of [
+        "players",
+        "game_states",
+        "buzzes",
+        "room_surprises",
+        "room_effects",
+      ]) {
         nextChannel.on(
           "postgres_changes",
           { event: "*", schema: "public", table, filter: `room_id=eq.${id}` },

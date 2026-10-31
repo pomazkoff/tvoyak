@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { SURPRISE_SPEECH } from "@/lib/game/surprises";
 
 /** Голос бота-ведущего: Yandex SpeechKit, Марина, дружелюбно. */
 export const TTS_VOICE = "marina";
@@ -50,6 +51,8 @@ export function isAllowedPhrase(
 ): boolean {
   const clean = normalizeTtsText(text);
   if (!clean || clean.length > TTS_MAX_CHARS) return false;
+  // Объявления «Сюрпризов» — фиксированные фразы без имён и ответов.
+  if (SURPRISE_SPEECH.includes(clean)) return true;
   for (const prompt of allowed.prompts) {
     if (normalizeTtsText(prompt) === clean) return true;
   }

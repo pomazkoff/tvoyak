@@ -66,16 +66,16 @@ export function HomeScreen() {
   }
 
   return (
-    <main className="home-grid">
+    <div className="home-grid">
       <div className="home-brand">
         <Logo />
-        <p className="logo-caption hand">своя игра для своих</p>
+        <p className="logo-caption hand">викторина для своих</p>
         <div className="home-lead">
-          <p className="torn-line hand">
-            Своя игра для компании.
+          <h1 className="torn-line hand">
+            Викторина для компании.
             <br />
-            Ведущий на телевизоре, игроки с телефонов.
-          </p>
+            Табло на телевизоре, ответы с телефонов.
+          </h1>
           <Arrow />
         </div>
       </div>
@@ -166,7 +166,7 @@ export function HomeScreen() {
         </section>
       </div>
       <MusicToggle credits />
-    </main>
+    </div>
   );
 }
 

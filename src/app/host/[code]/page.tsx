@@ -1,8 +1,23 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { HostScreen } from "@/components/host-screen";
 import { Opening } from "@/components/shell";
 import { originFromHeaders } from "@/lib/http/origin";
+import { normalizeRoomCode } from "@/lib/rooms/codes";
+
+/** Заголовок вкладки с кодом комнаты. noindex задан статически в layout.tsx. */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ code: string }>;
+}): Promise<Metadata> {
+  const { code } = await params;
+  const room = normalizeRoomCode(code);
+  return {
+    title: room ? `Табло комнаты ${room}` : "Табло комнаты",
+  };
+}
 
 export default function HostPage({
   params,

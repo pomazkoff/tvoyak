@@ -3,6 +3,7 @@
 import { displayPrompt } from "@/lib/game/prompt";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { armAudioUnlock } from "@/components/game/audio-unlock";
 import { useBackgroundMusic } from "@/components/game/background-music";
 import { Board, PlayerRail, type BoardCell } from "@/components/game/board";
 import {
@@ -186,8 +187,11 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
 
   // Голос ведущего разблокируется на первом клике/кнопке пульта: без этого
   // телевизоры (Android WebView) не пускают mp3 Марины без свежего жеста.
+  // То же для «Звука наоборот»: общий AudioContext будится первым жестом
+  // («Начать игру»), и перевёрнутые треки дальше играют без касаний.
   useEffect(() => {
     armSpeechUnlock();
+    armAudioUnlock();
   }, []);
 
   // Прогрев на раунд: пока игроки выбирают клетку, сервер заранее
@@ -871,6 +875,7 @@ function GameView({
               />
             ) : hasMedia ? (
               <MediaPlayer
+                key={current.id}
                 cell={current}
                 autoplay={!(hostMode === "human" && hostStartsMedia)}
                 revealed={game.phase === "reveal"}

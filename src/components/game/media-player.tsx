@@ -17,6 +17,10 @@ import {
   reversedSegment,
   type AudioFx,
 } from "@/lib/media/audio-fx";
+import {
+  armAudioUnlock,
+  sharedAudioContext,
+} from "@/components/game/audio-unlock";
 
 type Provider = "youtube" | "vk" | "rutube" | "none";
 
@@ -644,6 +648,10 @@ function AudioPreview({
  * превью (у audio-ssl.itunes.apple.com открыт CORS), декодирует в Web Audio
  * и играет перевёрнутый буфер или с пониженной скоростью. После ответа —
  * кнопка «Как в оригинале».
+ *
+ * AudioContext общий на вкладку (audio-unlock.ts): он разблокирован первым
+ * же жестом на странице, поэтому экран ведущего играет трек сам и на
+ * пятом вопросе, а не только после свежего касания.
  */
 function TwistedAudio({
   src,
@@ -669,6 +677,7 @@ function TwistedAudio({
     null,
   );
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const disposedRef = useRef(false);
   const [state, setState] = useState<
     "loading" | "ready" | "playing" | "finished" | "failed"
   >("loading");
@@ -715,29 +724,41 @@ function TwistedAudio({
     };
     sourceRef.current = node;
     const begin = () => {
-      node.start(0, skip);
+      // Вопрос уже сменился или нажали другую кнопку — не играем.
+      if (disposedRef.current || sourceRef.current !== node) return;
+      try {
+        node.start(0, skip);
+      } catch {
+        setNeedsTap(true);
+        return;
+      }
       setState("playing");
       setNeedsTap(false);
     };
-    if (context.state === "suspended") {
-      // Без жеста пользователя браузер не даст звук — остаётся кнопка.
+    if (context.state !== "running") {
+      // suspended (не было жеста) или interrupted (iOS): без жеста браузер
+      // не даст звук — тогда кнопка. «Слушаем» без звука не показываем.
       context
         .resume()
-        .then(() => (context.state === "running" ? begin() : setNeedsTap(true)))
+        .then(() =>
+          (context.state as string) === "running"
+            ? begin()
+            : setNeedsTap(true),
+        )
         .catch(() => setNeedsTap(true));
       window.setTimeout(() => {
-        if (context.state !== "running") setNeedsTap(true);
+        if ((context.state as string) !== "running" && !disposedRef.current)
+          setNeedsTap(true);
       }, 400);
     } else begin();
   }
 
   useEffect(() => {
     let cancelled = false;
-    const Context =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!Context) {
+    disposedRef.current = false;
+    armAudioUnlock();
+    const context = sharedAudioContext();
+    if (!context) {
       queueMicrotask(() => {
         if (!cancelled) setState("failed");
       });
@@ -745,7 +766,6 @@ function TwistedAudio({
         cancelled = true;
       };
     }
-    const context = new Context();
     contextRef.current = context;
     fetch(src, { mode: "cors", credentials: "omit" })
       .then((response) => {
@@ -765,9 +785,11 @@ function TwistedAudio({
       });
     return () => {
       cancelled = true;
+      disposedRef.current = true;
       stop();
+      // Контекст общий на вкладку — не закрываем, иначе следующему вопросу
+      // снова понадобится жест.
       contextRef.current = null;
-      void context.close().catch(() => undefined);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src, fx, start, end]);

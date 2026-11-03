@@ -25,7 +25,7 @@ import {
   type HostSheet,
 } from "@/components/game/host-controls";
 import { HostPhonePair } from "@/components/game/host-phone-pair";
-import { MediaPlayer } from "@/components/game/media-player";
+import { MediaPlayer, MediaWaiting } from "@/components/game/media-player";
 import { PictureTask } from "@/components/game/picture-task";
 import { MusicToggle } from "@/components/game/music-toggle";
 import {
@@ -47,6 +47,12 @@ import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
 import { StyledQr } from "@/components/styled-qr";
 import { mediaPlaysSound } from "@/lib/game/music-pause";
+import {
+  MEDIA_HOLD_SLACK_MS,
+  questionReadMs,
+  roomVoiceOn,
+  shouldHoldMedia,
+} from "@/lib/game/media-hold";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import {
   ROULETTE_SPIN_MS,
@@ -124,6 +130,11 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const [deskChoice, setDeskChoice] = useState<boolean | null>(null);
   const desk = deskChoice ?? queryDesk;
   const spoken = useRef<string | null>(null);
+  // Трек/видео вопроса ждёт, пока голос дочитает вопрос: id вопроса, для
+  // которого голос закончил (или вышел срок), и таймер-страховка.
+  const [voiceDone, setVoiceDone] = useState<string | null>(null);
+  const holdTimer = useRef(0);
+  const holding = useRef<string | null>(null);
 
   const game = match.status === "ready" ? match.game : null;
   const roomVoice =
@@ -185,6 +196,61 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     ),
   });
 
+  const hostStartsMediaNow =
+    match.status === "ready" && match.room.host_starts_media;
+  const mediaAutoplay = !(hostMode === "human" && hostStartsMediaNow);
+  const mediaHold = shouldHoldMedia({
+    voiceOn,
+    autoplay: mediaAutoplay,
+    phase: game?.phase,
+    cell: currentCell,
+    prompt: questionPrompt,
+    releasedId: voiceDone,
+  });
+  useEffect(() => () => window.clearTimeout(holdTimer.current), []);
+
+  // Отметка старта медиа для телефонов «не у экрана» (media_started_at).
+  // В комнате с голосом сервер её при открытии не ставит — ставим, когда
+  // экран ведущего реально включил трек (после чтения вопроса). Если трек
+  // держали, переотмечаем в любом случае: телефоны стартуют с той же секунды.
+  const heldFor = useRef<string | null>(null);
+  const stampedFor = useRef<string | null>(null);
+  const serverWaits =
+    match.status === "ready" ? roomVoiceOn(match.room) : false;
+  const mediaShown = Boolean(
+    game &&
+    currentCell &&
+    mediaPlaysSound(currentCell, game.phase) &&
+    !(currentCell.picture && currentCell.image_url),
+  );
+  const currentId = currentCell?.id ?? null;
+  const alreadyStamped = Boolean(currentCell?.media_started_at);
+  useEffect(() => {
+    if (!currentId) return;
+    if (mediaHold) {
+      heldFor.current = currentId;
+      return;
+    }
+    if (!mediaShown || !mediaAutoplay || !ownsRoom || !normalized) return;
+    if (stampedFor.current === currentId) return;
+    // Держали трек — переотмечаем. Не держали — отмечаем, только если
+    // сервер сам не отметил (комната с голосом), и не повторно после
+    // перезагрузки экрана, чтобы телефоны не начинали трек заново.
+    if (heldFor.current !== currentId && (!serverWaits || alreadyStamped))
+      return;
+    stampedFor.current = currentId;
+    void callHost(normalized, "media_start").then(() => requestMatchReload());
+  }, [
+    currentId,
+    mediaHold,
+    mediaShown,
+    mediaAutoplay,
+    ownsRoom,
+    normalized,
+    serverWaits,
+    alreadyStamped,
+  ]);
+
   // Голос ведущего разблокируется на первом клике/кнопке пульта: без этого
   // телевизоры (Android WebView) не пускают mp3 Марины без свежего жеста.
   // То же для «Звука наоборот»: общий AudioContext будится первым жестом
@@ -219,27 +285,43 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
       return;
     }
     if (!questionPrompt || !normalized || !game.current_question_id) return;
+    const questionId = game.current_question_id;
     const openBuzz = () =>
       void callHost(normalized, "open_buzz").then(() => requestMatchReload());
+    // Голос дочитал вопрос (или вышел срок) — можно включать трек/видео.
+    const release = () => {
+      if (holding.current === questionId) holding.current = null;
+      window.clearTimeout(holdTimer.current);
+      setVoiceDone(questionId);
+    };
+    // Срок — примерно время чтения вслух (+ до 3 с на загрузку голоса Марины).
+    const readMs = questionReadMs(questionPrompt);
     let started = false;
-    if (voiceOn && spoken.current !== game.current_question_id) {
-      spoken.current = game.current_question_id;
+    if (voiceOn && spoken.current !== questionId) {
+      spoken.current = questionId;
+      window.clearTimeout(holdTimer.current);
+      holding.current = questionId;
       started = speakRussian(
         questionPrompt,
         () => {
+          release();
           if (hostMode === "bot") openBuzz();
         },
         ttsAuth(normalized, ownsRoom),
       );
+      // Зависший голос не должен держать трек: включаем по сроку. Таймер
+      // переживает перерисовки — его сбрасывает только новый вопрос.
+      holdTimer.current = window.setTimeout(
+        release,
+        started ? readMs + MEDIA_HOLD_SLACK_MS : 0,
+      );
+    } else if (holding.current !== questionId) {
+      // Вопрос уже прочитан раньше (голос включили посреди вопроса) — не ждём.
+      holdTimer.current = window.setTimeout(release, 0);
     }
     if (hostMode !== "bot") return;
     // Бот открывает кнопку и без голоса: голос выключен, синтеза нет или
-    // onend так и не пришёл. Срок — примерно время чтения вслух (+ до 3 с
-    // на загрузку голоса Марины).
-    const readMs = Math.min(
-      30000,
-      Math.max(6000, questionPrompt.length * 70 + 2500),
-    );
+    // onend так и не пришёл.
     const timer = setTimeout(openBuzz, started ? readMs + 7000 : readMs);
     return () => clearTimeout(timer);
   }, [
@@ -445,6 +527,7 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
         ownsRoom={ownsRoom}
         hostStartsMedia={match.room.host_starts_media}
         hostMode={match.room.host_mode}
+        mediaHold={mediaHold}
         onHostPick={(questionId) => void run("pick", { questionId })}
         onBlockedPick={(nickname) =>
           showToast(`Выбирает ${nickname} с телефона`)
@@ -718,6 +801,7 @@ function GameView({
   ownsRoom,
   hostStartsMedia,
   hostMode,
+  mediaHold,
   onHostPick,
   onBlockedPick,
 }: {
@@ -734,6 +818,8 @@ function GameView({
   ownsRoom: boolean;
   hostStartsMedia: boolean;
   hostMode: "human" | "bot";
+  /** Ведущий ещё читает вопрос — трек/видео ждёт. */
+  mediaHold: boolean;
   onHostPick: (questionId: string) => void;
   onBlockedPick: (nickname: string) => void;
 }) {
@@ -873,6 +959,8 @@ function GameView({
                 cell={current}
                 revealed={game.phase === "reveal"}
               />
+            ) : hasMedia && mediaHold && current ? (
+              <MediaWaiting cell={current} />
             ) : hasMedia ? (
               <MediaPlayer
                 key={current.id}

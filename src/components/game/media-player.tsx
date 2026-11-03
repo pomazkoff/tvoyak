@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { BoardCell } from "@/components/game/board";
 import { secondsSince } from "@/components/game/server-clock";
 import {
@@ -21,6 +27,44 @@ import {
   armAudioUnlock,
   sharedAudioContext,
 } from "@/components/game/audio-unlock";
+import { isSpeaking, subscribeSpeaking } from "@/components/game/speech";
+
+/** Громкость трека/видео, пока говорит ведущий (вердикт, «Сюрприз»…). */
+const DUCK_VOLUME = 0.25;
+
+/** Говорит ли сейчас ведущий — тогда медиа приглушается. */
+function useSpeechDuck(): boolean {
+  return useSyncExternalStore(subscribeSpeaking, isSpeaking, () => false);
+}
+
+/**
+ * Пока ведущий читает вопрос: место плеера с «пластинкой», а сам файл уже
+ * скачивается в кэш браузера, чтобы трек стартовал сразу после голоса.
+ */
+export function MediaWaiting({ cell }: { cell: BoardCell }) {
+  const audioUrl = cell.audio_url ?? null;
+  useEffect(() => {
+    if (!audioUrl) return;
+    const abort = new AbortController();
+    fetch(audioUrl, { mode: "cors", credentials: "omit", signal: abort.signal })
+      .then((response) => response.arrayBuffer())
+      .catch(() => undefined);
+    return () => abort.abort();
+  }, [audioUrl]);
+  return (
+    <div className="media-block">
+      <div className="media-frame is-audio" data-media-hold="1">
+        <div className="media-audio">
+          <span className="media-disc" aria-hidden="true" />
+          <p className="media-audio-label hand">Слушаем вопрос…</p>
+          <p className="media-audio-note poster">
+            {cell.kind === "music" ? "музыкальный вопрос" : "видеовопрос"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type Provider = "youtube" | "vk" | "rutube" | "none";
 
@@ -46,6 +90,7 @@ type YTPlayer = {
   getDuration: () => number;
   getPlayerState?: () => number;
   getIframe?: () => HTMLIFrameElement;
+  setVolume?: (volume: number) => void;
 };
 
 declare global {
@@ -191,6 +236,19 @@ export function MediaPlayer({
   const [playing, setPlaying] = useState(autoplay);
   const [finished, setFinished] = useState(false);
   const audioOnly = cell.kind === "music" || cell.curtain;
+  const ducked = useSpeechDuck();
+  const duckedRef = useRef(ducked);
+  const vkPlayerRef = useRef<VkPlayer | null>(null);
+  // Ведущий заговорил посреди ролика — приглушаем, договорил — возвращаем.
+  useEffect(() => {
+    duckedRef.current = ducked;
+    try {
+      playerRef.current?.setVolume?.(ducked ? DUCK_VOLUME * 100 : 100);
+    } catch {}
+    try {
+      vkPlayerRef.current?.setVolume?.(ducked ? DUCK_VOLUME : 1);
+    } catch {}
+  }, [ducked]);
 
   useEffect(() => {
     if (cell.kind === "image" || provider !== "youtube" || !cell.youtube_id)
@@ -245,6 +303,7 @@ export function MediaPlayer({
               frame.style.pointerEvents = "none";
               frame.dataset.provider = "youtube";
             }
+            if (duckedRef.current) event.target.setVolume?.(DUCK_VOLUME * 100);
             if (playing) event.target.playVideo();
             if (remote && playing) {
               touchTimer = window.setTimeout(() => {
@@ -357,10 +416,11 @@ export function MediaPlayer({
       .then(() => {
         if (disposed || !window.VK?.VideoPlayer) return;
         player = window.VK.VideoPlayer(frame);
+        vkPlayerRef.current = player;
         player.on("inited", () => {
           try {
             player?.unmute?.();
-            player?.setVolume?.(1);
+            player?.setVolume?.(duckedRef.current ? DUCK_VOLUME : 1);
             const target =
               (start ?? 0) + (syncFrom ? secondsSince(syncFrom) : 0);
             const seekTo = end
@@ -387,6 +447,7 @@ export function MediaPlayer({
       window.clearTimeout(clickable);
       window.clearTimeout(giveUp);
       window.clearInterval(poll);
+      if (vkPlayerRef.current === player) vkPlayerRef.current = null;
       try {
         player?.pause();
         player?.destroy?.();
@@ -573,6 +634,11 @@ function AudioPreview({
   const [needsTap, setNeedsTap] = useState(!autoplay);
   const [finished, setFinished] = useState(false);
   const [failed, setFailed] = useState(false);
+  const ducked = useSpeechDuck();
+  useEffect(() => {
+    // iOS громкость <audio> не меняет — там трек просто идёт как раньше.
+    if (audioRef.current) audioRef.current.volume = ducked ? DUCK_VOLUME : 1;
+  }, [ducked]);
 
   function play() {
     const audio = audioRef.current;
@@ -677,7 +743,21 @@ function TwistedAudio({
     null,
   );
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const gainRef = useRef<GainNode | null>(null);
   const disposedRef = useRef(false);
+  const ducked = useSpeechDuck();
+  const duckedRef = useRef(ducked);
+  useEffect(() => {
+    duckedRef.current = ducked;
+    const gain = gainRef.current;
+    const context = contextRef.current;
+    if (!gain || !context) return;
+    gain.gain.setTargetAtTime(
+      ducked ? DUCK_VOLUME : 1,
+      context.currentTime,
+      0.08,
+    );
+  }, [ducked]);
   const [state, setState] = useState<
     "loading" | "ready" | "playing" | "finished" | "failed"
   >("loading");
@@ -715,7 +795,19 @@ function TwistedAudio({
     node.buffer = buffers[which];
     node.playbackRate.value =
       which === "twisted" && fx === "slow" ? SLOW_RATE : 1;
-    node.connect(context.destination);
+    // Через свой GainNode: под голосом ведущего трек приглушается.
+    let output: AudioNode = context.destination;
+    try {
+      const gain = context.createGain();
+      gain.gain.value = duckedRef.current ? DUCK_VOLUME : 1;
+      gain.connect(context.destination);
+      gainRef.current?.disconnect();
+      gainRef.current = gain;
+      output = gain;
+    } catch {
+      gainRef.current = null;
+    }
+    node.connect(output);
     node.onended = () => {
       if (sourceRef.current === node) {
         sourceRef.current = null;
@@ -741,9 +833,7 @@ function TwistedAudio({
       context
         .resume()
         .then(() =>
-          (context.state as string) === "running"
-            ? begin()
-            : setNeedsTap(true),
+          (context.state as string) === "running" ? begin() : setNeedsTap(true),
         )
         .catch(() => setNeedsTap(true));
       window.setTimeout(() => {
@@ -795,6 +885,10 @@ function TwistedAudio({
       cancelled = true;
       disposedRef.current = true;
       stop();
+      try {
+        gainRef.current?.disconnect();
+      } catch {}
+      gainRef.current = null;
       // Контекст общий на вкладку — не закрываем, иначе следующему вопросу
       // снова понадобится жест.
       contextRef.current = null;

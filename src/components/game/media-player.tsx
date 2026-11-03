@@ -639,6 +639,26 @@ function AudioPreview({
 }
 
 /**
+ * Один AudioContext на вкладку. Раньше на каждый вопрос создавался новый
+ * контекст без жеста пользователя: на экране ведущего (Safari/Chrome на ТВ,
+ * ноутбук без кликов между вопросами) он оставался suspended, а после
+ * нескольких вопросов браузер упирался в лимит контекстов — трек молчал.
+ * Общий контекст «разблокируется» первым же кликом/тапом по странице.
+ */
+let sharedContext: AudioContext | null = null;
+function sharedAudioContext(Context: typeof AudioContext): AudioContext {
+  if (sharedContext && sharedContext.state !== "closed") return sharedContext;
+  const context = new Context();
+  sharedContext = context;
+  const unlock = () => {
+    if (context.state === "suspended") void context.resume().catch(() => {});
+  };
+  for (const type of ["pointerdown", "keydown", "touchend"])
+    window.addEventListener(type, unlock, { capture: true });
+  return context;
+}
+
+/**
  * «Звук наоборот»: то же 30-секундное превью iTunes, но задом наперёд или
  * замедленно. Файл не копируется и не хранится: браузер сам скачивает
  * превью (у audio-ssl.itunes.apple.com открыт CORS), декодирует в Web Audio
@@ -745,14 +765,22 @@ function TwistedAudio({
         cancelled = true;
       };
     }
-    const context = new Context();
+    const context = sharedAudioContext(Context);
     contextRef.current = context;
     fetch(src, { mode: "cors", credentials: "omit" })
       .then((response) => {
         if (!response.ok) throw new Error(String(response.status));
         return response.arrayBuffer();
       })
-      .then((data) => context.decodeAudioData(data))
+      .then(
+        (data) =>
+          new Promise<AudioBuffer>((resolve, reject) => {
+            // Старый Safari понимает только колбэки decodeAudioData.
+            const result = context.decodeAudioData(data, resolve, reject);
+            if (result && typeof result.then === "function")
+              result.then(resolve, reject);
+          }),
+      )
       .then((decoded) => {
         if (cancelled) return;
         const segment = reversedSegment(context, decoded, start, end, fx);
@@ -767,7 +795,6 @@ function TwistedAudio({
       cancelled = true;
       stop();
       contextRef.current = null;
-      void context.close().catch(() => undefined);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src, fx, start, end]);

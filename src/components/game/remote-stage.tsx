@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BoardCell } from "@/components/game/board";
 import { MediaPlayer } from "@/components/game/media-player";
 import { PictureTask } from "@/components/game/picture-task";
-import { serverOffset } from "@/components/game/server-clock";
+import {
+  currentServerOffset,
+  serverOffset,
+} from "@/components/game/server-clock";
+import { remoteFallbackStart } from "@/lib/game/media-hold";
 import {
   armSpeechUnlock,
   speakRussian,
@@ -168,6 +172,21 @@ function RemoteMedia({
   autoplay: boolean;
 }) {
   const revealed = phase === "reveal";
+  // Экран ведущего отмечает старт после чтения вопроса. Если отметки так и
+  // нет (экран ведущего закрыт), стартуем сами — от opened_at + запас.
+  const stamped = cell.media_started_at ?? null;
+  const fallbackAt =
+    autoplay && !stamped ? remoteFallbackStart(cell.opened_at) : null;
+  const [fallbackDue, setFallbackDue] = useState<number | null>(null);
+  useEffect(() => {
+    if (fallbackAt === null) return;
+    const wait = fallbackAt - (Date.now() + currentServerOffset());
+    const timer = window.setTimeout(
+      () => setFallbackDue(fallbackAt),
+      Math.max(0, wait),
+    );
+    return () => window.clearTimeout(timer);
+  }, [fallbackAt]);
   const hasPicture = Boolean(cell.picture && cell.image_url);
   if (hasPicture) {
     return <PictureTask key={cell.id} cell={cell} revealed={revealed} />;
@@ -182,7 +201,11 @@ function RemoteMedia({
     );
   }
   if (cell.kind !== "video" && cell.kind !== "music") return null;
-  const startedAt = cell.media_started_at ?? null;
+  const startedAt =
+    stamped ??
+    (fallbackAt !== null && fallbackDue === fallbackAt
+      ? new Date(fallbackAt).toISOString()
+      : null);
   if (!startedAt) {
     // Общий экран ещё не включил ролик: ждём его, сами не стартуем.
     return (

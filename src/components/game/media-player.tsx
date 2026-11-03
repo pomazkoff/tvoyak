@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { BoardCell } from "@/components/game/board";
 import { secondsSince } from "@/components/game/server-clock";
 import {
@@ -17,6 +23,48 @@ import {
   reversedSegment,
   type AudioFx,
 } from "@/lib/media/audio-fx";
+import {
+  armAudioUnlock,
+  sharedAudioContext,
+} from "@/components/game/audio-unlock";
+import { isSpeaking, subscribeSpeaking } from "@/components/game/speech";
+
+/** Громкость трека/видео, пока говорит ведущий (вердикт, «Сюрприз»…). */
+const DUCK_VOLUME = 0.25;
+
+/** Говорит ли сейчас ведущий — тогда медиа приглушается. */
+function useSpeechDuck(): boolean {
+  return useSyncExternalStore(subscribeSpeaking, isSpeaking, () => false);
+}
+
+/**
+ * Пока ведущий читает вопрос: место плеера с «пластинкой», а сам файл уже
+ * скачивается в кэш браузера, чтобы трек стартовал сразу после голоса.
+ */
+export function MediaWaiting({ cell }: { cell: BoardCell }) {
+  const audioUrl = cell.audio_url ?? null;
+  useEffect(() => {
+    if (!audioUrl) return;
+    const abort = new AbortController();
+    fetch(audioUrl, { mode: "cors", credentials: "omit", signal: abort.signal })
+      .then((response) => response.arrayBuffer())
+      .catch(() => undefined);
+    return () => abort.abort();
+  }, [audioUrl]);
+  return (
+    <div className="media-block">
+      <div className="media-frame is-audio" data-media-hold="1">
+        <div className="media-audio">
+          <span className="media-disc" aria-hidden="true" />
+          <p className="media-audio-label hand">Слушаем вопрос…</p>
+          <p className="media-audio-note poster">
+            {cell.kind === "music" ? "музыкальный вопрос" : "видеовопрос"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type Provider = "youtube" | "vk" | "rutube" | "none";
 
@@ -42,6 +90,7 @@ type YTPlayer = {
   getDuration: () => number;
   getPlayerState?: () => number;
   getIframe?: () => HTMLIFrameElement;
+  setVolume?: (volume: number) => void;
 };
 
 declare global {
@@ -187,6 +236,19 @@ export function MediaPlayer({
   const [playing, setPlaying] = useState(autoplay);
   const [finished, setFinished] = useState(false);
   const audioOnly = cell.kind === "music" || cell.curtain;
+  const ducked = useSpeechDuck();
+  const duckedRef = useRef(ducked);
+  const vkPlayerRef = useRef<VkPlayer | null>(null);
+  // Ведущий заговорил посреди ролика — приглушаем, договорил — возвращаем.
+  useEffect(() => {
+    duckedRef.current = ducked;
+    try {
+      playerRef.current?.setVolume?.(ducked ? DUCK_VOLUME * 100 : 100);
+    } catch {}
+    try {
+      vkPlayerRef.current?.setVolume?.(ducked ? DUCK_VOLUME : 1);
+    } catch {}
+  }, [ducked]);
 
   useEffect(() => {
     if (cell.kind === "image" || provider !== "youtube" || !cell.youtube_id)
@@ -241,6 +303,7 @@ export function MediaPlayer({
               frame.style.pointerEvents = "none";
               frame.dataset.provider = "youtube";
             }
+            if (duckedRef.current) event.target.setVolume?.(DUCK_VOLUME * 100);
             if (playing) event.target.playVideo();
             if (remote && playing) {
               touchTimer = window.setTimeout(() => {
@@ -353,10 +416,11 @@ export function MediaPlayer({
       .then(() => {
         if (disposed || !window.VK?.VideoPlayer) return;
         player = window.VK.VideoPlayer(frame);
+        vkPlayerRef.current = player;
         player.on("inited", () => {
           try {
             player?.unmute?.();
-            player?.setVolume?.(1);
+            player?.setVolume?.(duckedRef.current ? DUCK_VOLUME : 1);
             const target =
               (start ?? 0) + (syncFrom ? secondsSince(syncFrom) : 0);
             const seekTo = end
@@ -383,6 +447,7 @@ export function MediaPlayer({
       window.clearTimeout(clickable);
       window.clearTimeout(giveUp);
       window.clearInterval(poll);
+      if (vkPlayerRef.current === player) vkPlayerRef.current = null;
       try {
         player?.pause();
         player?.destroy?.();
@@ -569,6 +634,11 @@ function AudioPreview({
   const [needsTap, setNeedsTap] = useState(!autoplay);
   const [finished, setFinished] = useState(false);
   const [failed, setFailed] = useState(false);
+  const ducked = useSpeechDuck();
+  useEffect(() => {
+    // iOS громкость <audio> не меняет — там трек просто идёт как раньше.
+    if (audioRef.current) audioRef.current.volume = ducked ? DUCK_VOLUME : 1;
+  }, [ducked]);
 
   function play() {
     const audio = audioRef.current;
@@ -639,31 +709,15 @@ function AudioPreview({
 }
 
 /**
- * Один AudioContext на вкладку. Раньше на каждый вопрос создавался новый
- * контекст без жеста пользователя: на экране ведущего (Safari/Chrome на ТВ,
- * ноутбук без кликов между вопросами) он оставался suspended, а после
- * нескольких вопросов браузер упирался в лимит контекстов — трек молчал.
- * Общий контекст «разблокируется» первым же кликом/тапом по странице.
- */
-let sharedContext: AudioContext | null = null;
-function sharedAudioContext(Context: typeof AudioContext): AudioContext {
-  if (sharedContext && sharedContext.state !== "closed") return sharedContext;
-  const context = new Context();
-  sharedContext = context;
-  const unlock = () => {
-    if (context.state === "suspended") void context.resume().catch(() => {});
-  };
-  for (const type of ["pointerdown", "keydown", "touchend"])
-    window.addEventListener(type, unlock, { capture: true });
-  return context;
-}
-
-/**
  * «Звук наоборот»: то же 30-секундное превью iTunes, но задом наперёд или
  * замедленно. Файл не копируется и не хранится: браузер сам скачивает
  * превью (у audio-ssl.itunes.apple.com открыт CORS), декодирует в Web Audio
  * и играет перевёрнутый буфер или с пониженной скоростью. После ответа —
  * кнопка «Как в оригинале».
+ *
+ * AudioContext общий на вкладку (audio-unlock.ts): он разблокирован первым
+ * же жестом на странице, поэтому экран ведущего играет трек сам и на
+ * пятом вопросе, а не только после свежего касания.
  */
 function TwistedAudio({
   src,
@@ -689,6 +743,21 @@ function TwistedAudio({
     null,
   );
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const gainRef = useRef<GainNode | null>(null);
+  const disposedRef = useRef(false);
+  const ducked = useSpeechDuck();
+  const duckedRef = useRef(ducked);
+  useEffect(() => {
+    duckedRef.current = ducked;
+    const gain = gainRef.current;
+    const context = contextRef.current;
+    if (!gain || !context) return;
+    gain.gain.setTargetAtTime(
+      ducked ? DUCK_VOLUME : 1,
+      context.currentTime,
+      0.08,
+    );
+  }, [ducked]);
   const [state, setState] = useState<
     "loading" | "ready" | "playing" | "finished" | "failed"
   >("loading");
@@ -726,7 +795,19 @@ function TwistedAudio({
     node.buffer = buffers[which];
     node.playbackRate.value =
       which === "twisted" && fx === "slow" ? SLOW_RATE : 1;
-    node.connect(context.destination);
+    // Через свой GainNode: под голосом ведущего трек приглушается.
+    let output: AudioNode = context.destination;
+    try {
+      const gain = context.createGain();
+      gain.gain.value = duckedRef.current ? DUCK_VOLUME : 1;
+      gain.connect(context.destination);
+      gainRef.current?.disconnect();
+      gainRef.current = gain;
+      output = gain;
+    } catch {
+      gainRef.current = null;
+    }
+    node.connect(output);
     node.onended = () => {
       if (sourceRef.current === node) {
         sourceRef.current = null;
@@ -735,29 +816,39 @@ function TwistedAudio({
     };
     sourceRef.current = node;
     const begin = () => {
-      node.start(0, skip);
+      // Вопрос уже сменился или нажали другую кнопку — не играем.
+      if (disposedRef.current || sourceRef.current !== node) return;
+      try {
+        node.start(0, skip);
+      } catch {
+        setNeedsTap(true);
+        return;
+      }
       setState("playing");
       setNeedsTap(false);
     };
-    if (context.state === "suspended") {
-      // Без жеста пользователя браузер не даст звук — остаётся кнопка.
+    if (context.state !== "running") {
+      // suspended (не было жеста) или interrupted (iOS): без жеста браузер
+      // не даст звук — тогда кнопка. «Слушаем» без звука не показываем.
       context
         .resume()
-        .then(() => (context.state === "running" ? begin() : setNeedsTap(true)))
+        .then(() =>
+          (context.state as string) === "running" ? begin() : setNeedsTap(true),
+        )
         .catch(() => setNeedsTap(true));
       window.setTimeout(() => {
-        if (context.state !== "running") setNeedsTap(true);
+        if ((context.state as string) !== "running" && !disposedRef.current)
+          setNeedsTap(true);
       }, 400);
     } else begin();
   }
 
   useEffect(() => {
     let cancelled = false;
-    const Context =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!Context) {
+    disposedRef.current = false;
+    armAudioUnlock();
+    const context = sharedAudioContext();
+    if (!context) {
       queueMicrotask(() => {
         if (!cancelled) setState("failed");
       });
@@ -765,7 +856,6 @@ function TwistedAudio({
         cancelled = true;
       };
     }
-    const context = sharedAudioContext(Context);
     contextRef.current = context;
     fetch(src, { mode: "cors", credentials: "omit" })
       .then((response) => {
@@ -793,7 +883,14 @@ function TwistedAudio({
       });
     return () => {
       cancelled = true;
+      disposedRef.current = true;
       stop();
+      try {
+        gainRef.current?.disconnect();
+      } catch {}
+      gainRef.current = null;
+      // Контекст общий на вкладку — не закрываем, иначе следующему вопросу
+      // снова понадобится жест.
       contextRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

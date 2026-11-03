@@ -772,7 +772,15 @@ function TwistedAudio({
         if (!response.ok) throw new Error(String(response.status));
         return response.arrayBuffer();
       })
-      .then((data) => context.decodeAudioData(data))
+      .then(
+        (data) =>
+          new Promise<AudioBuffer>((resolve, reject) => {
+            // Старый Safari понимает только колбэки decodeAudioData.
+            const result = context.decodeAudioData(data, resolve, reject);
+            if (result && typeof result.then === "function")
+              result.then(resolve, reject);
+          }),
+      )
       .then((decoded) => {
         if (cancelled) return;
         const segment = reversedSegment(context, decoded, start, end, fx);

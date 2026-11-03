@@ -4,7 +4,7 @@ import { HostPhoneScreen } from "@/components/host-phone-screen";
 import { Opening } from "@/components/shell";
 
 export const metadata: Metadata = {
-  title: "Твояк — пульт ведущего",
+  title: "Пульт ведущего",
   robots: { index: false, follow: false },
 };
 

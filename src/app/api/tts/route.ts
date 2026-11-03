@@ -1,3 +1,4 @@
+import { clientIp } from "@/lib/http/client-ip";
 import { requireHost, requirePlayer } from "@/lib/game/host-auth";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { RateLimiter, TTS_MAX_CHARS } from "@/lib/tts/phrases";
@@ -42,8 +43,7 @@ export async function POST(request: Request) {
   if (!text.trim() || text.length > TTS_MAX_CHARS) {
     return Response.json({ error: "bad_text" }, { status: 400 });
   }
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+  const ip = clientIp(request.headers);
   if (!perIp.take(ip)) {
     return Response.json({ error: "rate_limited" }, { status: 429 });
   }

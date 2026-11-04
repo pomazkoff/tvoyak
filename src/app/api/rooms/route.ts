@@ -1,3 +1,6 @@
+import { paywallEnabled } from "@/lib/billing/config";
+import { isDeviceId } from "@/lib/billing/products";
+import { checkAccess, ipHash, userFromRequest } from "@/lib/billing/server";
 import { isCompanyId } from "@/lib/rooms/company";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import type { CreateRoomResult, HostMode } from "@/lib/supabase/types";
@@ -5,11 +8,14 @@ import type { CreateRoomResult, HostMode } from "@/lib/supabase/types";
 export async function POST(request: Request) {
   let hostMode: HostMode = "human";
   let company: string | null = null;
+  let device: string | null = null;
   try {
     const body = (await request.json()) as {
       hostMode?: unknown;
       companyId?: unknown;
+      deviceId?: unknown;
     };
+    device = isDeviceId(body?.deviceId) ? body.deviceId : null;
     company = isCompanyId(body?.companyId) ? body.companyId : null;
     if (body?.hostMode === "bot") hostMode = "bot";
     else if (body?.hostMode === undefined || body.hostMode === "human")
@@ -21,6 +27,21 @@ export async function POST(request: Request) {
 
   try {
     const supabase = getServiceSupabase();
+    // Оплата ведущего: пускаем создать комнату, только если играть есть чем
+    // (бесплатная, кредит или безлимит). Списание — на старте партии.
+    const paywall = paywallEnabled();
+    const user = paywall ? await userFromRequest(supabase, request) : null;
+    const ip = paywall ? ipHash(request) : null;
+    if (paywall) {
+      const access = await checkAccess(supabase, {
+        user,
+        deviceId: device,
+        ipHash: ip,
+      });
+      if (!access.ok) {
+        return Response.json({ error: access.error }, { status: 402 });
+      }
+    }
     const { data, error } = await supabase.rpc("create_room", {
       p_host_mode: hostMode,
     });
@@ -42,6 +63,18 @@ export async function POST(request: Request) {
         .update({ surprises: true })
         .eq("id", result.room_id);
       if (surpriseError) console.error("room_surprises", surpriseError.code);
+    }
+
+    if (paywall && result.room_id) {
+      const { error: billingError } = await supabase
+        .from("room_billing")
+        .insert({
+          room_id: result.room_id,
+          user_id: user?.id ?? null,
+          device_id: device,
+          ip_hash: ip,
+        });
+      if (billingError) console.error("room_billing", billingError.code);
     }
 
     if (result.room_id && company) {

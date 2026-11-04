@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DemoVideo } from "@/components/business/demo-video";
 import { LeadForm } from "@/components/business/lead-form";
 import { Logo } from "@/components/marks";
 import {
@@ -105,6 +106,9 @@ export default function BusinessPage() {
           <a href="#lead" className="action">
             Оставить заявку
           </a>
+          <a href="#demo" className="biz-link">
+            ▶ Смотреть демо
+          </a>
           <Link href="/" className="biz-link">
             Попробовать бесплатно →
           </Link>
@@ -112,6 +116,17 @@ export default function BusinessPage() {
       </header>
 
       <div className="home-info">
+        <section
+          id="demo"
+          className="home-info-block"
+          aria-labelledby="demo-title"
+        >
+          <h2 id="demo-title" className="home-info-title hand">
+            Как это выглядит
+          </h2>
+          <DemoVideo />
+        </section>
+
         <section className="home-info-block" aria-labelledby="who-title">
           <h2 id="who-title" className="home-info-title hand">
             Кому подойдёт

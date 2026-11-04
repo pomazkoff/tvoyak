@@ -2920,3 +2920,37 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+.biz-demo {
+  margin: 0;
+}
+
+.biz-demo-frame {
+  position: relative;
+  padding: 0.6rem;
+}
+
+.biz-demo-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  background: #141414;
+}
+
+.biz-demo-sound {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.2rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(20, 20, 20, 0.78);
+  padding: 0.45rem 0.9rem;
+  color: #f7f6f2;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.biz-demo figcaption {
+  margin-top: 0.6rem;
+}

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import {
   Caveat,
@@ -96,7 +97,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       >
         <RoughDefs />
         {children}
-        <BugReport />
+        <Suspense fallback={null}>
+          <BugReport />
+        </Suspense>
       </body>
     </html>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { displayPrompt } from "@/lib/game/prompt";
 import { useEffect, useState, type FormEvent } from "react";
 import { Board } from "@/components/game/board";
@@ -114,6 +115,7 @@ export function PlayScreen({ code }: { code: string }) {
         nickname: result.nickname,
         role: result.role,
       };
+      vkGoal("player_joined");
       savePlayer(normalized, nextSession);
       setMemorySession(nextSession);
       if (remoteDraft || readRemote(normalized)) {

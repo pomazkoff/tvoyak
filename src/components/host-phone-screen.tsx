@@ -1,5 +1,6 @@
 "use client";
 
+import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { displayPrompt } from "@/lib/game/prompt";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
@@ -280,6 +281,7 @@ function HostRemote({
     setError(null);
     try {
       const result = await callHostAction(code, action, credentials, extra);
+      if (action === "start" && result.ok === true) vkGoal("game_started");
       requestMatchReload();
       if (revoked(result)) return;
       const raced =

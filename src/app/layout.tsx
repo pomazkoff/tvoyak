@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import {
   Caveat,
   Golos_Text,
@@ -6,6 +7,7 @@ import {
   Oswald,
   Sofia_Sans_Extra_Condensed,
 } from "next/font/google";
+import { VkPixel } from "@/components/analytics/vk-pixel";
 import { RoughDefs } from "@/components/marks";
 import {
   OG_DESCRIPTION,
@@ -95,6 +97,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       >
         <RoughDefs />
         {children}
+        <Suspense fallback={null}>
+          <VkPixel />
+        </Suspense>
       </body>
     </html>
   );

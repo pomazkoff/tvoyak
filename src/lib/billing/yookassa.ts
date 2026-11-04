@@ -40,7 +40,7 @@ type RawPayment = {
   status: YkStatus;
   paid: boolean;
   confirmation?: { confirmation_url?: string };
-  metadata?: { payment_ref?: string };
+  metadata?: { app?: string; payment_ref?: string };
   test?: boolean;
 };
 
@@ -131,7 +131,7 @@ export async function createYkPayment(input: {
       capture: true,
       confirmation: { type: "redirect", return_url: input.returnUrl },
       description: input.description.slice(0, 128),
-      metadata: { payment_ref: input.paymentRef },
+      metadata: { app: "tvoyak", payment_ref: input.paymentRef },
       ...(receipts && input.email
         ? {
             receipt: buildReceipt({

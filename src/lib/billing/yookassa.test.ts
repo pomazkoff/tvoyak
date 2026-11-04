@@ -3,8 +3,38 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 describe("yookassa helpers", async () => {
-  const { buildReceipt, isYookassaId, paymentsMode } =
+  const { buildReceipt, createYkPayment, isYookassaId, paymentsMode } =
     await import("./yookassa");
+  it("платёж помечен metadata.app = tvoyak (общий магазин с бюро)", async () => {
+    vi.stubEnv("YOOKASSA_SHOP_ID", "1");
+    vi.stubEnv("YOOKASSA_SECRET_KEY", "k");
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        id: "2f9d1c3a-000f-5000-9000-1b2c3d4e5f60",
+        status: "pending",
+        paid: false,
+        amount: { value: "99.00" },
+        confirmation: { confirmation_url: "https://y" },
+        metadata: {},
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await createYkPayment({
+      paymentRef: "r1",
+      amountRub: 99,
+      description: "Партия",
+      returnUrl: "https://t",
+    }).catch(() => null);
+    const init = (
+      fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    )[1];
+    expect(JSON.parse(String(init.body)).metadata).toEqual({
+      app: "tvoyak",
+      payment_ref: "r1",
+    });
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
   it("id платежа — только формат ЮKassa", () => {
     expect(isYookassaId("2f9d1c3a-000f-5000-9000-1b2c3d4e5f60")).toBe(true);
     expect(isYookassaId("../payments")).toBe(false);

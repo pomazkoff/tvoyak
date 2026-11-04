@@ -1,5 +1,6 @@
 "use client";
 
+import { isPaywallError } from "@/lib/billing/products";
 import { displayPrompt } from "@/lib/game/prompt";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -421,6 +422,13 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     setError(null);
     try {
       const result = await callHost(normalized, action, extra);
+      if (isPaywallError(result.error)) {
+        // Партия не оплачена: уводим на оплату и возвращаем в эту комнату.
+        window.location.assign(
+          `/pay?need=${result.error}&next=${encodeURIComponent(window.location.pathname)}`,
+        );
+        return;
+      }
       // Не ждём realtime: сразу перечитываем партию, иначе экран (и кнопки
       // ведущего) ещё секунды показывают старую фазу.
       requestMatchReload();

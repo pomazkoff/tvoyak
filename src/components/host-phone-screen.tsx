@@ -1,5 +1,6 @@
 "use client";
 
+import { isPaywallError } from "@/lib/billing/products";
 import { displayPrompt } from "@/lib/game/prompt";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
@@ -280,6 +281,13 @@ function HostRemote({
     setError(null);
     try {
       const result = await callHostAction(code, action, credentials, extra);
+      if (isPaywallError(result.error)) {
+        // Партия не оплачена: уводим на оплату и возвращаем в эту комнату.
+        window.location.assign(
+          `/pay?need=${result.error}&next=${encodeURIComponent(window.location.pathname)}`,
+        );
+        return;
+      }
       requestMatchReload();
       if (revoked(result)) return;
       const raced =

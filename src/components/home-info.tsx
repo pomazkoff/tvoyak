@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { HOME_FAQ } from "@/lib/seo/site";
 
 const STEPS = [
@@ -74,6 +75,15 @@ export function HomeInfo() {
           ))}
         </div>
       </section>
+
+      <footer className="home-info-block">
+        <p className="home-info-more">
+          Проводите квизы в баре или на корпоративе?{" "}
+          <Link href="/business" className="biz-link">
+            Твояк для баров и корпоративов →
+          </Link>
+        </p>
+      </footer>
     </div>
   );
 }

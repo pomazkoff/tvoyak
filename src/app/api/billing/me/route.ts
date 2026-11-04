@@ -13,16 +13,29 @@ export async function GET(request: Request) {
     game: PRODUCTS.game.priceRub,
     month: PRODUCTS.month.priceRub,
   };
-  if (!enabled) return Response.json({ enabled, mode, prices });
   const supabase = getServiceSupabase();
   const user = await userFromRequest(supabase, request);
   if (!user) return Response.json({ enabled, mode, prices, user: null });
+  if (!enabled) {
+    return Response.json({
+      enabled,
+      mode,
+      prices,
+      user: {
+        email: user.email ?? null,
+        name: hostName(user.user_metadata, user.email ?? null),
+      },
+    });
+  }
   const ent = await loadEntitlement(supabase, user.id);
   return Response.json({
     enabled,
     mode,
     prices,
-    user: { email: user.email ?? null },
+    user: {
+      email: user.email ?? null,
+      name: hostName(user.user_metadata, user.email ?? null),
+    },
     entitlement: {
       ...ent,
       unlimitedActive: Boolean(
@@ -30,4 +43,15 @@ export async function GET(request: Request) {
       ),
     },
   });
+}
+
+function hostName(
+  meta: Record<string, unknown> | undefined,
+  email: string | null,
+): string | null {
+  const username = meta?.telegram_username;
+  const full = meta?.full_name;
+  if (typeof username === "string" && username) return `@${username}`;
+  if (typeof full === "string" && full) return full;
+  return email;
 }

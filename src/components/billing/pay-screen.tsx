@@ -24,7 +24,7 @@ type Me = {
   enabled: boolean;
   mode: "off" | "test" | "live";
   prices: { game: number; month: number };
-  user?: { email: string | null } | null;
+  user?: { email: string | null; name?: string | null } | null;
   entitlement?: {
     credits: number;
     unlimitedUntil: string | null;
@@ -34,6 +34,9 @@ type Me = {
 };
 
 const NEXT_KEY = "tvoyak:pay-next";
+const TG_KEY = "tvoyak:tg-login";
+// Вход по почте пока скрыт: письма не отправляются. Код оставлен.
+const EMAIL_LOGIN = false;
 
 function safeNext(value: string | null): string {
   return value && value.startsWith("/") && !value.startsWith("//")
@@ -45,6 +48,7 @@ export function PayScreen() {
   const [me, setMe] = useState<Me | null>(null);
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [tgWaiting, setTgWaiting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [next, setNext] = useState("/");
@@ -81,6 +85,15 @@ export function PayScreen() {
     // подхватит; ждём событие и перечитываем статус.
     const sub = supabase?.auth.onAuthStateChange(() => void refresh());
     const first = setTimeout(() => void refresh(), 0);
+    // Вернулись из Telegram в эту же вкладку — продолжаем ждать подтверждения.
+    const pending = sessionStorage.getItem(TG_KEY);
+    if (pending) {
+      queueMicrotask(() => setTgWaiting(true));
+      void pollTelegram(pending).then((result) => {
+        setTgWaiting(false);
+        if (result === "ok") void refresh();
+      });
+    }
     return () => {
       clearTimeout(first);
       sub?.data.subscription.unsubscribe();
@@ -100,6 +113,39 @@ export function PayScreen() {
     setBusy(false);
     if (authError) setError("Не получилось отправить письмо. Проверьте адрес.");
     else setSent(true);
+  }
+
+  async function loginTelegram() {
+    const supabase = getAuthSupabase();
+    if (!supabase || busy) return;
+    setError(null);
+    // Окно открываем сразу по клику, иначе браузер его заблокирует.
+    const popup = window.open("", "_blank");
+    let token: string;
+    try {
+      const res = await fetch("/api/auth/telegram/start", { method: "POST" });
+      const payload = (await res.json()) as { token?: string; url?: string };
+      if (!payload.token || !payload.url) throw new Error("start");
+      token = payload.token;
+      if (popup) popup.location.href = payload.url;
+      else window.location.assign(payload.url);
+    } catch {
+      popup?.close();
+      setError("Не получилось начать вход. Попробуйте ещё раз.");
+      return;
+    }
+    sessionStorage.setItem(TG_KEY, token);
+    setTgWaiting(true);
+    void waitTelegram(token);
+  }
+
+  async function waitTelegram(token: string) {
+    const result = await pollTelegram(token);
+    setTgWaiting(false);
+    if (result === "ok") await refresh();
+    else if (result === "timeout")
+      setError("Время на вход вышло. Попробуйте ещё раз.");
+    else setError("Вход не завершён. Нажмите «Войти через Telegram» ещё раз.");
   }
 
   async function buy(product: ProductId) {
@@ -255,6 +301,25 @@ export function PayScreen() {
         ) : null}
 
         {me?.enabled && !me.user ? (
+          <div className="pay-login">
+            <button
+              type="button"
+              className="action"
+              disabled={tgWaiting}
+              onClick={() => void loginTelegram()}
+            >
+              Войти через Telegram
+            </button>
+            {tgWaiting ? (
+              <p className="pay-note">
+                Нажмите «Запустить» в боте @tvoyak_bot и вернитесь сюда — вход
+                завершится сам.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {EMAIL_LOGIN && me?.enabled && !me.user ? (
           sent ? (
             <p className="pay-note">
               Ссылка для входа отправлена на {email}. Откройте письмо на этом
@@ -282,7 +347,7 @@ export function PayScreen() {
         {me?.enabled && me.user ? (
           <>
             <p className="pay-balance">
-              {me.user.email}:{" "}
+              {me.user.name ?? me.user.email}:{" "}
               {unlimited
                 ? `безлимит до ${unlimited}`
                 : `оплаченных партий — ${ent?.credits ?? 0}`}
@@ -371,6 +436,39 @@ export function PayScreen() {
       </section>
     </main>
   );
+}
+
+/** Ждёт подтверждения в боте и ставит сессию. */
+async function pollTelegram(token: string): Promise<"ok" | "fail" | "timeout"> {
+  const supabase = getAuthSupabase();
+  if (!supabase) return "fail";
+  const until = Date.now() + 10 * 60 * 1000;
+  while (Date.now() < until) {
+    await new Promise((r) => setTimeout(r, 2000));
+    let payload: {
+      status?: string;
+      session?: { access_token: string; refresh_token: string };
+    };
+    try {
+      const res = await fetch("/api/auth/telegram/poll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      payload = (await res.json()) as typeof payload;
+    } catch {
+      continue;
+    }
+    if (payload.status === "pending") continue;
+    sessionStorage.removeItem(TG_KEY);
+    if (payload.status === "ok" && payload.session) {
+      const { error } = await supabase.auth.setSession(payload.session);
+      return error ? "fail" : "ok";
+    }
+    return "fail";
+  }
+  sessionStorage.removeItem(TG_KEY);
+  return "timeout";
 }
 
 function promoFits(promo: Promo, product: ProductId): boolean {

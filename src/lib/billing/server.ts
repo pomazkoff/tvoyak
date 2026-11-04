@@ -8,6 +8,7 @@ import {
   type Access,
   type ProductId,
 } from "./products";
+import { normalizeCode, type PromoResult } from "./promo";
 import { createYkPayment, fetchYkPayment, type YkPayment } from "./yookassa";
 
 /** Пользователь по токену из заголовка Authorization: Bearer … */
@@ -115,25 +116,88 @@ export async function releaseGame(supabase: SupabaseClient, roomId: string) {
   if (error) console.error("billing_release", error.code);
 }
 
+/** Проверить (commit=false) или применить промокод — атомарно в SQL. */
+export async function applyPromo(
+  supabase: SupabaseClient,
+  input: {
+    code: unknown;
+    userId: string | null;
+    product: ProductId | null;
+    commit: boolean;
+  },
+): Promise<PromoResult> {
+  const code = normalizeCode(input.code);
+  if (!code) return { ok: false, reason: "promo_not_found" };
+  const { data, error } = await supabase.rpc("promo_apply", {
+    p_code: code,
+    p_user: input.userId,
+    p_product: input.product,
+    p_commit: input.commit,
+  });
+  if (error || !data) {
+    console.error("promo_apply", error?.message);
+    return { ok: false, reason: "promo_failed" };
+  }
+  return data as PromoResult;
+}
+
+/** Не чаще 10 проверок кода за 10 минут с одного адреса (как в бюро). */
+export async function promoRateOk(
+  supabase: SupabaseClient,
+  request: Request,
+): Promise<boolean> {
+  const key = ipHash(request) ?? "unknown";
+  const { data, error } = await supabase.rpc("promo_rate_hit", {
+    p_key: key,
+  });
+  if (error) return true; // лимитер не должен ломать оплату
+  return data !== false;
+}
+
+export type CheckoutResult =
+  { url: string } | { granted: true } | { error: string };
+
 export async function startCheckout(
   supabase: SupabaseClient,
   user: User,
   product: ProductId,
-): Promise<{ url: string } | { error: string }> {
+  promo?: unknown,
+): Promise<CheckoutResult> {
   const item = PRODUCTS[product];
-  const { data: row, error } = await supabase
-    .from("host_payments")
-    .insert({ user_id: user.id, product, amount_rub: item.priceRub })
-    .select("id")
-    .single();
-  if (error || !row) return { error: "payment_failed" };
-  const ref = row.id as string;
+  let ref: string;
+  let amount = item.priceRub;
+  let description = item.description;
+  if (promo !== undefined && promo !== null && promo !== "") {
+    const r = await applyPromo(supabase, {
+      code: promo,
+      userId: user.id,
+      product,
+      commit: true,
+    });
+    if (!r.ok) return { error: r.reason };
+    // Бонус или скидка до нуля — тариф уже выдан, без ЮKassa.
+    if (r.granted) return { granted: true };
+    if (!r.payment_id || r.price_rub === undefined) {
+      return { error: "promo_failed" };
+    }
+    ref = r.payment_id;
+    amount = r.price_rub;
+    description = `${item.description} (промокод ${normalizeCode(promo)})`;
+  } else {
+    const { data: row, error } = await supabase
+      .from("host_payments")
+      .insert({ user_id: user.id, product, amount_rub: item.priceRub })
+      .select("id")
+      .single();
+    if (error || !row) return { error: "payment_failed" };
+    ref = row.id as string;
+  }
   let payment: YkPayment;
   try {
     payment = await createYkPayment({
       paymentRef: ref,
-      amountRub: item.priceRub,
-      description: item.description,
+      amountRub: amount,
+      description,
       returnUrl: `${siteOrigin()}/pay/return?ref=${ref}`,
       email: user.email,
     });
@@ -143,6 +207,7 @@ export async function startCheckout(
       .from("host_payments")
       .update({ status: "canceled" })
       .eq("id", ref);
+    await supabase.rpc("promo_release_payment", { p_payment: ref });
     return { error: "payment_failed" };
   }
   await supabase
@@ -171,11 +236,15 @@ export async function syncPayment(
     return "succeeded" as const;
   }
   if (payment.status === "canceled") {
-    await supabase
+    const { data: rows } = await supabase
       .from("host_payments")
       .update({ status: "canceled" })
       .eq("yookassa_id", payment.id)
-      .is("credited_at", null);
+      .is("credited_at", null)
+      .select("id");
+    for (const row of rows ?? []) {
+      await supabase.rpc("promo_release_payment", { p_payment: row.id });
+    }
     return "canceled" as const;
   }
   return "pending" as const;

@@ -10,7 +10,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "verify:lobby": "node scripts/verify-lobby.mjs"
+    "verify:lobby": "node scripts/verify-lobby.mjs",
+    "promo": "node --env-file-if-exists=.env.local scripts/promo.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

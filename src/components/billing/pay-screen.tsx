@@ -5,6 +5,20 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Logo } from "@/components/marks";
 import { authHeader, getAuthSupabase } from "@/lib/billing/client";
 import { PRODUCTS, type ProductId } from "@/lib/billing/products";
+import {
+  describePromo,
+  discountFor,
+  normalizeCode,
+  promoMessage,
+  type PromoKind,
+} from "@/lib/billing/promo";
+
+type Promo = {
+  code: string;
+  kind: PromoKind;
+  value: number;
+  product?: ProductId | null;
+};
 
 type Me = {
   enabled: boolean;
@@ -35,6 +49,9 @@ export function PayScreen() {
   const [error, setError] = useState<string | null>(null);
   const [next, setNext] = useState("/");
   const [need, setNeed] = useState<string | null>(null);
+  const [promoInput, setPromoInput] = useState("");
+  const [promo, setPromo] = useState<Promo | null>(null);
+  const [promoInfo, setPromoInfo] = useState<string | null>(null);
 
   async function refresh() {
     try {
@@ -56,6 +73,8 @@ export function PayScreen() {
     queueMicrotask(() => {
       setNext(target);
       setNeed(params.get("need"));
+      const fromLink = params.get("promo");
+      if (fromLink) setPromoInput(fromLink);
     });
     const supabase = getAuthSupabase();
     // Ссылка из письма возвращает сюда с токеном в адресе — клиент сам его
@@ -94,14 +113,105 @@ export function PayScreen() {
           "Content-Type": "application/json",
           ...(await authHeader()),
         },
-        body: JSON.stringify({ product }),
+        body: JSON.stringify({
+          product,
+          promo: promo && promoFits(promo, product) ? promo.code : undefined,
+        }),
       });
-      const payload = (await res.json()) as { url?: string; error?: string };
+      const payload = (await res.json()) as {
+        url?: string;
+        granted?: boolean;
+        error?: string;
+      };
       if (payload.url) {
         window.location.assign(payload.url);
         return;
       }
-      setError("Оплата сейчас недоступна. Попробуйте позже.");
+      if (payload.granted) {
+        setPromo(null);
+        setPromoInfo("Готово! Тариф выдан по промокоду.");
+        await refresh();
+      } else if (payload.error?.startsWith("promo_")) {
+        setError(promoMessage(payload.error));
+      } else {
+        setError("Оплата сейчас недоступна. Попробуйте позже.");
+      }
+    } catch {
+      setError("Нет связи. Попробуйте ещё раз.");
+    }
+    setBusy(false);
+  }
+
+  async function checkPromo(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const code = normalizeCode(promoInput);
+    setError(null);
+    setPromoInfo(null);
+    setPromo(null);
+    if (!code) {
+      setError(promoMessage("promo_not_found"));
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/billing/promo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await authHeader()),
+        },
+        body: JSON.stringify({ code }),
+      });
+      const payload = (await res.json()) as {
+        ok?: boolean;
+        kind?: PromoKind;
+        value?: number;
+        product?: ProductId | null;
+        error?: string;
+      };
+      if (payload.ok && payload.kind && payload.value) {
+        const found: Promo = {
+          code,
+          kind: payload.kind,
+          value: payload.value,
+          product: payload.product ?? null,
+        };
+        setPromo(found);
+        setPromoInfo(`Промокод ${code}: ${describePromo(found)}`);
+      } else {
+        setError(promoMessage(payload.error ?? ""));
+      }
+    } catch {
+      setError("Нет связи. Попробуйте ещё раз.");
+    }
+    setBusy(false);
+  }
+
+  async function activatePromo() {
+    if (!promo || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/billing/promo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await authHeader()),
+        },
+        body: JSON.stringify({ code: promo.code, apply: true }),
+      });
+      const payload = (await res.json()) as {
+        granted?: boolean;
+        error?: string;
+      };
+      if (payload.granted) {
+        setPromoInfo(`Готово: ${describePromo(promo)}.`);
+        setPromo(null);
+        setPromoInput("");
+        await refresh();
+      } else {
+        setError(promoMessage(payload.error ?? ""));
+      }
     } catch {
       setError("Нет связи. Попробуйте ещё раз.");
     }
@@ -194,11 +304,46 @@ export function PayScreen() {
                   disabled={busy || me.mode === "off"}
                   onClick={() => void buy(id)}
                 >
-                  <span className="pay-price">{PRODUCTS[id].priceRub} ₽</span>
+                  {promo && promoFits(promo, id) ? (
+                    <span className="pay-price">
+                      <s className="pay-old">{PRODUCTS[id].priceRub} ₽</s>{" "}
+                      {priceWith(promo, id)} ₽
+                    </span>
+                  ) : (
+                    <span className="pay-price">{PRODUCTS[id].priceRub} ₽</span>
+                  )}
                   <span>{PRODUCTS[id].title}</span>
                 </button>
               ))}
             </div>
+            <form className="pay-promo" onSubmit={(e) => void checkPromo(e)}>
+              <label htmlFor="pay-promo">Есть промокод?</label>
+              <div className="pay-promo-row">
+                <input
+                  id="pay-promo"
+                  value={promoInput}
+                  onChange={(e) => setPromoInput(e.target.value)}
+                  placeholder="КОД"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                />
+                <button type="submit" className="pay-link" disabled={busy}>
+                  Проверить
+                </button>
+              </div>
+            </form>
+            {promoInfo ? <p className="pay-ok">{promoInfo}</p> : null}
+            {promo &&
+            (promo.kind === "games" || promo.kind === "unlimited_days") ? (
+              <button
+                type="button"
+                className="action"
+                disabled={busy}
+                onClick={() => void activatePromo()}
+              >
+                Активировать: {describePromo(promo)}
+              </button>
+            ) : null}
             {me.mode === "test" ? (
               <p className="pay-note">
                 Тестовый режим: используйте тестовую карту ЮKassa, деньги не
@@ -225,5 +370,19 @@ export function PayScreen() {
         </p>
       </section>
     </main>
+  );
+}
+
+function promoFits(promo: Promo, product: ProductId): boolean {
+  if (promo.kind !== "percent" && promo.kind !== "rub") return false;
+  return !promo.product || promo.product === product;
+}
+
+function priceWith(promo: Promo, product: ProductId): number {
+  if (promo.kind !== "percent" && promo.kind !== "rub") {
+    return PRODUCTS[product].priceRub;
+  }
+  return (
+    PRODUCTS[product].priceRub - discountFor(promo.kind, promo.value, product)
   );
 }

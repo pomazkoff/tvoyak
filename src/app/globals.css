@@ -3043,3 +3043,34 @@ button {
   text-decoration: underline;
   cursor: pointer;
 }
+
+.pay-promo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pay-promo-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.pay-promo-row input {
+  flex: 1;
+  border: 2px solid #141414;
+  background: #fff;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  text-transform: uppercase;
+}
+
+.pay-old {
+  color: #888;
+  font-size: 1.2rem;
+}
+
+.pay-ok {
+  color: #1d7a3a;
+  font-weight: 600;
+}

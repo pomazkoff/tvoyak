@@ -109,7 +109,8 @@ export function BugReport() {
         title="Что-то не работает"
         onClick={() => setOpen(true)}
       >
-        {inGame ? "?" : "Что-то не работает"}
+        <BugIcon />
+        {inGame ? null : <span>Что-то не работает</span>}
       </button>
       {open ? (
         <div className="bug-backdrop" role="presentation" onClick={close}>
@@ -184,5 +185,35 @@ export function BugReport() {
         </div>
       ) : null}
     </>
+  );
+}
+
+function BugIcon() {
+  return (
+    <svg
+      className="bug-icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <g fill="none" stroke="#1d1d1d" strokeWidth="1.6" strokeLinecap="round">
+        <path d="M9 5.5 7.5 3.5M15 5.5l1.5-2M5 11H2.5M21.5 11H19M5.5 16l-2.5 1.5M18.5 16l2.5 1.5M6 7.5 3.5 6M18 7.5 20.5 6" />
+      </g>
+      <circle cx="12" cy="7" r="3" fill="#1d1d1d" />
+      <ellipse
+        cx="12"
+        cy="14"
+        rx="6.5"
+        ry="7.5"
+        fill="#d7282f"
+        stroke="#1d1d1d"
+        strokeWidth="1.4"
+      />
+      <path d="M12 6.5v15" stroke="#1d1d1d" strokeWidth="1.4" />
+      <circle cx="9" cy="12" r="1.3" fill="#1d1d1d" />
+      <circle cx="15" cy="12" r="1.3" fill="#1d1d1d" />
+      <circle cx="9.5" cy="17" r="1.1" fill="#1d1d1d" />
+      <circle cx="14.5" cy="17" r="1.1" fill="#1d1d1d" />
+    </svg>
   );
 }

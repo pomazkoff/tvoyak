@@ -8,6 +8,7 @@ import {
   Sofia_Sans_Extra_Condensed,
 } from "next/font/google";
 import { BugReport } from "@/components/feedback/bug-report";
+import { VkPixel } from "@/components/analytics/vk-pixel";
 import { RoughDefs } from "@/components/marks";
 import {
   OG_DESCRIPTION,
@@ -99,6 +100,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {children}
         <Suspense fallback={null}>
           <BugReport />
+          <VkPixel />
         </Suspense>
       </body>
     </html>

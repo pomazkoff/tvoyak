@@ -1,6 +1,7 @@
 "use client";
 
 import { isPaywallError } from "@/lib/billing/products";
+import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { displayPrompt } from "@/lib/game/prompt";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
@@ -288,6 +289,7 @@ function HostRemote({
         );
         return;
       }
+      if (action === "start" && result.ok === true) vkGoal("game_started");
       requestMatchReload();
       if (revoked(result)) return;
       const raced =

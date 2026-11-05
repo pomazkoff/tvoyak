@@ -1,6 +1,7 @@
 "use client";
 
 import { isPaywallError } from "@/lib/billing/products";
+import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { displayPrompt } from "@/lib/game/prompt";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -429,6 +430,7 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
         );
         return;
       }
+      if (action === "start" && result.ok === true) vkGoal("game_started");
       // Не ждём realtime: сразу перечитываем партию, иначе экран (и кнопки
       // ведущего) ещё секунды показывают старую фазу.
       requestMatchReload();

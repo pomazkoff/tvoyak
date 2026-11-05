@@ -1,5 +1,6 @@
 "use client";
 
+import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { useBackgroundMusic } from "@/components/game/background-music";
@@ -59,6 +60,7 @@ export function HomeScreen() {
         setError(messageFor(payload.error));
         return;
       }
+      vkGoal("room_created");
       const saved = saveHostSecret(payload.code, payload.hostSecret);
       if (!saved) {
         setError(

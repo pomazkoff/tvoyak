@@ -1,5 +1,6 @@
 "use client";
 
+import { isPaywallError } from "@/lib/billing/products";
 import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { displayPrompt } from "@/lib/game/prompt";
 import Link from "next/link";
@@ -281,6 +282,13 @@ function HostRemote({
     setError(null);
     try {
       const result = await callHostAction(code, action, credentials, extra);
+      if (isPaywallError(result.error)) {
+        // Партия не оплачена: уводим на оплату и возвращаем в эту комнату.
+        window.location.assign(
+          `/pay?need=${result.error}&next=${encodeURIComponent(window.location.pathname)}`,
+        );
+        return;
+      }
       if (action === "start" && result.ok === true) vkGoal("game_started");
       requestMatchReload();
       if (revoked(result)) return;

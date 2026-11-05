@@ -7,6 +7,8 @@ import { useBackgroundMusic } from "@/components/game/background-music";
 import { armSpeechUnlock } from "@/components/game/speech";
 import { MusicToggle } from "@/components/game/music-toggle";
 import { Arrow, BotSketch, HostSketch, Logo } from "@/components/marks";
+import { authHeader, deviceId } from "@/lib/billing/client";
+import { isPaywallError } from "@/lib/billing/products";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { messageFor } from "@/lib/rooms/messages";
 import { companyId } from "@/lib/rooms/company";
@@ -35,8 +37,12 @@ export function HomeScreen() {
     try {
       const response = await fetch("/api/rooms", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await authHeader()),
+        },
         body: JSON.stringify({
+          deviceId: deviceId() ?? undefined,
           hostMode,
           companyId: companyId(safeStorage()) ?? undefined,
         }),
@@ -46,6 +52,10 @@ export function HomeScreen() {
         hostSecret?: string;
         error?: string;
       };
+      if (response.status === 402 && isPaywallError(payload.error)) {
+        router.push(`/pay?need=${payload.error}&mode=${hostMode}`);
+        return;
+      }
       if (!response.ok || !payload.code || !payload.hostSecret) {
         setError(messageFor(payload.error));
         return;

@@ -1,5 +1,6 @@
 "use client";
 
+import { isPaywallError } from "@/lib/billing/products";
 import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { displayPrompt } from "@/lib/game/prompt";
 import Link from "next/link";
@@ -422,6 +423,13 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     setError(null);
     try {
       const result = await callHost(normalized, action, extra);
+      if (isPaywallError(result.error)) {
+        // Партия не оплачена: уводим на оплату и возвращаем в эту комнату.
+        window.location.assign(
+          `/pay?need=${result.error}&next=${encodeURIComponent(window.location.pathname)}`,
+        );
+        return;
+      }
       if (action === "start" && result.ok === true) vkGoal("game_started");
       // Не ждём realtime: сразу перечитываем партию, иначе экран (и кнопки
       // ведущего) ещё секунды показывают старую фазу.

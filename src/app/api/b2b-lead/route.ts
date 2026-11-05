@@ -1,5 +1,6 @@
 import { parseLead, leadMessage } from "@/lib/b2b/lead";
 import { getServiceSupabase } from "@/lib/supabase/admin";
+import { notifyTelegram } from "@/lib/telegram/notify";
 import { RateLimiter } from "@/lib/tts/phrases";
 
 /**
@@ -21,32 +22,6 @@ function clientIp(request: Request): string {
     request.headers.get("x-real-ip") ||
     "local"
   );
-}
-
-async function notifyTelegram(text: string): Promise<boolean> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!token || !chatId) return false;
-  try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${token}/sendMessage`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-          disable_web_page_preview: true,
-        }),
-        signal: AbortSignal.timeout(5000),
-      },
-    );
-    if (!response.ok) console.error("b2b_lead_telegram", response.status);
-    return response.ok;
-  } catch {
-    console.error("b2b_lead_telegram", "network");
-    return false;
-  }
 }
 
 export async function POST(request: Request) {

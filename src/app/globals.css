@@ -3074,3 +3074,108 @@ button {
   color: #1d7a3a;
   font-weight: 600;
 }
+
+/* «Что-то не работает» */
+.bug-fab {
+  position: fixed;
+  right: 10px;
+  top: calc(10px + env(safe-area-inset-top));
+  z-index: 60;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.85);
+  color: #555;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.75;
+  cursor: pointer;
+}
+.bug-fab:hover,
+.bug-fab:focus-visible {
+  opacity: 1;
+}
+.bug-fab-mini {
+  top: auto;
+  right: auto;
+  left: 8px;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.45;
+}
+.bug-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.45);
+}
+.bug-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: 20px;
+  border-radius: 14px;
+  background: #fff;
+  color: #222;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+.bug-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bug-dialog label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.bug-dialog textarea,
+.bug-dialog input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 16px;
+}
+.bug-title {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+}
+.bug-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  border: 0;
+  background: none;
+  font-size: 26px;
+  line-height: 1;
+  color: #888;
+  cursor: pointer;
+}
+.bug-thanks {
+  margin: 12px 0;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+}
+.bug-error {
+  margin: 0;
+  color: #c0262d;
+  font-size: 14px;
+}
+.bug-trap {
+  position: absolute !important;
+  left: -9999px !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+}

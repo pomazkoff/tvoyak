@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import {
   Caveat,
@@ -6,6 +7,7 @@ import {
   Oswald,
   Sofia_Sans_Extra_Condensed,
 } from "next/font/google";
+import { BugReport } from "@/components/feedback/bug-report";
 import { RoughDefs } from "@/components/marks";
 import {
   OG_DESCRIPTION,
@@ -95,6 +97,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       >
         <RoughDefs />
         {children}
+        <Suspense fallback={null}>
+          <BugReport />
+        </Suspense>
       </body>
     </html>
   );

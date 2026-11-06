@@ -1,0 +1,14 @@
+-- «Детский рисунок», четвёртая волна 06.11.2026 (scripts/picture-tasks/kids.ts 4).
+-- Новые фильмы/мультфильмы; ИИ-рисунки без текста и логотипов.
+-- Аддитивно: добавляем 8 заданий ВЫКЛЮЧЕННЫМИ (enabled = false) — включает Илья на /admin/pictures.
+
+insert into public.question_bank (category, prompt, answer, variants, kind, image_url, curtain, value, picture, picture_spec, reveal_seconds, image_credit, image_license, image_page, enabled) values
+  ('Детский рисунок', 'Детский рисунок № 79: мультфильм.', 'Рататуй', array['Ratatouille']::text[], 'image', '/pictures/k/9fb891eecf6e6008a22a.jpg', false, 300, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 80: мультфильм.', 'Суперсемейка', array['The Incredibles', 'Супер семейка']::text[], 'image', '/pictures/k/0cc2f8d67020a67cc0b1.jpg', false, 300, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 81: фильм.', 'Соник в кино', array['Sonic', 'Соник', 'Sonic the Hedgehog']::text[], 'image', '/pictures/k/c14a23889209bfecd93c.jpg', false, 300, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 82: фильм.', 'Как приручить дракона', array['How to Train Your Dragon', 'Приручить дракона']::text[], 'image', '/pictures/k/4076d870b04f7d7a4799.jpg', false, 300, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 83: мультфильм-новинка.', 'Поток', array['Flow', 'Flow (мультфильм)']::text[], 'image', '/pictures/k/840e302e3cc867912065.jpg', false, 400, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 84: мультфильм.', 'Гарфилд в кино', array['Гарфилд', 'Garfield', 'The Garfield Movie']::text[], 'image', '/pictures/k/e37098a82e8848b2c1e9.jpg', false, 300, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 85: фильм.', 'Паддингтон', array['Paddington', 'Приключения Паддингтона']::text[], 'image', '/pictures/k/be1d04b0ce5ebfcfc54e.jpg', false, 300, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 86: мультфильм-новинка.', 'Элио', array['Elio']::text[], 'image', '/pictures/k/a6eb4b22d6263b59bca7.jpg', false, 400, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false)
+on conflict (category, prompt) do nothing;

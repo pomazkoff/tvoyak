@@ -627,18 +627,79 @@ export const KIDS_WAVE3: Kid[] = [
   },
 ];
 
-export type KidsWave = 1 | 2 | 3;
+export const KIDS_WAVE4: Kid[] = [
+  {
+    file: "9fb891eecf6e6008a22a",
+    answer: "Рататуй",
+    variants: ["Ratatouille"],
+    value: 300,
+    hint: "мультфильм",
+  },
+  {
+    file: "0cc2f8d67020a67cc0b1",
+    answer: "Суперсемейка",
+    variants: ["The Incredibles", "Супер семейка"],
+    value: 300,
+    hint: "мультфильм",
+  },
+  {
+    file: "c14a23889209bfecd93c",
+    answer: "Соник в кино",
+    variants: ["Sonic", "Соник", "Sonic the Hedgehog"],
+    value: 300,
+    hint: "фильм",
+  },
+  {
+    file: "4076d870b04f7d7a4799",
+    answer: "Как приручить дракона",
+    variants: ["How to Train Your Dragon", "Приручить дракона"],
+    value: 300,
+    hint: "фильм",
+  },
+  {
+    file: "840e302e3cc867912065",
+    answer: "Поток",
+    variants: ["Flow", "Flow (мультфильм)"],
+    value: 400,
+    hint: "мультфильм-новинка",
+  },
+  {
+    file: "e37098a82e8848b2c1e9",
+    answer: "Гарфилд в кино",
+    variants: ["Гарфилд", "Garfield", "The Garfield Movie"],
+    value: 300,
+    hint: "мультфильм",
+  },
+  {
+    file: "be1d04b0ce5ebfcfc54e",
+    answer: "Паддингтон",
+    variants: ["Paddington", "Приключения Паддингтона"],
+    value: 300,
+    hint: "фильм",
+  },
+  {
+    file: "a6eb4b22d6263b59bca7",
+    answer: "Элио",
+    variants: ["Elio"],
+    value: 400,
+    hint: "мультфильм-новинка",
+  },
+];
 
-/** Все задания формата: волна 1 — № 1–25, волна 2 — № 26–48, волна 3 — № 49–78. */
+export type KidsWave = 1 | 2 | 3 | 4;
+
+/** Волны: 1 — №1–25, 2 — №26–48, 3 — №49–78, 4 — №79+. */
 function waveOf(index: number): KidsWave {
   if (index < KIDS.length) return 1;
-  return index < KIDS.length + KIDS_WAVE2.length ? 2 : 3;
+  if (index < KIDS.length + KIDS_WAVE2.length) return 2;
+  if (index < KIDS.length + KIDS_WAVE2.length + KIDS_WAVE3.length) return 3;
+  return 4;
 }
 
 export function kidsRows(
-  waves: KidsWave[] = [1, 2, 3],
+  waves: KidsWave[] = [1, 2, 3, 4],
 ): Array<PictureDraft & { value: number }> {
-  return [...KIDS, ...KIDS_WAVE2, ...KIDS_WAVE3]
+  return [...KIDS, ...KIDS_WAVE2, ...KIDS_WAVE3, ...KIDS_WAVE4]
     .map((item, index) => ({
       category: PICTURE_CATEGORY.kids,
       prompt: `Детский рисунок № ${index + 1}: ${item.hint}.`,
@@ -659,14 +720,17 @@ export function kidsRows(
 
 async function main() {
   const arg = process.argv[2];
-  const wave: KidsWave = arg === "3" ? 3 : arg === "2" ? 2 : 1;
+  const wave: KidsWave =
+    arg === "4" ? 4 : arg === "3" ? 3 : arg === "2" ? 2 : 1;
   const out =
     process.argv[3] ??
-    (wave === 3
-      ? "supabase/migrations/20261030030000_picture_kids_wave3.sql"
-      : wave === 2
-        ? "supabase/migrations/20261030021000_picture_kids_wave2.sql"
-        : "supabase/migrations/20261030010000_picture_kids.sql");
+    (wave === 4
+      ? "scripts/refills/2026-11-06-kids.sql"
+      : wave === 3
+        ? "supabase/migrations/20261030030000_picture_kids_wave3.sql"
+        : wave === 2
+          ? "supabase/migrations/20261030021000_picture_kids_wave2.sql"
+          : "supabase/migrations/20261030010000_picture_kids.sql");
   const rows = kidsRows([wave]);
   const failed: string[] = [];
   for (const row of rows) {
@@ -694,10 +758,16 @@ async function main() {
         sql(row.image_credit),
         sql(row.image_license),
         sql(row.image_page),
+        wave === 4 ? "false" : "true",
       ].join(", ")})`,
   );
   const header =
-    wave === 3
+    wave === 4
+      ? `-- «Детский рисунок», четвёртая волна 06.11.2026 (scripts/picture-tasks/kids.ts 4).
+-- Новые фильмы/мультфильмы; ИИ-рисунки без текста и логотипов.
+-- Аддитивно: добавляем ${rows.length} заданий ВЫКЛЮЧЕННЫМИ (enabled = false) — включает Илья на /admin/pictures.
+`
+    : wave === 3
       ? `-- «Детский рисунок», третья волна (собрана scripts/picture-tasks/kids.ts 3).
 -- Новинки 2022–2026: российские и мировые фильмы и мультфильмы. Смесь детских
 -- (300) и минималистичных (400–500) ИИ-рисунков без текста и логотипов;
@@ -719,8 +789,12 @@ alter table public.question_bank drop constraint if exists question_bank_picture
 alter table public.question_bank add constraint question_bank_picture_check
   check (picture is null or picture in ('rebus', 'emoji', 'fragment', 'hidden', 'blur', 'logo', 'kids'));
 `;
+  const cols =
+    wave === 4
+      ? "category, prompt, answer, variants, kind, image_url, curtain, value, picture, picture_spec, reveal_seconds, image_credit, image_license, image_page, enabled"
+      : "category, prompt, answer, variants, kind, image_url, curtain, value, picture, picture_spec, reveal_seconds, image_credit, image_license, image_page";
   const text = `${header}
-insert into public.question_bank (category, prompt, answer, variants, kind, image_url, curtain, value, picture, picture_spec, reveal_seconds, image_credit, image_license, image_page) values
+insert into public.question_bank (${cols}) values
 ${values.join(",\n")}
 on conflict (category, prompt) do nothing;
 `;

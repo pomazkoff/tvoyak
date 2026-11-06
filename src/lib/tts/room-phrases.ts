@@ -1,4 +1,6 @@
 import "server-only";
+import { SURPRISE_SPEECH } from "@/lib/game/surprises";
+import { displayPrompt } from "@/lib/game/prompt";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   TTS_MAX_CHARS,
@@ -52,14 +54,16 @@ export async function roomPhrases(
   if (revealed) answers.push(revealed);
   const round = (game.data as { round?: number } | null)?.round ?? null;
   return {
-    prompts: rows.flatMap((row) => (row.prompt ? [row.prompt] : [])),
+    prompts: rows.flatMap((row) =>
+      row.prompt ? [row.prompt, displayPrompt(row.prompt)] : [],
+    ),
     answers,
     round,
     upcoming: rows
       .filter(
         (row) => row.prompt && row.status !== "answered" && row.round === round,
       )
-      .map((row) => row.prompt as string),
+      .map((row) => displayPrompt(row.prompt as string)),
   };
 }
 
@@ -74,6 +78,7 @@ export async function isAllowedInRoom(
 ): Promise<boolean> {
   const clean = normalizeTtsText(text);
   if (!clean || clean.length > TTS_MAX_CHARS) return false;
+  if (SURPRISE_SPEECH.includes(clean)) return true;
   const verdict = parseVerdictPhrase(clean);
   if (verdict && verdict.answer === null) return true;
   if (!verdict) {
@@ -81,11 +86,43 @@ export async function isAllowedInRoom(
       .from("questions")
       .select("prompt")
       .eq("room_id", roomId);
-    const prompts = ((data ?? []) as Array<{ prompt: string | null }>)
-      .map((row) => row.prompt)
-      .filter((prompt): prompt is string => Boolean(prompt));
+    const prompts = ((data ?? []) as Array<{ prompt: string | null }>).flatMap(
+      (row) => (row.prompt ? [row.prompt, displayPrompt(row.prompt)] : []),
+    );
     return isAllowedPhrase(clean, { prompts, answers: [] });
   }
   const phrases = await roomPhrases(supabase, roomId);
   return isAllowedPhrase(clean, { prompts: [], answers: phrases.answers });
+}
+
+/**
+ * Телефону игрока «не у экрана» можно озвучить только открытый сейчас
+ * вопрос — ни будущие вопросы, ни ответы.
+ */
+export async function isCurrentPrompt(
+  supabase: SupabaseClient,
+  roomId: string,
+  text: string,
+): Promise<boolean> {
+  const clean = normalizeTtsText(text);
+  if (!clean || clean.length > TTS_MAX_CHARS) return false;
+  const { data: game } = await supabase
+    .from("game_states")
+    .select("current_question_id, phase")
+    .eq("room_id", roomId)
+    .maybeSingle();
+  const questionId = (game as { current_question_id?: string | null } | null)
+    ?.current_question_id;
+  if (!questionId) return false;
+  const { data } = await supabase
+    .from("questions")
+    .select("prompt, status")
+    .eq("id", questionId)
+    .eq("room_id", roomId)
+    .maybeSingle();
+  const row = data as { prompt: string | null; status: string } | null;
+  if (!row?.prompt || row.status === "hidden") return false;
+  return [row.prompt, displayPrompt(row.prompt)].some(
+    (prompt) => normalizeTtsText(prompt) === clean,
+  );
 }

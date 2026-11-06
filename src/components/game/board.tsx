@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Strike } from "@/components/marks";
+import { EffectBadges } from "@/components/game/surprise";
+import type { SurpriseEffect } from "@/lib/game/surprises";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import type { PlayerRow } from "@/lib/supabase/types";
 
@@ -38,6 +40,8 @@ export type BoardCell = {
   picture_fx?: Record<string, unknown> | null;
   reveal_seconds?: number | null;
   opened_at?: string | null;
+  /** Когда медиа вопроса запустилось на общем экране (серверное время). */
+  media_started_at?: string | null;
   image_license?: string | null;
   /** Автор и страница файла — только после ответа. */
   image_credit?: string | null;
@@ -113,10 +117,13 @@ export function PlayerRail({
   players,
   activeId,
   note,
+  badges,
 }: {
   players: PlayerRow[];
   activeId?: string | null;
   note?: string;
+  /** «Сюрпризы»: действующие эффекты игрока. */
+  badges?: Record<string, SurpriseEffect[]>;
 }) {
   const table = scoreboardPlayers(players);
   return (
@@ -147,6 +154,7 @@ export function PlayerRail({
               <CountUp value={player.score} />
             </p>
             {active && note ? <p className="hand text-danger">{note}</p> : null}
+            <EffectBadges effects={badges?.[player.id] ?? []} />
           </div>
         );
       })}

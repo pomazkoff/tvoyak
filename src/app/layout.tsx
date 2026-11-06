@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import {
   Caveat,
@@ -6,7 +7,17 @@ import {
   Oswald,
   Sofia_Sans_Extra_Condensed,
 } from "next/font/google";
+import { BugReport } from "@/components/feedback/bug-report";
+import { VkPixel } from "@/components/analytics/vk-pixel";
 import { RoughDefs } from "@/components/marks";
+import {
+  OG_DESCRIPTION,
+  OG_TITLE,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TITLE,
+  SITE_URL,
+} from "@/lib/seo/site";
 import "./globals.css";
 
 const golos = Golos_Text({
@@ -35,6 +46,8 @@ const oswald = Oswald({
   weight: "700",
   display: "swap",
   variable: "--font-oswald",
+  // Только запасной шрифт логотипа: в preload не нужен.
+  preload: false,
 });
 
 const mono = JetBrains_Mono({
@@ -42,12 +55,30 @@ const mono = JetBrains_Mono({
   weight: "500",
   display: "swap",
   variable: "--font-jetbrains",
+  // Моноширинный нужен только в поле кода и на игровых экранах.
+  preload: false,
 });
 
 export const metadata: Metadata = {
-  title: "Твояк",
-  description:
-    "Своя игра для компании: ведущий на большом экране, игроки с телефонов.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_TITLE,
+    template: `%s — ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: "website",
+    locale: "ru_RU",
+    siteName: SITE_NAME,
+    title: OG_TITLE,
+    description: OG_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: OG_TITLE,
+    description: OG_DESCRIPTION,
+  },
 };
 
 export const viewport: Viewport = {
@@ -67,6 +98,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       >
         <RoughDefs />
         {children}
+        <Suspense fallback={null}>
+          <BugReport />
+          <VkPixel />
+        </Suspense>
       </body>
     </html>
   );

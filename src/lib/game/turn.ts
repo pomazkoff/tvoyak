@@ -1,8 +1,9 @@
 import "server-only";
-import { checkAgainstVariants } from "@/lib/answers/check";
+import { checkAgainstVariants, needsLlm } from "@/lib/answers/check";
 import { isLlmCheckEnabled, judgeWithOpenRouter } from "@/lib/answers/llm";
 import { priceWithinTolerance } from "@/lib/answers/price";
-import { requireHost } from "@/lib/game/host-auth";
+import { requireHostOrPhone } from "@/lib/game/host-auth";
+import { answerFormatOk, isAnswerFormat } from "@/lib/game/surprises";
 import { PICTURE_JUDGE_NOTE } from "@/lib/pictures/rules";
 import { PRICE_CATEGORY, specialCategory } from "@/lib/packs/categories";
 import { isPictureFormat } from "@/lib/pictures/types";
@@ -51,18 +52,23 @@ function asVariants(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-type QuestionContext = { note: string | null; category: string | null };
+type QuestionContext = {
+  note: string | null;
+  category: string | null;
+  prompt: string | null;
+};
 
 /**
  * Тема и формат вопроса — чтобы подсказать судье, как принимать ответ
  * (картинки, «Сколько стоило?» с допуском ±20% и другие особые темы).
  */
 async function questionContext(questionId: unknown): Promise<QuestionContext> {
-  if (typeof questionId !== "string") return { note: null, category: null };
+  const empty = { note: null, category: null, prompt: null };
+  if (typeof questionId !== "string") return empty;
   try {
     const { data } = await getServiceSupabase()
       .from("questions")
-      .select("picture, category")
+      .select("picture, category, prompt")
       .eq("id", questionId)
       .maybeSingle();
     const picture = data?.picture;
@@ -70,9 +76,10 @@ async function questionContext(questionId: unknown): Promise<QuestionContext> {
     const note = isPictureFormat(picture)
       ? PICTURE_JUDGE_NOTE[picture]
       : (specialCategory(category)?.judge ?? null);
-    return { note, category };
+    const prompt = typeof data?.prompt === "string" ? data.prompt : null;
+    return { note, category, prompt };
   } catch {
-    return { note: null, category: null };
+    return empty;
   }
 }
 
@@ -91,22 +98,38 @@ export async function judgeText(
   // Раньше нечёткой проверки: «25 копеек» и «20 копеек» отличаются одной
   // буквой, но это ошибка на 25%.
   if (/\d/.test(expected) && (await loadOnce())?.category === PRICE_CATEGORY) {
+    // Дословное совпадение с эталоном или вариантом («450», «$499») —
+    // засчитано сразу; опечатки здесь не прощаем, решает допуск.
+    const exact = checkAgainstVariants(given, expected, variants);
+    if (exact.correct && exact.method === "exact") {
+      return { correct: true, method: "exact" as const };
+    }
     const price = priceWithinTolerance(given, expected);
-    if (price !== null) return { correct: price, method: "fuzzy" as const };
+    if (price === true) return { correct: true, method: "fuzzy" as const };
+    if (price === false) {
+      const byVariant = variants.some(
+        (variant) =>
+          /\d/.test(variant) && priceWithinTolerance(given, variant) === true,
+      );
+      return { correct: byVariant, method: "fuzzy" as const };
+    }
   }
   const local = checkAgainstVariants(given, expected, variants);
   if (local.correct) return { correct: true, method: local.method };
-  await loadOnce();
-  if (local.ambiguous && isLlmCheckEnabled()) {
+  // Раньше LLM спрашивали только про «похожие» строки (сходство ≥ 0.55), и
+  // перевод, транслит или другое название («Stranger Things» на «Очень
+  // странные дела») до него не доходили. Теперь — про всё, что не точно мимо.
+  if (needsLlm(local) && isLlmCheckEnabled()) {
+    const ctx = (await loadOnce()) as QuestionContext | null;
     try {
-      const hint = variants.length
-        ? `${expected}. Также засчитай совпадение с: ${variants.join(", ")}`
-        : expected;
-      const correct = await judgeWithOpenRouter(
+      const correct = await judgeWithOpenRouter({
         given,
-        hint,
-        (context as QuestionContext | null)?.note,
-      );
+        expected,
+        variants,
+        question: ctx?.prompt,
+        category: ctx?.category,
+        note: ctx?.note,
+      });
       return { correct, method: "llm" as const };
     } catch {
       return { correct: false, method: "fuzzy" as const };
@@ -126,12 +149,19 @@ export async function submitPlayerAnswer(
     p_text: text,
   });
   if (begun.ok) {
-    const verdict = await judgeText(
-      String(begun.raw_text ?? text),
-      String(begun.expected ?? ""),
-      asVariants(begun.variants),
-      () => questionContext(begun.question_id),
-    );
+    const raw = String(begun.raw_text ?? text);
+    // «Сюрприз»: ответ только КАПСОМ / одним словом. Не тот формат —
+    // неверно без проверки по смыслу (сервер всё равно это перепроверит).
+    const format = isAnswerFormat(begun.format) ? begun.format : null;
+    const verdict =
+      format && !answerFormatOk(format, raw)
+        ? { correct: false, method: "format" as const }
+        : await judgeText(
+            raw,
+            String(begun.expected ?? ""),
+            asVariants(begun.variants),
+            () => questionContext(begun.question_id),
+          );
     if (begun.host_mode === "bot") {
       const applied = await callRpc("apply_verdict", {
         p_code: code,
@@ -278,17 +308,50 @@ export async function settleFinal(
 export async function hostAction(input: {
   action: string;
   code: string;
-  hostSecret: string;
+  hostSecret?: string;
+  /** Телефон ведущего вместо ключа комнаты. */
+  phoneToken?: string;
   correct?: boolean;
   questionId?: string;
   playerId?: string;
   decisions?: Array<{ playerId: string; correct: boolean }>;
 }) {
-  const auth = await requireHost(input.code, input.hostSecret);
+  const auth = await requireHostOrPhone(input.code, {
+    hostSecret: input.hostSecret,
+    phoneToken: input.phoneToken,
+  });
   if (!auth.ok) return { ok: false, error: auth.error };
 
+  if (input.action === "voice") {
+    // «Читать вопрос вслух» — общий флаг: его видят и экран, и телефон.
+    const on = input.correct === true;
+    const { error } = await auth.supabase
+      .from("rooms")
+      .update({ host_voice: on })
+      .eq("id", auth.room.id);
+    if (error) return { ok: false, error: "rpc_failed" };
+    return { ok: true, host_voice: on };
+  }
+
+  if (input.action === "surprises") {
+    // «Сюрпризы» включаются только в лобби: клетки отмечает start_game.
+    const on = input.correct === true;
+    if (auth.room.status !== "lobby") return { ok: false, error: "bad_phase" };
+    const { error } = await auth.supabase
+      .from("rooms")
+      .update({ surprises: on })
+      .eq("id", auth.room.id)
+      .eq("status", "lobby");
+    if (error) return { ok: false, error: "rpc_failed" };
+    return { ok: true, surprises: on };
+  }
+
   // Ленивый шаг серверных часов: просроченный срок закрывается до хода ведущего.
-  if (input.action !== "start" && input.action !== "clue") {
+  if (
+    input.action !== "start" &&
+    input.action !== "clue" &&
+    input.action !== "media_start"
+  ) {
     await callRpc("advance_clock", { p_code: input.code });
   }
 
@@ -318,10 +381,23 @@ export async function hostAction(input: {
   if (input.action === "finalize") {
     return settleFinal(input.code, input.decisions ?? null, true);
   }
+  if (input.action === "media_start") {
+    // Ведущий включил трек/видео на общем экране — телефоны «не у экрана»
+    // стартуют с той же секунды.
+    return callRpc("mark_media_started", { p_code: input.code });
+  }
   if (input.action === "media_cue") {
     return callRpc("set_host_starts_media", {
       p_code: input.code,
       p_on: input.correct === true,
+    });
+  }
+  if (input.action === "surprise_choose") {
+    // «Выбор хода»: ведущий назначает, кто выберет следующую клетку.
+    if (!input.playerId) return { ok: false, error: "player_not_found" };
+    return callRpc("host_surprise_choose", {
+      p_code: input.code,
+      p_target_id: input.playerId,
     });
   }
   if (input.action === "pick") {

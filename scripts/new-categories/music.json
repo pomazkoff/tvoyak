@@ -4,7 +4,7 @@
   "kind": "music",
   "curtain": true,
   "value": 100,
-  "prompt": "Звук наоборот № 1: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: поп-хит 1980-х. Кто исполняет?",
   "answer": "Майкл Джексон",
   "variants": [
    "Michael Jackson",
@@ -12,9 +12,9 @@
    "Billie Jean"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/dc/bc/8a/dcbc8a3e-4ce1-c00d-cc02-eda2212053c7/mzaf_8347559338388601510.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "Michael Jackson — Billie Jean, превью iTunes"
  },
  {
@@ -22,7 +22,7 @@
   "kind": "music",
   "curtain": true,
   "value": 100,
-  "prompt": "Звук наоборот № 2: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: русский рок 1980-х. Кто исполняет?",
   "answer": "Кино",
   "variants": [
    "Виктор Цой",
@@ -31,9 +31,9 @@
    "Группа крови"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/16/fa/e1/16fae13f-5a75-56e9-beba-dbefd2275513/mzaf_11963562901282853013.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "Кино — Группа крови, превью iTunes"
  },
  {
@@ -41,7 +41,7 @@
   "kind": "music",
   "curtain": true,
   "value": 100,
-  "prompt": "Звук наоборот № 3: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: латиноамериканский хит 2010-х. Кто исполняет?",
   "answer": "Луис Фонси",
   "variants": [
    "Luis Fonsi",
@@ -51,9 +51,9 @@
    "Despacito"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/0d/cb/ec/0dcbec41-5e9e-bd09-7cdd-fdff44acdf78/mzaf_17345185466754008149.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "Luis Fonsi & Daddy Yankee — Despacito, превью iTunes"
  },
  {
@@ -61,7 +61,7 @@
   "kind": "music",
   "curtain": true,
   "value": 100,
-  "prompt": "Звук наоборот № 4: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: советская эстрада 1980-х. Кто исполняет?",
   "answer": "Алла Пугачёва",
   "variants": [
    "Пугачёва",
@@ -69,9 +69,9 @@
    "Миллион алых роз"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/a2/ce/5d/a2ce5d63-27a1-0e5b-4955-73e136353f69/mzaf_4380538342471648293.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "Алла Пугачёва — Миллион алых роз, превью iTunes"
  },
  {
@@ -79,7 +79,7 @@
   "kind": "music",
   "curtain": true,
   "value": 200,
-  "prompt": "Звук наоборот № 5: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: диско 1970-х. Кто исполняет?",
   "answer": "ABBA",
   "variants": [
    "АББА",
@@ -87,9 +87,9 @@
    "Dancing Queen"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/ec/b1/63/ecb163bc-aff2-4dd2-d40b-c044f0b9fa4d/mzaf_4358783485405794088.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "ABBA — Dancing Queen, превью iTunes"
  },
  {
@@ -97,7 +97,7 @@
   "kind": "music",
   "curtain": true,
   "value": 200,
-  "prompt": "Звук наоборот № 6: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: русская поп-музыка 1990-х. Кто исполняет?",
   "answer": "Руки Вверх!",
   "variants": [
    "Руки вверх",
@@ -105,9 +105,9 @@
    "Крошка моя"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/a8/b5/78/a8b578cb-890a-0d16-36c0-d37889bd6884/mzaf_15065480111231795238.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "Руки Вверх — Крошка моя, превью iTunes"
  },
  {
@@ -115,7 +115,7 @@
   "kind": "music",
   "curtain": true,
   "value": 200,
-  "prompt": "Звук наоборот № 7: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: британский поп 2010-х. Кто исполняет?",
   "answer": "Эд Ширан",
   "variants": [
    "Ed Sheeran",
@@ -123,9 +123,9 @@
    "Shape of You"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/44/c7/4f/44c74f0d-72dc-6143-d4d0-ba14d661ca0d/mzaf_9566898362556366703.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "Ed Sheeran — Shape of You, превью iTunes"
  },
  {
@@ -133,16 +133,16 @@
   "kind": "music",
   "curtain": true,
   "value": 200,
-  "prompt": "Звук наоборот № 8: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: электронный хит 2010-х. Кто исполняет?",
   "answer": "Daft Punk",
   "variants": [
    "Дафт Панк",
    "Get Lucky"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/33/9c/29/339c2970-e296-b109-c11a-878534d40067/mzaf_12572643936196072909.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "Daft Punk — Get Lucky (feat. Pharrell Williams) [Radio Edit], превью iTunes"
  },
  {
@@ -150,7 +150,7 @@
   "kind": "music",
   "curtain": true,
   "value": 300,
-  "prompt": "Звук наоборот № 9: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: русский рок, поёт женщина. Кто исполняет?",
   "answer": "Земфира",
   "variants": [
    "Zemfira",
@@ -158,9 +158,9 @@
    "Хочешь?"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/b9/65/a0/b965a0d7-9e3c-f4b6-90e9-a4da36dc8042/mzaf_10308222466667582625.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "Земфира — ХОЧЕШЬ?, превью iTunes"
  },
  {
@@ -168,7 +168,7 @@
   "kind": "music",
   "curtain": true,
   "value": 300,
-  "prompt": "Звук наоборот № 10: известный хит звучит задом наперёд. Кто его исполняет?",
+  "prompt": "Задом наперёд: вирусный хит 2010-х. Кто исполняет?",
   "answer": "PSY",
   "variants": [
    "Псай",
@@ -187,7 +187,7 @@
   "kind": "music",
   "curtain": true,
   "value": 300,
-  "prompt": "Звук наоборот № 11: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: британский рок 1960-х. Кто исполняет?",
   "answer": "The Beatles",
   "variants": [
    "Битлз",
@@ -197,9 +197,9 @@
    "Yesterday"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/d1/69/2d/d1692d74-fe32-c676-7a1d-00deacae1644/mzaf_11316115358642175957.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "The Beatles — Yesterday, превью iTunes"
  },
  {
@@ -207,16 +207,16 @@
   "kind": "music",
   "curtain": true,
   "value": 300,
-  "prompt": "Звук наоборот № 12: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: рэп 2000-х. Кто исполняет?",
   "answer": "Эминем",
   "variants": [
    "Eminem",
    "Lose Yourself"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/13/5a/61/135a6154-8ca2-0523-1fa2-f4ac0ea9e1e7/mzaf_13242749689945681184.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "Eminem — Lose Yourself, превью iTunes"
  },
  {
@@ -224,16 +224,16 @@
   "kind": "music",
   "curtain": true,
   "value": 300,
-  "prompt": "Звук наоборот № 13: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: соул-баллада 2010-х. Кто исполняет?",
   "answer": "Адель",
   "variants": [
    "Adele",
    "Rolling in the Deep"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/89/27/1b/89271b8c-74c5-955a-ed3b-86e44e5012bf/mzaf_14153268409398031391.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "Adele — Rolling In the Deep, превью iTunes"
  },
  {
@@ -241,7 +241,7 @@
   "kind": "music",
   "curtain": true,
   "value": 300,
-  "prompt": "Звук наоборот № 14: известный хит звучит задом наперёд. Кто его исполняет?",
+  "prompt": "Задом наперёд: американский рок 2010-х. Кто исполняет?",
   "answer": "Imagine Dragons",
   "variants": [
    "Имеджин Драгонс",
@@ -258,7 +258,7 @@
   "kind": "music",
   "curtain": true,
   "value": 400,
-  "prompt": "Звук наоборот № 15: известный хит звучит задом наперёд. Кто его исполняет?",
+  "prompt": "Задом наперёд: американский рок 1990-х. Кто исполняет?",
   "answer": "Nirvana",
   "variants": [
    "Нирвана",
@@ -275,7 +275,7 @@
   "kind": "music",
   "curtain": true,
   "value": 400,
-  "prompt": "Звук наоборот № 16: известный хит звучит задом наперёд. Кто его исполняет?",
+  "prompt": "Задом наперёд: русский поп-дуэт 2000-х. Кто исполняет?",
   "answer": "t.A.T.u.",
   "variants": [
    "Тату",
@@ -293,7 +293,7 @@
   "kind": "music",
   "curtain": true,
   "value": 400,
-  "prompt": "Звук наоборот № 17: известный хит звучит задом наперёд. Кто его исполняет?",
+  "prompt": "Задом наперёд: британский рок 2000-х. Кто исполняет?",
   "answer": "Coldplay",
   "variants": [
    "Колдплей",
@@ -310,16 +310,16 @@
   "kind": "music",
   "curtain": true,
   "value": 400,
-  "prompt": "Звук наоборот № 18: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: русский рок конца 1990-х. Кто исполняет?",
   "answer": "Сплин",
   "variants": [
    "Александр Васильев",
    "Выхода нет"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/4c/55/ff/4c55ff85-7312-52a9-b0d6-e5d281ed8244/mzaf_8619854647132315838.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "Сплин — Выхода нет, превью iTunes"
  },
  {
@@ -327,7 +327,7 @@
   "kind": "music",
   "curtain": true,
   "value": 400,
-  "prompt": "Звук наоборот № 19: известный хит звучит замедленно. Кто его исполняет?",
+  "prompt": "Задом наперёд: русский рок 1990-х. Кто исполняет?",
   "answer": "Мумий Тролль",
   "variants": [
    "Илья Лагутенко",
@@ -335,9 +335,9 @@
    "Владивосток 2000"
   ],
   "audio_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/dc/76/8c/dc768cdc-2683-48b9-4134-44e002bc0f2b/mzaf_9423482610402942563.plus.aac.p.m4a",
-  "audio_fx": "slow",
+  "audio_fx": "reverse",
   "start_seconds": 0,
-  "end_seconds": 20,
+  "end_seconds": 30,
   "source": "Мумий Тролль — Владивосток 2000, превью iTunes"
  },
  {
@@ -345,7 +345,7 @@
   "kind": "music",
   "curtain": true,
   "value": 500,
-  "prompt": "Звук наоборот № 20: известный хит звучит задом наперёд. Кто его исполняет?",
+  "prompt": "Задом наперёд: русский панк-рок 1990-х. Кто исполняет?",
   "answer": "Король и Шут",
   "variants": [
    "КиШ",
@@ -364,7 +364,7 @@
   "kind": "music",
   "curtain": true,
   "value": 500,
-  "prompt": "Звук наоборот № 21: известный хит звучит задом наперёд. Кто его исполняет?",
+  "prompt": "Задом наперёд: альтернативный рок 2000-х. Кто исполняет?",
   "answer": "Linkin Park",
   "variants": [
    "Линкин Парк",

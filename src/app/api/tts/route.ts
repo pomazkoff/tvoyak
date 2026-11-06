@@ -1,7 +1,7 @@
-import { requireHost } from "@/lib/game/host-auth";
+import { requireHost, requirePlayer } from "@/lib/game/host-auth";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { RateLimiter, TTS_MAX_CHARS } from "@/lib/tts/phrases";
-import { isAllowedInRoom } from "@/lib/tts/room-phrases";
+import { isAllowedInRoom, isCurrentPrompt } from "@/lib/tts/room-phrases";
 import {
   getSpeech,
   isTtsConfigured,
@@ -19,7 +19,12 @@ export async function POST(request: Request) {
   if (!isTtsConfigured()) {
     return Response.json({ error: "tts_not_configured" }, { status: 503 });
   }
-  let body: { text?: unknown; code?: unknown; hostSecret?: unknown };
+  let body: {
+    text?: unknown;
+    code?: unknown;
+    hostSecret?: unknown;
+    playerToken?: unknown;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -28,7 +33,8 @@ export async function POST(request: Request) {
   if (
     typeof body.text !== "string" ||
     typeof body.code !== "string" ||
-    typeof body.hostSecret !== "string"
+    (typeof body.hostSecret !== "string" &&
+      typeof body.playerToken !== "string")
   ) {
     return Response.json({ error: "invalid_body" }, { status: 400 });
   }
@@ -46,7 +52,12 @@ export async function POST(request: Request) {
     // Кэш читаем параллельно с проверкой ведущего: отдаём его только
     // после всех проверок, но не ждём лишний круг до хранилища.
     const cachedJob = readCachedSpeech(getServiceSupabase(), text);
-    const auth = await requireHost(body.code, body.hostSecret);
+    // Экран ведущего — по ключу комнаты; телефон игрока «не у экрана» —
+    // по ключу игрока и только текущий вопрос.
+    const byPlayer = typeof body.hostSecret !== "string";
+    const auth = byPlayer
+      ? await requirePlayer(body.code, String(body.playerToken))
+      : await requireHost(body.code, String(body.hostSecret));
     if (!auth.ok) return Response.json({ error: auth.error }, { status: 403 });
     if (auth.room.status === "finished") {
       return Response.json({ error: "room_finished" }, { status: 403 });
@@ -54,7 +65,10 @@ export async function POST(request: Request) {
     if (!perRoom.take(auth.room.id)) {
       return Response.json({ error: "rate_limited" }, { status: 429 });
     }
-    if (!(await isAllowedInRoom(auth.supabase, auth.room.id, text))) {
+    const allowed = byPlayer
+      ? await isCurrentPrompt(auth.supabase, auth.room.id, text)
+      : await isAllowedInRoom(auth.supabase, auth.room.id, text);
+    if (!allowed) {
       return Response.json({ error: "phrase_not_allowed" }, { status: 403 });
     }
     const { audio, cache } = await getSpeech(

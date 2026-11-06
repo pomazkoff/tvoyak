@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SURPRISE_SPEECH } from "@/lib/game/surprises";
 import { verdictLine } from "@/lib/game/verdict-speech";
 import {
   RateLimiter,
@@ -67,6 +68,9 @@ describe("isAllowedPhrase", () => {
     expect(isAllowedPhrase("Правильный ответ: Лондон.", allowed)).toBe(false);
     expect(isAllowedPhrase("Верно! Купи слона.", allowed)).toBe(false);
     expect(isAllowedPhrase("", allowed)).toBe(false);
+    // Объявления «Сюрпризов» — фиксированный список.
+    expect(isAllowedPhrase(SURPRISE_SPEECH[0], allowed)).toBe(true);
+    expect(isAllowedPhrase("Сюрприз! Купи слона.", allowed)).toBe(false);
     expect(
       isAllowedPhrase("x".repeat(501), {
         prompts: ["x".repeat(501)],

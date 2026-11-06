@@ -11,7 +11,9 @@
  * WebView нет — голос пропадал целиком.
  */
 
-export type TtsAuth = { code: string; hostSecret: string };
+/** Экран ведущего (ключ комнаты) или телефон игрока «не у экрана». */
+export type TtsAuth =
+  { code: string; hostSecret: string } | { code: string; playerToken: string };
 
 const TTS_WAIT_MS = 3000;
 
@@ -56,7 +58,7 @@ function fetchSpeech(
   return fetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, code: tts.code, hostSecret: tts.hostSecret }),
+    body: JSON.stringify({ text, ...tts }),
     signal,
   }).then(async (response) => {
     if (!response.ok) throw new Error(`tts_${response.status}`);

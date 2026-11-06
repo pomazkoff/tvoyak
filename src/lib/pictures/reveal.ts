@@ -51,13 +51,31 @@ export function zoomScale(progress: number, scale = 6): number {
 }
 
 /**
- * «Один пиксель»: сетка растёт ступенями, а не плавно — сначала долго
- * держится start×start (8 или 16), потом ×2 на каждой ступени.
+ * «Один пиксель»: сетка растёт ступенями, а не плавно — сначала держится
+ * start (8 или 16 «пикселей» по длинной стороне), потом мельчает примерно
+ * в полтора раза на ступень и не доходит до почти резкой картинки:
+ * 8 → 12 → 16 → 24 → 32, 16 → 24 → 32 → 48 → 64. Целиком — только в конце.
  * 0 — картинка целиком.
  */
 export function pixelSteps(progress: number, start = 8): number {
   if (progress >= 1) return 0;
-  const steps = [start, start * 2, start * 4, start * 8];
-  const index = Math.min(steps.length - 1, Math.floor(progress * steps.length));
+  const steps = [1, 1.5, 2, 3, 4].map((k) => Math.round(start * k));
+  const index = Math.min(
+    steps.length - 1,
+    Math.floor(Math.max(0, progress) * steps.length),
+  );
   return steps[index]!;
+}
+
+/**
+ * С какого момента (серверное время, мс) раскрывать картинку: не раньше,
+ * чем она загрузилась на экране ведущего, — иначе медленная картинка
+ * появляется уже почти резкой.
+ */
+export function revealStart(
+  openedAt: string | null | undefined,
+  loadedAt: number,
+): number {
+  const opened = openedAt ? Date.parse(openedAt) : Number.NaN;
+  return Number.isNaN(opened) ? loadedAt : Math.max(opened, loadedAt);
 }

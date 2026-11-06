@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { SURPRISE_SPEECH } from "@/lib/game/surprises";
 import { requireHost } from "@/lib/game/host-auth";
 import { RateLimiter } from "@/lib/tts/phrases";
 import { roomPhrases } from "@/lib/tts/room-phrases";
@@ -36,7 +37,13 @@ export async function POST(request: Request) {
       return Response.json({ error: "rate_limited" }, { status: 429 });
     }
     const phrases = await roomPhrases(auth.supabase, auth.room.id);
-    const texts = ["Верно!", "Неверно.", ...phrases.upcoming].slice(0, 60);
+    const texts = [
+      "Верно!",
+      "Неверно.",
+      ...phrases.upcoming.slice(0, 60),
+      // Объявления «Сюрпризов» — общие, в кэше один раз на всех.
+      ...SURPRISE_SPEECH,
+    ];
     after(async () => {
       await prewarmSpeech(auth.supabase, texts);
     });

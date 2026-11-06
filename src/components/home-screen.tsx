@@ -1,11 +1,14 @@
 "use client";
 
+import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { useBackgroundMusic } from "@/components/game/background-music";
 import { armSpeechUnlock } from "@/components/game/speech";
 import { MusicToggle } from "@/components/game/music-toggle";
 import { Arrow, BotSketch, HostSketch, Logo } from "@/components/marks";
+import { authHeader, deviceId } from "@/lib/billing/client";
+import { isPaywallError } from "@/lib/billing/products";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { messageFor } from "@/lib/rooms/messages";
 import { companyId } from "@/lib/rooms/company";
@@ -34,8 +37,12 @@ export function HomeScreen() {
     try {
       const response = await fetch("/api/rooms", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await authHeader()),
+        },
         body: JSON.stringify({
+          deviceId: deviceId() ?? undefined,
           hostMode,
           companyId: companyId(safeStorage()) ?? undefined,
         }),
@@ -45,10 +52,15 @@ export function HomeScreen() {
         hostSecret?: string;
         error?: string;
       };
+      if (response.status === 402 && isPaywallError(payload.error)) {
+        router.push(`/pay?need=${payload.error}&mode=${hostMode}`);
+        return;
+      }
       if (!response.ok || !payload.code || !payload.hostSecret) {
         setError(messageFor(payload.error));
         return;
       }
+      vkGoal("room_created");
       const saved = saveHostSecret(payload.code, payload.hostSecret);
       if (!saved) {
         setError(
@@ -66,16 +78,16 @@ export function HomeScreen() {
   }
 
   return (
-    <main className="home-grid">
+    <div className="home-grid">
       <div className="home-brand">
         <Logo />
-        <p className="logo-caption hand">своя игра для своих</p>
+        <p className="logo-caption hand">викторина для своих</p>
         <div className="home-lead">
-          <p className="torn-line hand">
-            Своя игра для компании.
+          <h1 className="torn-line hand">
+            Викторина для компании.
             <br />
-            Ведущий на телевизоре, игроки с телефонов.
-          </p>
+            Табло на телевизоре, ответы с телефонов.
+          </h1>
           <Arrow />
         </div>
       </div>
@@ -166,7 +178,7 @@ export function HomeScreen() {
         </section>
       </div>
       <MusicToggle credits />
-    </main>
+    </div>
   );
 }
 

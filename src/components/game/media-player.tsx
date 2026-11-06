@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { BoardCell } from "@/components/game/board";
+import { secondsSince } from "@/components/game/server-clock";
 import {
   parseVkVideo,
   VK_PLAYER_API,
@@ -16,6 +23,48 @@ import {
   reversedSegment,
   type AudioFx,
 } from "@/lib/media/audio-fx";
+import {
+  armAudioUnlock,
+  sharedAudioContext,
+} from "@/components/game/audio-unlock";
+import { isSpeaking, subscribeSpeaking } from "@/components/game/speech";
+
+/** Громкость трека/видео, пока говорит ведущий (вердикт, «Сюрприз»…). */
+const DUCK_VOLUME = 0.25;
+
+/** Говорит ли сейчас ведущий — тогда медиа приглушается. */
+function useSpeechDuck(): boolean {
+  return useSyncExternalStore(subscribeSpeaking, isSpeaking, () => false);
+}
+
+/**
+ * Пока ведущий читает вопрос: место плеера с «пластинкой», а сам файл уже
+ * скачивается в кэш браузера, чтобы трек стартовал сразу после голоса.
+ */
+export function MediaWaiting({ cell }: { cell: BoardCell }) {
+  const audioUrl = cell.audio_url ?? null;
+  useEffect(() => {
+    if (!audioUrl) return;
+    const abort = new AbortController();
+    fetch(audioUrl, { mode: "cors", credentials: "omit", signal: abort.signal })
+      .then((response) => response.arrayBuffer())
+      .catch(() => undefined);
+    return () => abort.abort();
+  }, [audioUrl]);
+  return (
+    <div className="media-block">
+      <div className="media-frame is-audio" data-media-hold="1">
+        <div className="media-audio">
+          <span className="media-disc" aria-hidden="true" />
+          <p className="media-audio-label hand">Слушаем вопрос…</p>
+          <p className="media-audio-note poster">
+            {cell.kind === "music" ? "музыкальный вопрос" : "видеовопрос"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type Provider = "youtube" | "vk" | "rutube" | "none";
 
@@ -39,7 +88,9 @@ type YTPlayer = {
   destroy: () => void;
   getCurrentTime: () => number;
   getDuration: () => number;
+  getPlayerState?: () => number;
   getIframe?: () => HTMLIFrameElement;
+  setVolume?: (volume: number) => void;
 };
 
 declare global {
@@ -107,6 +158,9 @@ function nextProvider(cell: BoardCell, failed: Provider): Provider {
 }
 
 function firstProvider(cell: BoardCell): Provider {
+  // Вопрос только на слух со своим звуком (/media/…) — играем его сразу:
+  // YouTube в России без VPN не открывается, а свой файл грузится всегда.
+  if (cell.audio_url && (cell.kind === "music" || cell.curtain)) return "none";
   if (hasVk(cell)) return "vk";
   if (cell.youtube_id) return "youtube";
   return cell.rutube_url ? "rutube" : "none";
@@ -134,6 +188,16 @@ function loadYouTubeApi(): Promise<void> {
 /** Запас до края фрагмента: YouTube не должен успеть показать заставку конца. */
 const END_GUARD_SECONDS = 0.35;
 const YT_ENDED = 0;
+const YT_PLAYING = 1;
+/**
+ * YouTube заблокирован или не отвечает: если плеер не готов за это время,
+ * уходим на следующий источник (VK → Rutube → свой звук), а не висим молча.
+ */
+const YT_GIVE_UP_MS = 10000;
+/** Удалённый телефон: если ролик не пошёл сам (iOS), даём нажать на плеер. */
+const REMOTE_TAP_MS = 3500;
+/** Расхождение с общим экраном, после которого перематываем. */
+const SYNC_TOLERANCE_SECONDS = 1.5;
 /** Сколько даём Rutube на буферизацию после загрузки плеера. */
 const FALLBACK_LOAD_ALLOWANCE_MS = 1500;
 /** Через сколько VK-плееру разрешаем клики (VK может спросить «вы не робот?»). */
@@ -145,11 +209,24 @@ export function MediaPlayer({
   cell,
   autoplay,
   revealed = false,
+  syncFrom,
+  onStart,
 }: {
   cell: BoardCell;
   autoplay: boolean;
   revealed?: boolean;
+  /**
+   * Телефон игрока «не у экрана»: когда медиа запустилось на общем экране
+   * (серверное время). Плеер стартует с той же секунды фрагмента.
+   */
+  syncFrom?: string | null;
+  /** Ведущий нажал «Включить трек/видео» — отметить старт для телефонов. */
+  onStart?: () => void;
 }) {
+  const remote = syncFrom !== undefined;
+  // Ключ компонента меняется вместе с syncFrom — хватает снимка на монтировании.
+  const [lateBy] = useState(() => (syncFrom ? secondsSince(syncFrom) : 0));
+  const [needsTouch, setNeedsTouch] = useState(false);
   const reactId = useId().replace(/:/g, "");
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -159,13 +236,39 @@ export function MediaPlayer({
   const [playing, setPlaying] = useState(autoplay);
   const [finished, setFinished] = useState(false);
   const audioOnly = cell.kind === "music" || cell.curtain;
+  const ducked = useSpeechDuck();
+  const duckedRef = useRef(ducked);
+  const vkPlayerRef = useRef<VkPlayer | null>(null);
+  // Ведущий заговорил посреди ролика — приглушаем, договорил — возвращаем.
+  useEffect(() => {
+    duckedRef.current = ducked;
+    try {
+      playerRef.current?.setVolume?.(ducked ? DUCK_VOLUME * 100 : 100);
+    } catch {}
+    try {
+      vkPlayerRef.current?.setVolume?.(ducked ? DUCK_VOLUME : 1);
+    } catch {}
+  }, [ducked]);
 
   useEffect(() => {
     if (cell.kind === "image" || provider !== "youtube" || !cell.youtube_id)
       return;
     let stopped = false;
     let timer = 0;
+    let touchTimer = 0;
+    let synced = false;
+    let ready = false;
+    const giveUp = window.setTimeout(() => {
+      if (!ready && !stopped) setProvider(nextProvider(cell, "youtube"));
+    }, YT_GIVE_UP_MS);
     const start = cell.start_seconds ?? 0;
+    const endAt =
+      cell.end_seconds && cell.end_seconds > start ? cell.end_seconds : null;
+    // Удалённый телефон догоняет общий экран: где сейчас фрагмент.
+    const position = () => {
+      const target = start + (syncFrom ? secondsSince(syncFrom) : 0);
+      return endAt ? Math.min(target, Math.max(start, endAt - 1)) : target;
+    };
 
     function stopAtEnd(player: YTPlayer) {
       player.pauseVideo();
@@ -184,7 +287,7 @@ export function MediaPlayer({
         width: "100%",
         height: "100%",
         playerVars: youtubeEmbedVars({
-          start,
+          start: remote ? position() : start,
           end: cell.end_seconds,
           autoplay: playing,
           origin: window.location.origin,
@@ -192,12 +295,21 @@ export function MediaPlayer({
         events: {
           onError: () => setProvider(nextProvider(cell, "youtube")),
           onReady: (event) => {
+            ready = true;
+            window.clearTimeout(giveUp);
             const frame = event.target.getIframe?.();
             if (frame) {
               frame.setAttribute("tabindex", "-1");
               frame.style.pointerEvents = "none";
+              frame.dataset.provider = "youtube";
             }
+            if (duckedRef.current) event.target.setVolume?.(DUCK_VOLUME * 100);
             if (playing) event.target.playVideo();
+            if (remote && playing) {
+              touchTimer = window.setTimeout(() => {
+                if (!synced && !stopped) setNeedsTouch(true);
+              }, REMOTE_TAP_MS);
+            }
             timer = window.setInterval(() => {
               const player = event.target;
               const end =
@@ -209,6 +321,16 @@ export function MediaPlayer({
             }, 200);
           },
           onStateChange: (event) => {
+            if (remote && event.data === YT_PLAYING && !synced) {
+              synced = true;
+              setNeedsTouch(false);
+              const target = position();
+              if (
+                Math.abs(event.target.getCurrentTime() - target) >
+                SYNC_TOLERANCE_SECONDS
+              )
+                event.target.seekTo(target, true);
+            }
             // Если всё же доехали до конца — откатываемся, чтобы не было
             // экрана с рекомендациями.
             if (event.data === YT_ENDED) {
@@ -225,6 +347,8 @@ export function MediaPlayer({
     return () => {
       stopped = true;
       window.clearInterval(timer);
+      window.clearTimeout(touchTimer);
+      window.clearTimeout(giveUp);
       playerRef.current?.destroy();
       playerRef.current = null;
     };
@@ -292,15 +416,21 @@ export function MediaPlayer({
       .then(() => {
         if (disposed || !window.VK?.VideoPlayer) return;
         player = window.VK.VideoPlayer(frame);
+        vkPlayerRef.current = player;
         player.on("inited", () => {
           try {
             player?.unmute?.();
-            player?.setVolume?.(1);
+            player?.setVolume?.(duckedRef.current ? DUCK_VOLUME : 1);
+            const target =
+              (start ?? 0) + (syncFrom ? secondsSince(syncFrom) : 0);
+            const seekTo = end
+              ? Math.min(target, Math.max(0, end - 1))
+              : target;
             if (
-              start &&
-              Math.abs((player?.getCurrentTime() ?? 0) - start) > 1.5
+              seekTo &&
+              Math.abs((player?.getCurrentTime() ?? 0) - seekTo) > 1.5
             )
-              player?.seek(start);
+              player?.seek(seekTo);
             player?.play();
           } catch {}
         });
@@ -317,6 +447,7 @@ export function MediaPlayer({
       window.clearTimeout(clickable);
       window.clearTimeout(giveUp);
       window.clearInterval(poll);
+      if (vkPlayerRef.current === player) vkPlayerRef.current = null;
       try {
         player?.pause();
         player?.destroy?.();
@@ -330,7 +461,7 @@ export function MediaPlayer({
   const fallbackTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(fallbackTimer.current), []);
   function stopFallbackLater() {
-    const start = cell.start_seconds ?? 0;
+    const start = (cell.start_seconds ?? 0) + lateBy;
     const end = cell.end_seconds ?? 0;
     if (end <= start) return;
     window.clearTimeout(fallbackTimer.current);
@@ -364,6 +495,8 @@ export function MediaPlayer({
         end={cell.end_seconds}
         autoplay={autoplay}
         revealed={revealed}
+        syncFrom={syncFrom ?? null}
+        onStart={onStart}
       />
     );
   }
@@ -376,6 +509,8 @@ export function MediaPlayer({
         end={cell.end_seconds}
         autoplay={autoplay}
         revealed={revealed}
+        syncFrom={syncFrom ?? null}
+        onStart={onStart}
       />
     );
   }
@@ -391,7 +526,10 @@ export function MediaPlayer({
       {!autoplay && !playing ? (
         <button
           type="button"
-          onClick={() => setPlaying(true)}
+          onClick={() => {
+            setPlaying(true);
+            onStart?.();
+          }}
           className="action media-start"
         >
           {audioOnly ? "Включить трек" : "Включить видео"}
@@ -401,7 +539,11 @@ export function MediaPlayer({
         className={`media-frame${audioOnly ? " is-audio" : ""}${revealed ? " is-revealed" : ""}`}
       >
         {provider === "youtube" ? (
-          <div ref={hostRef} id={`yt-${reactId}`} className="media-embed" />
+          <div
+            ref={hostRef}
+            id={`yt-${reactId}`}
+            className={`media-embed${needsTouch ? " is-touchable" : ""}`}
+          />
         ) : vkSrc && playing ? (
           <iframe
             ref={vkFrameRef}
@@ -423,7 +565,9 @@ export function MediaPlayer({
             src={fallbackSrc(
               fallback,
               "rutube",
-              cell.start_seconds,
+              remote
+                ? (cell.start_seconds ?? 0) + Math.floor(lateBy)
+                : cell.start_seconds,
               cell.end_seconds,
             )}
             className="media-embed"
@@ -442,11 +586,18 @@ export function MediaPlayer({
             <span className="media-strip is-bottom" aria-hidden="true" />
           </>
         ) : null}
+        {needsTouch && !audioOnly ? (
+          <p className="media-touch hand">Нажмите на ролик ▶</p>
+        ) : null}
         {audioOnly && !revealed ? (
-          <div className="media-audio">
+          <div className={`media-audio${needsTouch ? " is-touchable" : ""}`}>
             <span className="media-disc" aria-hidden="true" />
             <p className="media-audio-label hand">
-              {finished ? "Трек закончился" : "Слушаем"}
+              {finished
+                ? "Трек закончился"
+                : needsTouch
+                  ? "Нажмите сюда ▶"
+                  : "Слушаем"}
             </p>
             <p className="media-audio-note poster">
               {cell.kind === "music" ? "музыкальный вопрос" : "только звук"}
@@ -468,36 +619,61 @@ function AudioPreview({
   end,
   autoplay,
   revealed,
+  syncFrom,
+  onStart,
 }: {
   src: string;
   start: number;
   end: number | null;
   autoplay: boolean;
   revealed: boolean;
+  syncFrom: string | null;
+  onStart?: () => void;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [needsTap, setNeedsTap] = useState(!autoplay);
   const [finished, setFinished] = useState(false);
   const [failed, setFailed] = useState(false);
+  const ducked = useSpeechDuck();
+  useEffect(() => {
+    // iOS громкость <audio> не меняет — там трек просто идёт как раньше.
+    if (audioRef.current) audioRef.current.volume = ducked ? DUCK_VOLUME : 1;
+  }, [ducked]);
 
   function play() {
     const audio = audioRef.current;
     if (!audio) return;
-    if (audio.currentTime < start) audio.currentTime = start;
+    if (syncFrom) {
+      // Телефон «не у экрана»: та же секунда, что на общем экране.
+      const target = start + secondsSince(syncFrom);
+      if (end && end > start && target >= end) {
+        setNeedsTap(false);
+        setFinished(true);
+        return;
+      }
+      if (Math.abs(audio.currentTime - target) > 1) audio.currentTime = target;
+    } else if (audio.currentTime < start) audio.currentTime = start;
     setNeedsTap(false);
     // Браузер может запретить автозапуск — тогда остаётся кнопка.
     audio.play().catch(() => setNeedsTap(true));
   }
 
   useEffect(() => {
-    if (autoplay) play();
+    if (autoplay) queueMicrotask(play);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
   return (
     <div className="media-block">
       {needsTap && !finished ? (
-        <button type="button" onClick={play} className="action media-start">
+        <button
+          type="button"
+          onClick={() => {
+            play();
+            onStart?.();
+          }}
+          className="action media-start"
+        >
           Включить трек
         </button>
       ) : null}
@@ -538,6 +714,10 @@ function AudioPreview({
  * превью (у audio-ssl.itunes.apple.com открыт CORS), декодирует в Web Audio
  * и играет перевёрнутый буфер или с пониженной скоростью. После ответа —
  * кнопка «Как в оригинале».
+ *
+ * AudioContext общий на вкладку (audio-unlock.ts): он разблокирован первым
+ * же жестом на странице, поэтому экран ведущего играет трек сам и на
+ * пятом вопросе, а не только после свежего касания.
  */
 function TwistedAudio({
   src,
@@ -546,6 +726,8 @@ function TwistedAudio({
   end,
   autoplay,
   revealed,
+  syncFrom,
+  onStart,
 }: {
   src: string;
   fx: AudioFx;
@@ -553,12 +735,29 @@ function TwistedAudio({
   end: number | null;
   autoplay: boolean;
   revealed: boolean;
+  syncFrom: string | null;
+  onStart?: () => void;
 }) {
   const contextRef = useRef<AudioContext | null>(null);
   const bufferRef = useRef<{ twisted: AudioBuffer; plain: AudioBuffer } | null>(
     null,
   );
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const gainRef = useRef<GainNode | null>(null);
+  const disposedRef = useRef(false);
+  const ducked = useSpeechDuck();
+  const duckedRef = useRef(ducked);
+  useEffect(() => {
+    duckedRef.current = ducked;
+    const gain = gainRef.current;
+    const context = contextRef.current;
+    if (!gain || !context) return;
+    gain.gain.setTargetAtTime(
+      ducked ? DUCK_VOLUME : 1,
+      context.currentTime,
+      0.08,
+    );
+  }, [ducked]);
   const [state, setState] = useState<
     "loading" | "ready" | "playing" | "finished" | "failed"
   >("loading");
@@ -581,11 +780,34 @@ function TwistedAudio({
       return;
     }
     stop();
+    // Телефон «не у экрана» догоняет общий экран (замедленный звук
+    // проходит буфер медленнее реального времени).
+    const skip =
+      which === "twisted" && syncFrom
+        ? secondsSince(syncFrom) * (fx === "slow" ? SLOW_RATE : 1)
+        : 0;
+    if (skip >= buffers[which].duration) {
+      setNeedsTap(false);
+      setState("finished");
+      return;
+    }
     const node = context.createBufferSource();
     node.buffer = buffers[which];
     node.playbackRate.value =
       which === "twisted" && fx === "slow" ? SLOW_RATE : 1;
-    node.connect(context.destination);
+    // Через свой GainNode: под голосом ведущего трек приглушается.
+    let output: AudioNode = context.destination;
+    try {
+      const gain = context.createGain();
+      gain.gain.value = duckedRef.current ? DUCK_VOLUME : 1;
+      gain.connect(context.destination);
+      gainRef.current?.disconnect();
+      gainRef.current = gain;
+      output = gain;
+    } catch {
+      gainRef.current = null;
+    }
+    node.connect(output);
     node.onended = () => {
       if (sourceRef.current === node) {
         sourceRef.current = null;
@@ -594,29 +816,39 @@ function TwistedAudio({
     };
     sourceRef.current = node;
     const begin = () => {
-      node.start();
+      // Вопрос уже сменился или нажали другую кнопку — не играем.
+      if (disposedRef.current || sourceRef.current !== node) return;
+      try {
+        node.start(0, skip);
+      } catch {
+        setNeedsTap(true);
+        return;
+      }
       setState("playing");
       setNeedsTap(false);
     };
-    if (context.state === "suspended") {
-      // Без жеста пользователя браузер не даст звук — остаётся кнопка.
+    if (context.state !== "running") {
+      // suspended (не было жеста) или interrupted (iOS): без жеста браузер
+      // не даст звук — тогда кнопка. «Слушаем» без звука не показываем.
       context
         .resume()
-        .then(() => (context.state === "running" ? begin() : setNeedsTap(true)))
+        .then(() =>
+          (context.state as string) === "running" ? begin() : setNeedsTap(true),
+        )
         .catch(() => setNeedsTap(true));
       window.setTimeout(() => {
-        if (context.state !== "running") setNeedsTap(true);
+        if ((context.state as string) !== "running" && !disposedRef.current)
+          setNeedsTap(true);
       }, 400);
     } else begin();
   }
 
   useEffect(() => {
     let cancelled = false;
-    const Context =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!Context) {
+    disposedRef.current = false;
+    armAudioUnlock();
+    const context = sharedAudioContext();
+    if (!context) {
       queueMicrotask(() => {
         if (!cancelled) setState("failed");
       });
@@ -624,14 +856,21 @@ function TwistedAudio({
         cancelled = true;
       };
     }
-    const context = new Context();
     contextRef.current = context;
     fetch(src, { mode: "cors", credentials: "omit" })
       .then((response) => {
         if (!response.ok) throw new Error(String(response.status));
         return response.arrayBuffer();
       })
-      .then((data) => context.decodeAudioData(data))
+      .then(
+        (data) =>
+          new Promise<AudioBuffer>((resolve, reject) => {
+            // Старый Safari понимает только колбэки decodeAudioData.
+            const result = context.decodeAudioData(data, resolve, reject);
+            if (result && typeof result.then === "function")
+              result.then(resolve, reject);
+          }),
+      )
       .then((decoded) => {
         if (cancelled) return;
         const segment = reversedSegment(context, decoded, start, end, fx);
@@ -644,9 +883,15 @@ function TwistedAudio({
       });
     return () => {
       cancelled = true;
+      disposedRef.current = true;
       stop();
+      try {
+        gainRef.current?.disconnect();
+      } catch {}
+      gainRef.current = null;
+      // Контекст общий на вкладку — не закрываем, иначе следующему вопросу
+      // снова понадобится жест.
       contextRef.current = null;
-      void context.close().catch(() => undefined);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src, fx, start, end]);
@@ -672,7 +917,10 @@ function TwistedAudio({
       {needsTap && !revealed && state !== "failed" && state !== "finished" ? (
         <button
           type="button"
-          onClick={() => play("twisted")}
+          onClick={() => {
+            play("twisted");
+            onStart?.();
+          }}
           className="action media-start"
         >
           Включить трек

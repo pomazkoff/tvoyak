@@ -1,10 +1,33 @@
 "use client";
 
+import { isPaywallError } from "@/lib/billing/products";
+import { vkGoal } from "@/lib/analytics/vk-pixel";
+import { displayPrompt } from "@/lib/game/prompt";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { armAudioUnlock } from "@/components/game/audio-unlock";
 import { useBackgroundMusic } from "@/components/game/background-music";
 import { Board, PlayerRail, type BoardCell } from "@/components/game/board";
-import { MediaPlayer } from "@/components/game/media-player";
+import {
+  SurpriseChooser,
+  SurpriseRoulette,
+  SurpriseStrip,
+  badgesByPlayer,
+  currentSurprise,
+  isSurprisePhase,
+} from "@/components/game/surprise";
+import {
+  HoldToReveal,
+  HostMoves,
+  HostToggles,
+  PendingAnswers,
+  answererId,
+  callHostAction,
+  decisionsFrom,
+  type HostSheet,
+} from "@/components/game/host-controls";
+import { HostPhonePair } from "@/components/game/host-phone-pair";
+import { MediaPlayer, MediaWaiting } from "@/components/game/media-player";
 import { PictureTask } from "@/components/game/picture-task";
 import { MusicToggle } from "@/components/game/music-toggle";
 import {
@@ -20,12 +43,24 @@ import {
   useMatch,
   useNow,
   type GameRow,
+  type MatchState,
 } from "@/components/game/use-match";
 import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
 import { StyledQr } from "@/components/styled-qr";
 import { mediaPlaysSound } from "@/lib/game/music-pause";
+import {
+  MEDIA_HOLD_SLACK_MS,
+  questionReadMs,
+  roomVoiceOn,
+  shouldHoldMedia,
+} from "@/lib/game/media-hold";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
+import {
+  ROULETTE_SPIN_MS,
+  SURPRISE_META,
+  isSurpriseEffect,
+} from "@/lib/game/surprises";
 import { verdictLine } from "@/lib/game/verdict-speech";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import { messageFor } from "@/lib/rooms/messages";
@@ -34,28 +69,14 @@ import {
   hostLink,
   secretFromHash,
 } from "@/lib/rooms/host-link";
+import { phonePath } from "@/lib/rooms/host-phone";
 import {
   readHostSecret,
+  readPhoneToken,
   saveHostSecret,
   useHasHostSecret,
 } from "@/lib/rooms/storage";
 import type { PlayerRow } from "@/lib/supabase/types";
-
-type HostSheet = {
-  ok?: boolean;
-  prompt?: string | null;
-  expected?: string | null;
-  phase?: string;
-  special?: string | null;
-  rows?: Array<{
-    player_id: string;
-    nickname: string;
-    raw_text: string;
-    wager: number | null;
-    suggestion_correct: boolean | null;
-    verdict: string;
-  }>;
-};
 
 const noopSubscribe = () => () => undefined;
 
@@ -96,7 +117,12 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const [toast, setToast] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [sheet, setSheet] = useState<HostSheet | null>(null);
-  const [voiceChoice, setVoiceChoice] = useState<boolean | null>(null);
+  // Выбор «читать вслух» до ответа сервера: действует, пока в комнате
+  // тот же host_voice, что был при нажатии (потом верх берёт общий флаг).
+  const [voiceChoice, setVoiceChoice] = useState<{
+    value: boolean;
+    base: boolean | null;
+  } | null>(null);
   const [finalPicks, setFinalPicks] = useState<Record<string, boolean>>({});
   const queryDesk = useSyncExternalStore(
     () => () => undefined,
@@ -106,13 +132,36 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const [deskChoice, setDeskChoice] = useState<boolean | null>(null);
   const desk = deskChoice ?? queryDesk;
   const spoken = useRef<string | null>(null);
+  // Трек/видео вопроса ждёт, пока голос дочитает вопрос: id вопроса, для
+  // которого голос закончил (или вышел срок), и таймер-страховка.
+  const [voiceDone, setVoiceDone] = useState<string | null>(null);
+  const holdTimer = useRef(0);
+  const holding = useRef<string | null>(null);
 
   const game = match.status === "ready" ? match.game : null;
+  const roomVoice =
+    match.status === "ready" ? (match.room.host_voice ?? null) : null;
   const voiceOn =
-    voiceChoice ?? (match.status === "ready" && match.room.host_mode === "bot");
+    voiceChoice && (!ownsRoom || voiceChoice.base === roomVoice)
+      ? voiceChoice.value
+      : (roomVoice ??
+        (match.status === "ready" && match.room.host_mode === "bot"));
+  // Ведущий подключил телефон: эталон и пульт только там.
+  const phoneHost =
+    match.status === "ready" &&
+    match.room.host_mode === "human" &&
+    match.room.host_phone === true;
+
+  // На этом браузере уже привязан телефон ведущего (а ключа комнаты нет) —
+  // сразу на пульт ведущего.
+  useEffect(() => {
+    if (!normalized || ownsRoom || readHostSecret(normalized)) return;
+    if (readPhoneToken(normalized))
+      window.location.replace(phonePath(normalized));
+  }, [normalized, ownsRoom]);
 
   useEffect(() => {
-    if (!normalized || !ownsRoom || !game) return;
+    if (!normalized || !ownsRoom || !game || phoneHost) return;
     if (
       game.phase === "lobby" ||
       game.phase === "board" ||
@@ -126,13 +175,15 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     return () => {
       cancelled = true;
     };
-  }, [normalized, ownsRoom, game]);
+  }, [normalized, ownsRoom, game, phoneHost]);
 
   const hostMode = match.status === "ready" ? match.room.host_mode : null;
   const questionPrompt =
     match.status === "ready"
-      ? match.board.find((cell) => cell.id === game?.current_question_id)
-          ?.prompt
+      ? displayPrompt(
+          match.board.find((cell) => cell.id === game?.current_question_id)
+            ?.prompt,
+        )
       : null;
 
   // Фоновая музыка: тихо в лобби и в игре, пауза на вопросах с видео и
@@ -147,10 +198,68 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     ),
   });
 
+  const hostStartsMediaNow =
+    match.status === "ready" && match.room.host_starts_media;
+  const mediaAutoplay = !(hostMode === "human" && hostStartsMediaNow);
+  const mediaHold = shouldHoldMedia({
+    voiceOn,
+    autoplay: mediaAutoplay,
+    phase: game?.phase,
+    cell: currentCell,
+    prompt: questionPrompt,
+    releasedId: voiceDone,
+  });
+  useEffect(() => () => window.clearTimeout(holdTimer.current), []);
+
+  // Отметка старта медиа для телефонов «не у экрана» (media_started_at).
+  // В комнате с голосом сервер её при открытии не ставит — ставим, когда
+  // экран ведущего реально включил трек (после чтения вопроса). Если трек
+  // держали, переотмечаем в любом случае: телефоны стартуют с той же секунды.
+  const heldFor = useRef<string | null>(null);
+  const stampedFor = useRef<string | null>(null);
+  const serverWaits =
+    match.status === "ready" ? roomVoiceOn(match.room) : false;
+  const mediaShown = Boolean(
+    game &&
+    currentCell &&
+    mediaPlaysSound(currentCell, game.phase) &&
+    !(currentCell.picture && currentCell.image_url),
+  );
+  const currentId = currentCell?.id ?? null;
+  const alreadyStamped = Boolean(currentCell?.media_started_at);
+  useEffect(() => {
+    if (!currentId) return;
+    if (mediaHold) {
+      heldFor.current = currentId;
+      return;
+    }
+    if (!mediaShown || !mediaAutoplay || !ownsRoom || !normalized) return;
+    if (stampedFor.current === currentId) return;
+    // Держали трек — переотмечаем. Не держали — отмечаем, только если
+    // сервер сам не отметил (комната с голосом), и не повторно после
+    // перезагрузки экрана, чтобы телефоны не начинали трек заново.
+    if (heldFor.current !== currentId && (!serverWaits || alreadyStamped))
+      return;
+    stampedFor.current = currentId;
+    void callHost(normalized, "media_start").then(() => requestMatchReload());
+  }, [
+    currentId,
+    mediaHold,
+    mediaShown,
+    mediaAutoplay,
+    ownsRoom,
+    normalized,
+    serverWaits,
+    alreadyStamped,
+  ]);
+
   // Голос ведущего разблокируется на первом клике/кнопке пульта: без этого
   // телевизоры (Android WebView) не пускают mp3 Марины без свежего жеста.
+  // То же для «Звука наоборот»: общий AudioContext будится первым жестом
+  // («Начать игру»), и перевёрнутые треки дальше играют без касаний.
   useEffect(() => {
     armSpeechUnlock();
+    armAudioUnlock();
   }, []);
 
   // Прогрев на раунд: пока игроки выбирают клетку, сервер заранее
@@ -171,31 +280,50 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   useEffect(() => {
     if (game?.phase !== "question") {
       // На поле не обрываем: бот договаривает вердикт после вскрытия.
-      if (game?.phase !== "board" || !voiceOn) stopSpeech();
+      // На рулетке «Сюрприза» — договаривает объявление эффекта.
+      const keep =
+        game?.phase === "board" || isSurprisePhase(game?.phase ?? "");
+      if (!keep || !voiceOn) stopSpeech();
       return;
     }
     if (!questionPrompt || !normalized || !game.current_question_id) return;
+    const questionId = game.current_question_id;
     const openBuzz = () =>
       void callHost(normalized, "open_buzz").then(() => requestMatchReload());
+    // Голос дочитал вопрос (или вышел срок) — можно включать трек/видео.
+    const release = () => {
+      if (holding.current === questionId) holding.current = null;
+      window.clearTimeout(holdTimer.current);
+      setVoiceDone(questionId);
+    };
+    // Срок — примерно время чтения вслух (+ до 3 с на загрузку голоса Марины).
+    const readMs = questionReadMs(questionPrompt);
     let started = false;
-    if (voiceOn && spoken.current !== game.current_question_id) {
-      spoken.current = game.current_question_id;
+    if (voiceOn && spoken.current !== questionId) {
+      spoken.current = questionId;
+      window.clearTimeout(holdTimer.current);
+      holding.current = questionId;
       started = speakRussian(
         questionPrompt,
         () => {
+          release();
           if (hostMode === "bot") openBuzz();
         },
         ttsAuth(normalized, ownsRoom),
       );
+      // Зависший голос не должен держать трек: включаем по сроку. Таймер
+      // переживает перерисовки — его сбрасывает только новый вопрос.
+      holdTimer.current = window.setTimeout(
+        release,
+        started ? readMs + MEDIA_HOLD_SLACK_MS : 0,
+      );
+    } else if (holding.current !== questionId) {
+      // Вопрос уже прочитан раньше (голос включили посреди вопроса) — не ждём.
+      holdTimer.current = window.setTimeout(release, 0);
     }
     if (hostMode !== "bot") return;
     // Бот открывает кнопку и без голоса: голос выключен, синтеза нет или
-    // onend так и не пришёл. Срок — примерно время чтения вслух (+ до 3 с
-    // на загрузку голоса Марины).
-    const readMs = Math.min(
-      30000,
-      Math.max(6000, questionPrompt.length * 70 + 2500),
-    );
+    // onend так и не пришёл.
     const timer = setTimeout(openBuzz, started ? readMs + 7000 : readMs);
     return () => clearTimeout(timer);
   }, [
@@ -238,6 +366,29 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     }, 700);
     return () => window.clearTimeout(timer);
   }, [phaseNow, roundNow, voiceOn, hostMode, normalized, ownsRoom]);
+  // «Сюрприз»: когда барабан остановился, ведущий (бот или голос экрана)
+  // объявляет эффект — фиксированной фразой из кэша.
+  const rolling =
+    match.status === "ready" && game?.phase === "surprise"
+      ? currentSurprise(match)
+      : null;
+  const rollingId = rolling?.id ?? null;
+  const rollingEffect = rolling?.effect ?? null;
+  const announced = useRef<string | null>(null);
+  useEffect(() => {
+    if (!voiceOn || !rollingId || !isSurpriseEffect(rollingEffect)) return;
+    if (announced.current === rollingId) return;
+    const timer = window.setTimeout(() => {
+      announced.current = rollingId;
+      speakRussian(
+        SURPRISE_META[rollingEffect].speech,
+        undefined,
+        ttsAuth(normalized, ownsRoom),
+      );
+    }, ROULETTE_SPIN_MS + 300);
+    return () => window.clearTimeout(timer);
+  }, [voiceOn, rollingId, rollingEffect, normalized, ownsRoom]);
+
   // После эффекта вердикта: там scoresRef ещё хранит очки прошлого рендера.
   const revealedAnswer = game?.revealed_answer ?? null;
   useEffect(() => {
@@ -272,6 +423,14 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     setError(null);
     try {
       const result = await callHost(normalized, action, extra);
+      if (isPaywallError(result.error)) {
+        // Партия не оплачена: уводим на оплату и возвращаем в эту комнату.
+        window.location.assign(
+          `/pay?need=${result.error}&next=${encodeURIComponent(window.location.pathname)}`,
+        );
+        return;
+      }
+      if (action === "start" && result.ok === true) vkGoal("game_started");
       // Не ждём realtime: сразу перечитываем партию, иначе экран (и кнопки
       // ведущего) ещё секунды показывают старую фазу.
       requestMatchReload();
@@ -350,6 +509,11 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
           hostCopied={hostCopied}
           onCopyHost={() => void copyHostLink()}
           onStart={() => void run("start")}
+          origin={origin}
+          hostMode={match.room.host_mode}
+          phoneHost={phoneHost}
+          surprises={match.room.surprises === true}
+          onSurprises={(on) => void run("surprises", { correct: on })}
         />
       </>
     );
@@ -358,6 +522,11 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   return (
     <>
       <GameView
+        match={match}
+        phoneHost={phoneHost}
+        onSurpriseChoose={(playerId) =>
+          void run("surprise_choose", { playerId })
+        }
         code={normalized}
         players={match.players}
         board={match.board}
@@ -368,6 +537,7 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
         ownsRoom={ownsRoom}
         hostStartsMedia={match.room.host_starts_media}
         hostMode={match.room.host_mode}
+        mediaHold={mediaHold}
         onHostPick={(questionId) => void run("pick", { questionId })}
         onBlockedPick={(nickname) =>
           showToast(`Выбирает ${nickname} с телефона`)
@@ -379,31 +549,55 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
         </p>
       ) : null}
       <MusicToggle raised />
-      <HostDesk
-        open={desk}
-        onToggle={() => setDeskChoice((value) => !(value ?? queryDesk))}
-        voiceOn={voiceOn}
-        pending={pending}
-        finalPicks={finalPicks}
-        sheet={sheet}
-        game={match.game}
-        hostStartsMedia={match.room.host_starts_media}
-        hostMode={match.room.host_mode}
-        onVoice={(value) => setVoiceChoice(value)}
-        onOpenBuzz={() => void run("open_buzz")}
-        onPass={() => void run("pass")}
-        onContinue={() => void run("continue")}
-        onJudge={(correct) =>
-          void run("judge", { correct, playerId: answererId(match) })
-        }
-        onFinalPick={(playerId, correct) =>
-          setFinalPicks((current) => ({ ...current, [playerId]: correct }))
-        }
-        onFinalize={() =>
-          void run("finalize", { decisions: decisionsFrom(sheet, finalPicks) })
-        }
-        onHostStarts={(value) => void run("media_cue", { correct: value })}
-      />
+      {phoneHost ? (
+        <div className="host-phone-corner">
+          {ownsRoom ? (
+            <HostPhonePair
+              key="on"
+              code={normalized}
+              origin={origin}
+              connected
+              compact
+            />
+          ) : (
+            <span className="hand">Ведущий с телефона</span>
+          )}
+        </div>
+      ) : (
+        <HostDesk
+          open={desk}
+          onToggle={() => setDeskChoice((value) => !(value ?? queryDesk))}
+          code={normalized}
+          origin={origin}
+          ownsRoom={ownsRoom}
+          voiceOn={voiceOn}
+          pending={pending}
+          finalPicks={finalPicks}
+          sheet={sheet}
+          game={match.game}
+          hostStartsMedia={match.room.host_starts_media}
+          hostMode={match.room.host_mode}
+          onVoice={(value) => {
+            setVoiceChoice({ value, base: roomVoice });
+            if (ownsRoom) void run("voice", { correct: value });
+          }}
+          onOpenBuzz={() => void run("open_buzz")}
+          onPass={() => void run("pass")}
+          onContinue={() => void run("continue")}
+          onJudge={(correct) =>
+            void run("judge", { correct, playerId: answererId(match) })
+          }
+          onFinalPick={(playerId, correct) =>
+            setFinalPicks((current) => ({ ...current, [playerId]: correct }))
+          }
+          onFinalize={() =>
+            void run("finalize", {
+              decisions: decisionsFrom(sheet, finalPicks),
+            })
+          }
+          onHostStarts={(value) => void run("media_cue", { correct: value })}
+        />
+      )}
     </>
   );
 }
@@ -420,6 +614,11 @@ function Lobby({
   hostCopied,
   onCopyHost,
   onStart,
+  origin,
+  hostMode,
+  phoneHost,
+  surprises,
+  onSurprises,
 }: {
   code: string;
   players: PlayerRow[];
@@ -432,6 +631,11 @@ function Lobby({
   hostCopied: "idle" | "copied" | "failed";
   onCopyHost: () => void;
   onStart: () => void;
+  origin: string;
+  hostMode: "human" | "bot";
+  phoneHost: boolean;
+  surprises: boolean;
+  onSurprises: (on: boolean) => void;
 }) {
   const seated = scoreboardPlayers(players);
   // На сервере ключа не видно — табличку показываем только в браузере.
@@ -488,6 +692,20 @@ function Lobby({
             {hostCopied === "failed" ? (
               <p className="text-danger">Не удалось скопировать.</p>
             ) : null}
+            {hostMode === "human" ? (
+              <div className="mt-3">
+                <p>
+                  Эталон и пульт — на телефоне ведущего, чтобы игроки не видели
+                  ответ на экране.
+                </p>
+                <HostPhonePair
+                  key={phoneHost ? "on" : "off"}
+                  code={code}
+                  origin={origin}
+                  connected={phoneHost}
+                />
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -503,6 +721,12 @@ function Lobby({
                 style={{ transform: `rotate(${index % 2 ? 4 : -3}deg)` }}
               >
                 {player.nickname}
+                {player.remote ? (
+                  <span className="remote-mark" title="Играет не у экрана">
+                    {" "}
+                    📱
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -523,11 +747,38 @@ function Lobby({
               кто открыл ссылку ведущего оттуда. Адрес сайта тоже должен
               совпадать.
             </p>
-            <Link href="/" className="action mt-3 inline-block">
-              Создать новую комнату
-            </Link>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href="/" className="action inline-block">
+                Создать новую комнату
+              </Link>
+              <Link
+                href={phonePath(code)}
+                className="action is-ink inline-block"
+              >
+                Я ведущий: ввести код
+              </Link>
+            </div>
           </div>
         )}
+        {ownsRoom ? (
+          <label className="surprise-toggle mt-6">
+            <input
+              type="checkbox"
+              role="switch"
+              className="remote-switch"
+              checked={surprises}
+              disabled={pending}
+              onChange={(event) => onSurprises(event.target.checked)}
+              name="surprises"
+            />
+            <span>
+              Сюрпризы
+              <span className="block text-sm text-muted">
+                2–3 клетки с баффами, дебаффами и хаосом. Не в финале.
+              </span>
+            </span>
+          </label>
+        ) : null}
         <button
           type="button"
           disabled={!ownsRoom || seated.length < 2 || pending}
@@ -547,6 +798,9 @@ function Lobby({
 }
 
 function GameView({
+  match,
+  phoneHost,
+  onSurpriseChoose,
   code,
   players,
   board,
@@ -557,9 +811,13 @@ function GameView({
   ownsRoom,
   hostStartsMedia,
   hostMode,
+  mediaHold,
   onHostPick,
   onBlockedPick,
 }: {
+  match: Extract<MatchState, { status: "ready" }>;
+  phoneHost: boolean;
+  onSurpriseChoose: (playerId: string) => void;
   code: string;
   players: PlayerRow[];
   board: BoardCell[];
@@ -570,10 +828,21 @@ function GameView({
   ownsRoom: boolean;
   hostStartsMedia: boolean;
   hostMode: "human" | "bot";
+  /** Ведущий ещё читает вопрос — трек/видео ждёт. */
+  mediaHold: boolean;
   onHostPick: (questionId: string) => void;
   onBlockedPick: (nickname: string) => void;
 }) {
   const current = board.find((cell) => cell.id === game.current_question_id);
+  // Картинку задания начинаем грузить сразу, как только клетку выбрали
+  // (ещё во время «кота в мешке» и озвучки вопроса), а не когда появится лист.
+  const pictureUrl = current?.picture ? current.image_url : null;
+  useEffect(() => {
+    if (!pictureUrl) return;
+    const preload = new Image();
+    preload.decoding = "async";
+    preload.src = pictureUrl;
+  }, [pictureUrl]);
   const chooser = players.find(
     (player) => player.id === game.chooser_player_id,
   );
@@ -600,6 +869,15 @@ function GameView({
   const chooserName = chooser?.nickname ?? "игрок";
   // В обоих режимах ведущий может выбрать клетку за игрока (телефон отвалился).
   const hostCanPick = ownsRoom && game.phase === "board" && !pending;
+  const surprise = currentSurprise(match);
+  const opener = players.find(
+    (player) => player.id === surprise?.opener_player_id,
+  );
+  const badges = badgesByPlayer(
+    match.effects,
+    game.current_question_id,
+    players,
+  );
 
   return (
     <main className="stage">
@@ -609,6 +887,7 @@ function GameView({
           players={players}
           activeId={game.chooser_player_id}
           note={game.phase === "board" ? "выбирает" : undefined}
+          badges={badges}
         />
         <p className="enter-code mono">войти: {code}</p>
       </header>
@@ -643,6 +922,34 @@ function GameView({
             Кот в мешке. {chooser?.nickname ?? "Игрок"} выбирает, кому отдать.
           </p>
         ) : null}
+        {isSurprisePhase(game.phase) && surprise ? (
+          <SurpriseRoulette
+            key={surprise.id}
+            surprise={surprise}
+            players={players}
+            left={left}
+            variant="tv"
+          >
+            {game.phase === "surprise_pick" ? (
+              <>
+                <p className="hand surprise-note">
+                  {opener?.nickname ?? "Игрок"} выбирает с телефона, кто выберет
+                  следующую клетку
+                  {hostMode === "human" ? " — или ведущий" : ""}.
+                </p>
+                {ownsRoom && hostMode === "human" && !phoneHost ? (
+                  <SurpriseChooser
+                    players={players}
+                    pending={pending}
+                    onChoose={onSurpriseChoose}
+                    title="Ведущий может выбрать сам:"
+                  />
+                ) : null}
+              </>
+            ) : null}
+          </SurpriseRoulette>
+        ) : null}
+        {showSheet && current ? <SurpriseStrip match={match} /> : null}
         {showSheet && current ? (
           <article className={`question-sheet ${hasMedia ? "has-media" : ""}`}>
             <span className="corner-tape a" />
@@ -652,7 +959,9 @@ function GameView({
               {current.special === "cat" ? " · кот" : ""}
             </p>
             <h2 className="question-copy mt-4">
-              {game.phase === "reveal" ? game.revealed_answer : current.prompt}
+              {game.phase === "reveal"
+                ? game.revealed_answer
+                : displayPrompt(current.prompt)}
             </h2>
             {hasMedia && hasPicture && current ? (
               <PictureTask
@@ -660,11 +969,19 @@ function GameView({
                 cell={current}
                 revealed={game.phase === "reveal"}
               />
+            ) : hasMedia && mediaHold && current ? (
+              <MediaWaiting cell={current} />
             ) : hasMedia ? (
               <MediaPlayer
+                key={current.id}
                 cell={current}
                 autoplay={!(hostMode === "human" && hostStartsMedia)}
                 revealed={game.phase === "reveal"}
+                onStart={
+                  ownsRoom
+                    ? () => void callHost(code, "media_start")
+                    : undefined
+                }
               />
             ) : null}
             {answering &&
@@ -711,6 +1028,9 @@ function GameView({
 function HostDesk({
   open,
   onToggle,
+  code,
+  origin,
+  ownsRoom,
   voiceOn,
   pending,
   sheet,
@@ -729,6 +1049,9 @@ function HostDesk({
 }: {
   open: boolean;
   onToggle: () => void;
+  code: string;
+  origin: string;
+  ownsRoom: boolean;
   voiceOn: boolean;
   pending: boolean;
   sheet: HostSheet | null;
@@ -745,6 +1068,10 @@ function HostDesk({
   onFinalize: () => void;
   onHostStarts: (value: boolean) => void;
 }) {
+  // Общий экран видят все: эталон только пока держат «Показать ответ».
+  // На вскрытии ответ и так на экране.
+  const answer =
+    sheet?.expected && game.phase !== "reveal" ? sheet.expected : null;
   return (
     <aside className={`drawer ${open ? "is-open" : ""}`}>
       <button type="button" className="drawer-tab" onClick={onToggle}>
@@ -752,127 +1079,38 @@ function HostDesk({
         <span>{open ? "скрыть" : "открыть"}</span>
       </button>
       <div className="grid gap-3 px-4 pb-4">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={voiceOn}
-            onChange={(event) => onVoice(event.target.checked)}
-          />
-          Читать вопрос вслух
-        </label>
-        {hostMode === "human" ? (
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={hostStartsMedia}
-              onChange={(event) => onHostStarts(event.target.checked)}
-            />
-            Трек включает ведущий
-          </label>
+        <HostToggles
+          voiceOn={voiceOn}
+          hostStartsMedia={hostStartsMedia}
+          hostMode={hostMode}
+          onVoice={onVoice}
+          onHostStarts={onHostStarts}
+        />
+        {answer ? (
+          <HoldToReveal key={game.current_question_id} answer={answer} />
         ) : null}
-        {sheet?.expected ? <p>Эталон: {sheet.expected}</p> : null}
-        {sheet?.rows
-          ?.filter((row) => row.verdict === "pending" && row.raw_text)
-          .map((row) => (
-            <p key={row.player_id}>
-              {row.nickname}: «{row.raw_text}»
-              {row.suggestion_correct === null
-                ? ""
-                : row.suggestion_correct
-                  ? " · верно"
-                  : " · неверно"}
-            </p>
-          ))}
-        <div className="flex flex-wrap gap-2">
-          {game.phase === "question" ? (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={onOpenBuzz}
-              className="action"
-            >
-              К кнопке
-            </button>
-          ) : null}
-          {game.phase === "buzzing" ? (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={onPass}
-              className="action"
-            >
-              Никто не берёт
-            </button>
-          ) : null}
-          {game.phase === "judging" && game.round !== 3 ? (
-            <>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => onJudge(true)}
-                className="action"
-              >
-                Верно
-              </button>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => onJudge(false)}
-                className="action bg-ink"
-              >
-                Неверно
-              </button>
-            </>
-          ) : null}
-          {game.phase === "reveal" ? (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={onContinue}
-              className="action"
-            >
-              Дальше
-            </button>
-          ) : null}
-        </div>
-        {game.phase === "judging" && game.round === 3 ? (
-          <div className="grid gap-2">
-            {sheet?.rows?.map((row) => {
-              const picked =
-                finalPicks[row.player_id] ?? row.suggestion_correct === true;
-              return (
-                <div
-                  key={row.player_id}
-                  className="flex flex-wrap items-center gap-2"
-                >
-                  <p>
-                    {row.nickname}: «{row.raw_text || "—"}» · {row.wager ?? 0}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => onFinalPick(row.player_id, true)}
-                    className="action"
-                  >
-                    {picked ? "Верно" : "засчитать"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onFinalPick(row.player_id, false)}
-                    className="action bg-ink"
-                  >
-                    Неверно
-                  </button>
-                </div>
-              );
-            })}
-            <button
-              type="button"
-              disabled={pending}
-              onClick={onFinalize}
-              className="action"
-            >
-              Показать итог
-            </button>
+        <PendingAnswers sheet={sheet} />
+        <HostMoves
+          game={game}
+          sheet={sheet}
+          pending={pending}
+          finalPicks={finalPicks}
+          onOpenBuzz={onOpenBuzz}
+          onPass={onPass}
+          onContinue={onContinue}
+          onJudge={onJudge}
+          onFinalPick={onFinalPick}
+          onFinalize={onFinalize}
+        />
+        {ownsRoom && hostMode === "human" ? (
+          <div>
+            <HostPhonePair
+              key="off"
+              code={code}
+              origin={origin}
+              connected={false}
+              compact
+            />
           </div>
         ) : null}
       </div>
@@ -908,42 +1146,16 @@ function Results({ players }: { players: PlayerRow[] }) {
   );
 }
 
-function decisionsFrom(
-  sheet: HostSheet | null,
-  picks: Record<string, boolean>,
-) {
-  return (sheet?.rows ?? []).map((row) => ({
-    playerId: row.player_id,
-    correct: picks[row.player_id] ?? row.suggestion_correct === true,
-  }));
-}
-
 async function callHost(
   code: string,
   action: string,
   extra?: Record<string, unknown>,
 ) {
   const hostSecret = readHostSecret(code);
-  if (!hostSecret) return { ok: false, error: "not_host" };
-  const response = await fetch("/api/host/action", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, code, hostSecret, ...extra }),
-  });
-  return (await response.json()) as { ok?: boolean; error?: string };
-}
-
-/** Кого судит ведущий: отвечающий по кнопке или адресат «кота». */
-function answererId(match: {
-  game: GameRow;
-  board: BoardCell[];
-}): string | undefined {
-  const current = match.board.find(
-    (cell) => cell.id === match.game.current_question_id,
+  return callHostAction(
+    code,
+    action,
+    hostSecret ? { hostSecret } : null,
+    extra,
   );
-  const id =
-    current?.special === "cat"
-      ? current.assigned_player_id
-      : match.game.buzz_winner_player_id;
-  return id ?? undefined;
 }

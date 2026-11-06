@@ -152,7 +152,9 @@ function ensureAudio(): HTMLAudioElement {
   const element = document.createElement("audio");
   element.id = "host-music";
   element.hidden = true;
-  element.preload = "auto";
+  // Ничего не качаем заранее: трек (1–4 МБ) грузится только после play(),
+  // то есть после первого клика, а не при открытии главной на телефоне.
+  element.preload = "none";
   element.volume = 0;
   element.dataset.role = "background-music";
   element.src = nextTrack();

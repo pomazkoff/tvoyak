@@ -90,6 +90,17 @@ export function HomeScreen() {
           </h1>
           <Arrow />
         </div>
+        <ol className="home-steps">
+          <li>
+            <b>1</b> Открой Твояк на телевизоре или ноутбуке
+          </li>
+          <li>
+            <b>2</b> Друзья заходят с телефонов по QR
+          </li>
+          <li>
+            <b>3</b> Играете. Первая игра бесплатно
+          </li>
+        </ol>
       </div>
       <div className="home-stack">
         <section className="sheet home-sheet">
@@ -125,10 +136,17 @@ export function HomeScreen() {
             disabled={pending}
             className="action mt-4 w-full"
           >
-            {pending ? "Создаём…" : "Создать комнату"}
+            {pending ? "Создаём…" : "Создать комнату — бесплатно"}
           </button>
+          <p className="home-phone-note">
+            Ты с телефона? Комнату можно создать прямо отсюда, а табло потом
+            открыть на телевизоре или ноутбуке.
+          </p>
+          <a href="#room-code" className="home-code-link">
+            У меня есть код
+          </a>
         </section>
-        <section className="ticket home-ticket">
+        <section className="ticket home-ticket" id="have-code">
           <span className="tape ticket-tape" aria-hidden />
           <p className="hand home-ticket-title">Уже есть код</p>
           <label className="sr-only" htmlFor="room-code">

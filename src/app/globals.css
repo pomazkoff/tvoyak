@@ -3195,3 +3195,54 @@ button {
   height: 1px !important;
   opacity: 0 !important;
 }
+
+.home-steps {
+  display: grid;
+  gap: 0.35rem;
+  margin: 1.1rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.home-steps b {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5em;
+  height: 1.5em;
+  margin-right: 0.4em;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.85em;
+}
+
+.home-phone-note {
+  display: none;
+  margin-top: 0.75rem;
+  font-size: 15px;
+  line-height: 1.35;
+  opacity: 0.75;
+}
+
+.home-code-link {
+  align-self: center;
+  margin-top: 0.75rem;
+  text-decoration: underline;
+}
+
+@media (max-width: 800px) {
+  .home-grid {
+    align-items: start;
+    gap: 1.25rem;
+    padding-top: 3vh;
+  }
+
+  .home-phone-note {
+    display: block;
+  }
+
+  .home-sheet .mode-row {
+    margin-top: 0.75rem;
+  }
+}

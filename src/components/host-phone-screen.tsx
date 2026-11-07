@@ -179,11 +179,11 @@ function PairForm({
             пульт ведущего
           </span>
           <p>
-            На большом экране нажмите «Вести с телефона» и наведите камеру на QR
-            — или введите код с экрана.
+            Этот код показывает большой экран, когда на нём нажали «Вести с
+            телефона». Наведите камеру на QR или введите код с экрана.
           </p>
           <label className="grid gap-1">
-            <span className="text-sm text-muted">Код ведущего</span>
+            <span className="text-sm text-muted">Код с экрана</span>
             <input
               className="field mono uppercase"
               value={value}
@@ -210,6 +210,9 @@ function PairForm({
           </button>
           <Link href={`/play/${code}`} className="text-sm text-pen underline">
             Я игрок — войти в комнату
+          </Link>
+          <Link href="/tv" className="text-sm text-pen underline">
+            Это телевизор — код из шести цифр
           </Link>
         </form>
       </div>

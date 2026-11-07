@@ -39,27 +39,55 @@ async function loadRoom(code: string) {
     .eq("code", normalized)
     .maybeSingle();
   if (error || !room) return null;
-  const { data: secretRow } = await supabase
-    .from("room_secrets")
-    .select("host_secret_hash, phone_token_hash")
-    .eq("room_id", room.id)
-    .maybeSingle();
+  const secrets = await loadSecrets(supabase, room.id);
   return {
     supabase,
     room: room as HostRoom,
-    secrets: secretRow as {
-      host_secret_hash: string;
-      phone_token_hash: string | null;
-    } | null,
+    secrets,
   };
 }
 
-/** Только экран ведущего (ключ комнаты): привязка телефона, голос, TTS. */
+type SecretRow = {
+  host_secret_hash: string;
+  phone_token_hash: string | null;
+  /** Ключ экрана, выданный по коду /tv. Колонки может ещё не быть. */
+  tv_screen_hash?: string | null;
+};
+
+async function loadSecrets(
+  supabase: ReturnType<typeof getServiceSupabase>,
+  roomId: string,
+): Promise<SecretRow | null> {
+  const withScreen = await supabase
+    .from("room_secrets")
+    .select("host_secret_hash, phone_token_hash, tv_screen_hash")
+    .eq("room_id", roomId)
+    .maybeSingle();
+  if (!withScreen.error) return withScreen.data as SecretRow | null;
+  // Код выехал раньше миграции: без новой колонки прежний ключ комнаты жив.
+  const plain = await supabase
+    .from("room_secrets")
+    .select("host_secret_hash, phone_token_hash")
+    .eq("room_id", roomId)
+    .maybeSingle();
+  return (plain.data as SecretRow | null) ?? null;
+}
+
+/** Ключ комнаты или ключ экрана, который телевизор получил на /tv. */
+function acceptsHostSecret(secrets: SecretRow | null, secret: string) {
+  if (!secrets) return false;
+  return (
+    sameHash(secrets.host_secret_hash, secret) ||
+    sameHash(secrets.tv_screen_hash, secret)
+  );
+}
+
+/** Только экран ведущего (ключ комнаты или ключ /tv): привязка телефона, голос, TTS. */
 export async function requireHost(code: string, secret: string) {
   if (!secret) return { ok: false as const, error: "not_host" };
   const loaded = await loadRoom(code);
   if (!loaded) return { ok: false as const, error: "room_not_found" };
-  if (!sameHash(loaded.secrets?.host_secret_hash, secret)) {
+  if (!acceptsHostSecret(loaded.secrets, secret)) {
     return { ok: false as const, error: "not_host" };
   }
   return { ok: true as const, supabase: loaded.supabase, room: loaded.room };
@@ -77,8 +105,7 @@ export async function requireHostOrPhone(
   const loaded = await loadRoom(code);
   if (!loaded) return { ok: false as const, error: "room_not_found" };
   const viaScreen =
-    Boolean(hostSecret) &&
-    sameHash(loaded.secrets?.host_secret_hash, hostSecret ?? "");
+    Boolean(hostSecret) && acceptsHostSecret(loaded.secrets, hostSecret ?? "");
   const viaPhone =
     !viaScreen &&
     isPhoneToken(phoneToken) &&

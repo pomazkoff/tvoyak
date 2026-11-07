@@ -3246,3 +3246,184 @@ button {
     margin-top: 0.75rem;
   }
 }
+
+.home-sheet > .home-tv-btn {
+  margin-top: 0.7rem;
+}
+
+/* Код для телевизора на телефоне ведущего. */
+.lobby-tv {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+}
+
+.tv-pair {
+  --paper-color: #fff3b0;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 1rem 1.2rem 1.15rem;
+  text-align: center;
+}
+
+.tv-pair-lead {
+  margin: 0.15rem 0 0;
+  font-size: clamp(28px, 3.4vw, 46px);
+  line-height: 1.05;
+}
+
+.tv-pair-url {
+  font-size: 0.62em;
+  letter-spacing: 0;
+}
+
+.tv-pair-digits {
+  margin: 0.1rem 0;
+  font-size: clamp(52px, 8vw, 96px);
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
+
+.tv-pair-note {
+  max-width: 36rem;
+  margin: 0;
+  color: #55534e;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.tv-pair-refresh {
+  margin-top: 0.2rem;
+  color: #2b4a9a;
+  font-size: 15px;
+  text-decoration: underline;
+}
+
+.tv-pair-slim {
+  position: fixed;
+  top: 0.55rem;
+  left: 50%;
+  z-index: 34;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  max-width: calc(100vw - 6rem);
+  margin: 0;
+  padding: 0.35rem 0.85rem;
+  transform: translateX(-50%);
+  font-size: clamp(16px, 2vw, 22px);
+  line-height: 1.2;
+}
+
+.tv-pair-slim-code {
+  font-size: 1.35em;
+  letter-spacing: 0.08em;
+}
+
+/* /tv — набор кода пультом. */
+.tv-page {
+  display: grid;
+  min-height: 100dvh;
+  align-content: center;
+  justify-items: center;
+  gap: 0.8rem;
+  box-sizing: border-box;
+  padding: 1.25rem 1rem 2rem;
+}
+
+.tv-title {
+  margin: 0;
+  font-size: clamp(36px, 5vw, 64px);
+  line-height: 1;
+  text-align: center;
+}
+
+.tv-lead,
+.tv-status {
+  margin: 0;
+  max-width: 28rem;
+  text-align: center;
+  font-size: clamp(18px, 2.2vw, 26px);
+  line-height: 1.3;
+}
+
+.tv-status {
+  min-height: 1.3em;
+  color: #55534e;
+}
+
+.tv-error {
+  margin: 0;
+  max-width: 32rem;
+  color: #d7261e;
+  text-align: center;
+  font-size: clamp(20px, 2.4vw, 30px);
+  line-height: 1.25;
+}
+
+.tv-digits {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.tv-digits span {
+  display: grid;
+  width: clamp(48px, 9vw, 104px);
+  height: clamp(64px, 12vw, 132px);
+  place-items: center;
+  border: 3px solid #141414;
+  border-radius: 10px;
+  background: #f7f6f2;
+  font-size: clamp(36px, 6vw, 80px);
+  line-height: 1;
+}
+
+.tv-digits span:nth-child(3) {
+  margin-right: 0.7rem;
+}
+
+.tv-digits span.is-next {
+  border-color: #d7261e;
+  box-shadow: 0 0 0 3px rgba(215, 38, 30, 0.2);
+}
+
+.tv-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  width: min(100%, 460px);
+  margin-top: 0.3rem;
+}
+
+.tv-key {
+  min-height: clamp(64px, 11vh, 108px);
+  border: 3px solid #141414;
+  border-radius: 12px;
+  background: #f7f6f2;
+  color: #141414;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1;
+}
+
+.tv-key:focus {
+  outline: 4px solid #d7261e;
+  outline-offset: 3px;
+  background: #fff3b0;
+}
+
+.tv-key:disabled {
+  opacity: 0.45;
+}
+
+.tv-key.is-ok {
+  background: #d7261e;
+  color: #f7f6f2;
+  font-family: var(--font-golos), sans-serif;
+  font-size: clamp(22px, 2.6vw, 32px);
+  font-weight: 600;
+}
+
+.tv-key.is-back {
+  font-size: clamp(26px, 3vw, 36px);
+}

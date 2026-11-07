@@ -27,6 +27,7 @@ import {
   type HostSheet,
 } from "@/components/game/host-controls";
 import { HostPhonePair } from "@/components/game/host-phone-pair";
+import { TvPairCard } from "@/components/game/tv-pair-card";
 import { MediaPlayer, MediaWaiting } from "@/components/game/media-player";
 import { PictureTask } from "@/components/game/picture-task";
 import { MusicToggle } from "@/components/game/music-toggle";
@@ -70,6 +71,7 @@ import {
   secretFromHash,
 } from "@/lib/rooms/host-link";
 import { phonePath } from "@/lib/rooms/host-phone";
+import { tvEntryLabel } from "@/lib/rooms/tv-code";
 import {
   readHostSecret,
   readPhoneToken,
@@ -521,6 +523,9 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
 
   return (
     <>
+      {ownsRoom ? (
+        <TvPairCard roomCode={normalized} origin={origin} variant="slim" />
+      ) : null}
       <GameView
         match={match}
         phoneHost={phoneHost}
@@ -645,8 +650,12 @@ function Lobby({
     () => false,
   );
   const watchers = players.filter((player) => player.role === "spectator");
+  const tvEntry = tvEntryLabel(origin);
   return (
     <main className="lobby">
+      {ownsRoom ? (
+        <TvPairCard roomCode={code} origin={origin} variant="banner" />
+      ) : null}
       <div>
         <header className="app-header">
           <Logo compact />
@@ -675,7 +684,10 @@ function Lobby({
         ) : null}
         {ownsRoom ? (
           <div className="mt-2 max-w-xs text-sm text-muted">
-            <p>Ключ ведущего в этом браузере.</p>
+            <p>
+              Если код не сработал — запасная длинная ссылка. Игрокам её не
+              отправляйте.
+            </p>
             <button
               type="button"
               onClick={onCopyHost}
@@ -685,10 +697,6 @@ function Lobby({
                 ? "Ссылка ведущего скопирована"
                 : "Скопировать ссылку ведущего"}
             </button>
-            <p className="mt-1">
-              Откройте её на телевизоре, чтобы вести игру оттуда. Не отправляйте
-              игрокам — по ней можно управлять комнатой.
-            </p>
             {hostCopied === "failed" ? (
               <p className="text-danger">Не удалось скопировать.</p>
             ) : null}
@@ -743,19 +751,15 @@ function Lobby({
               Этот браузер не ведущий этой комнаты
             </p>
             <p className="mt-2 text-sm">
-              Начать игру может только браузер, где комнату создали, или тот,
-              кто открыл ссылку ведущего оттуда. Адрес сайта тоже должен
-              совпадать.
+              На телефоне, где создали комнату, показан код из шести цифр.
+              Откройте {tvEntry} и введите его — вход на телевизоре не нужен.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/" className="action inline-block">
-                Создать новую комнату
+              <Link href="/tv" className="action inline-block">
+                Ввести код для телевизора
               </Link>
-              <Link
-                href={phonePath(code)}
-                className="action is-ink inline-block"
-              >
-                Я ведущий: ввести код
+              <Link href="/" className="action is-ink inline-block">
+                На главную
               </Link>
             </div>
           </div>

@@ -48,6 +48,7 @@ function roomInfo(path: string): {
 export function BugReport() {
   const path = usePathname() ?? "/";
   const inGame = /^\/(host|play)\//.test(path);
+  const onTv = path === "/tv";
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [contact, setContact] = useState("");
@@ -104,7 +105,8 @@ export function BugReport() {
     <>
       <button
         type="button"
-        className={inGame ? "bug-fab bug-fab-mini" : "bug-fab"}
+        className={inGame || onTv ? "bug-fab bug-fab-mini" : "bug-fab"}
+        tabIndex={onTv ? -1 : undefined}
         aria-label="Что-то не работает"
         title="Что-то не работает"
         onClick={() => setOpen(true)}

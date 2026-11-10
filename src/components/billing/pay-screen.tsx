@@ -430,8 +430,17 @@ export function PayScreen() {
           ← Вернуться к игре
         </Link>
         <p className="pay-small">
-          Оплата через ЮKassa. Нажимая «оплатить», вы соглашаетесь с условиями
-          сервиса.
+          Оплата через ЮKassa. Нажимая кнопку тарифа, вы принимаете{" "}
+          <Link href="/oferta" className="pay-link">
+            публичную оферту
+          </Link>{" "}
+          и даёте{" "}
+          <Link href="/consent" className="pay-link">
+            согласие на обработку персональных данных.
+          </Link>{" "}
+          <Link href="/privacy" className="pay-link">
+            Политика в отношении обработки персональных данных.
+          </Link>
         </p>
       </section>
     </main>

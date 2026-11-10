@@ -2678,7 +2678,7 @@ button {
   width: 100%;
   max-width: 72rem;
   margin: 0 auto;
-  padding: 2rem 4vw 7rem;
+  padding: 2rem 4vw 2rem;
 }
 
 .home-info-title {
@@ -2961,7 +2961,7 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 1.5rem;
-  padding: 2rem 1rem 4rem;
+  padding: 2rem 1rem 1.5rem;
 }
 
 .pay-card {
@@ -3426,4 +3426,89 @@ button {
 
 .tv-key.is-back {
   font-size: clamp(26px, 3vw, 36px);
+}
+
+/* Юридический футер и страницы документов. На игровых экранах футера нет. */
+.legal-footer {
+  width: min(72rem, 100%);
+  margin: 1.5rem auto 0;
+  padding: 0.5rem 4vw 2rem;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.legal-footer p {
+  margin: 0;
+}
+
+.legal-footer a {
+  color: var(--color-pen);
+  text-underline-offset: 2px;
+}
+
+.legal-footer-links {
+  margin-top: 0.45rem;
+}
+
+/* На главной плеер музыки закреплён внизу справа и перекрывает футер. */
+.legal-footer-clear {
+  padding-bottom: 6.5rem;
+}
+
+.legal-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.legal {
+  width: min(44rem, 100%);
+  margin: 0 auto;
+  padding: 1.75rem 4vw 0.5rem;
+}
+
+.legal-logo {
+  display: inline-block;
+  margin-bottom: 1.25rem;
+  text-decoration: none;
+}
+
+.legal h1 {
+  margin: 0;
+  font-family: var(--font-sofia), sans-serif;
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.legal-edition {
+  margin: 0.7rem 0 0.4rem;
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.legal h2 {
+  margin: 1.45rem 0 0.35rem;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.legal p,
+.legal li {
+  margin: 0.55rem 0 0;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.legal ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.15rem;
+}
+
+.legal a {
+  color: var(--color-pen);
+  text-underline-offset: 2px;
 }

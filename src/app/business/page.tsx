@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DemoVideo } from "@/components/business/demo-video";
 import { LeadForm } from "@/components/business/lead-form";
+import { LegalFooter } from "@/components/legal-footer";
 import { Logo } from "@/components/marks";
 import {
   AUDIENCES,
@@ -214,6 +215,7 @@ export default function BusinessPage() {
           <LeadForm />
         </section>
       </div>
+      <LegalFooter />
     </main>
   );
 }

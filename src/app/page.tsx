@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { HomeInfo } from "@/components/home-info";
 import { HomeScreen } from "@/components/home-screen";
+import { LegalFooter } from "@/components/legal-footer";
 import {
   HOME_FAQ,
   OG_DESCRIPTION,
@@ -67,6 +68,7 @@ export default function HomePage() {
     <main>
       <HomeScreen />
       <HomeInfo />
+      <LegalFooter className="legal-footer-clear" />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

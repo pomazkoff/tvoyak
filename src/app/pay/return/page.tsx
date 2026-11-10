@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PayReturn } from "@/components/billing/pay-return";
+import { LegalFooter } from "@/components/legal-footer";
 
 export const metadata: Metadata = {
   title: "Оплата",
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function PayReturnPage() {
-  return <PayReturn />;
+  return (
+    <>
+      <PayReturn />
+      <LegalFooter />
+    </>
+  );
 }

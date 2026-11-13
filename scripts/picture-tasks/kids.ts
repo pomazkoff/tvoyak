@@ -695,20 +695,31 @@ export const KIDS_WAVE5: Kid[] = [
   { file: "98c4a3b096b7f71dcd52", answer: "Три богатыря", variants: ["Три богатыря на дальних берегах", "Богатыри"], value: 300, hint: "мультфильм" },
 ];
 
-export type KidsWave = 1 | 2 | 3 | 4 | 5;
+export const KIDS_WAVE6: Kid[] = [
+  { file: "864225f5352b5a128cac", answer: "Русалочка", variants: ["Маленькая русалочка", "The Little Mermaid", "Ариэль"], value: 300, hint: "мультфильм" },
+  { file: "d324750db7d42afc14f3", answer: "Дамбо", variants: ["Dumbo"], value: 300, hint: "мультфильм" },
+  { file: "06ce1f6c66c46c9972a2", answer: "Кот в сапогах", variants: ["Puss in Boots", "Кот в сапогах: Последнее желание"], value: 300, hint: "мультфильм" },
+  { file: "4438f6cd4c00d11addf9", answer: "Чарли и шоколадная фабрика", variants: ["Чарли и шоколадная фабрика", "Вонка", "Charlie and the Chocolate Factory", "Wonka"], value: 300, hint: "фильм" },
+  { file: "20cc3f79c61481ca502a", answer: "Морозко", variants: ["Морозко"], value: 300, hint: "фильм" },
+  { file: "e68a3ca0a727457d932f", answer: "Хроники Нарнии", variants: ["Хроники Нарнии: Лев, колдунья и волшебный шкаф", "Нарния", "Narnia"], value: 300, hint: "фильм" },
+];
+
+export type KidsWave = 1 | 2 | 3 | 4 | 5 | 6;
 
 /** Волны: 1 — №1–25, 2 — №26–48, 3 — №49–78, 4 — №79+. */
 function waveOf(index: number): KidsWave {
   if (index < KIDS.length) return 1;
   if (index < KIDS.length + KIDS_WAVE2.length) return 2;
   if (index < KIDS.length + KIDS_WAVE2.length + KIDS_WAVE3.length) return 3;
-  return index < KIDS.length + KIDS_WAVE2.length + KIDS_WAVE3.length + KIDS_WAVE4.length ? 4 : 5;
+  const upTo4 = KIDS.length + KIDS_WAVE2.length + KIDS_WAVE3.length + KIDS_WAVE4.length;
+  if (index < upTo4) return 4;
+  return index < upTo4 + KIDS_WAVE5.length ? 5 : 6;
 }
 
 export function kidsRows(
   waves: KidsWave[] = [1, 2, 3, 4],
 ): Array<PictureDraft & { value: number }> {
-  return [...KIDS, ...KIDS_WAVE2, ...KIDS_WAVE3, ...KIDS_WAVE4, ...KIDS_WAVE5]
+  return [...KIDS, ...KIDS_WAVE2, ...KIDS_WAVE3, ...KIDS_WAVE4, ...KIDS_WAVE5, ...KIDS_WAVE6]
     .map((item, index) => ({
       category: PICTURE_CATEGORY.kids,
       prompt: `Детский рисунок № ${index + 1}: ${item.hint}.`,
@@ -730,10 +741,12 @@ export function kidsRows(
 async function main() {
   const arg = process.argv[2];
   const wave: KidsWave =
-    arg === "5" ? 5 : arg === "4" ? 4 : arg === "3" ? 3 : arg === "2" ? 2 : 1;
+    arg === "6" ? 6 : arg === "5" ? 5 : arg === "4" ? 4 : arg === "3" ? 3 : arg === "2" ? 2 : 1;
   const out =
     process.argv[3] ??
-    (wave === 5
+    (wave === 6
+      ? "scripts/refills/2026-11-13-kids.sql"
+      : wave === 5
       ? "scripts/refills/2026-11-09-kids.sql"
       : wave === 4
       ? "scripts/refills/2026-11-06-kids.sql"
@@ -774,7 +787,7 @@ async function main() {
   );
   const header =
     wave >= 4
-      ? `-- «Детский рисунок», волна ${wave === 5 ? "5, 09.11.2026" : "4, 06.11.2026"} (scripts/picture-tasks/kids.ts 4).
+      ? `-- «Детский рисунок», волна ${wave === 6 ? "6, 13.11.2026" : wave === 5 ? "5, 09.11.2026" : "4, 06.11.2026"} (scripts/picture-tasks/kids.ts ${wave}).
 -- Новые фильмы/мультфильмы; ИИ-рисунки без текста и логотипов.
 -- Аддитивно: добавляем ${rows.length} заданий ВЫКЛЮЧЕННЫМИ (enabled = false) — включает Илья на /admin/pictures.
 `

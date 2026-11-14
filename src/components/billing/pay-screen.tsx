@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Logo } from "@/components/marks";
 import { authHeader, getAuthSupabase } from "@/lib/billing/client";
-import { PRODUCTS, type ProductId } from "@/lib/billing/products";
+import { isProductId, PRODUCTS, type ProductId } from "@/lib/billing/products";
 import {
   describePromo,
   discountFor,
@@ -56,6 +56,7 @@ export function PayScreen() {
   const [promoInput, setPromoInput] = useState("");
   const [promo, setPromo] = useState<Promo | null>(null);
   const [promoInfo, setPromoInfo] = useState<string | null>(null);
+  const [picked, setPicked] = useState<ProductId | null>(null);
 
   async function refresh() {
     try {
@@ -74,9 +75,11 @@ export function PayScreen() {
       params.get("next") ?? sessionStorage.getItem(NEXT_KEY),
     );
     sessionStorage.setItem(NEXT_KEY, target);
+    const product = params.get("product");
     queueMicrotask(() => {
       setNext(target);
       setNeed(params.get("need"));
+      if (isProductId(product)) setPicked(product);
       const fromLink = params.get("promo");
       if (fromLink) setPromoInput(fromLink);
     });
@@ -287,6 +290,12 @@ export function PayScreen() {
           или {PRODUCTS.month.priceRub} ₽ за 30 дней без ограничений. Игроки
           всегда играют бесплатно.
         </p>
+        {picked ? (
+          <p className="pay-note">
+            Выбран тариф «{PRODUCTS[picked].title}» —{" "}
+            {PRODUCTS[picked].priceRub} ₽.
+          </p>
+        ) : null}
         {need === "login_required" && !me?.user ? (
           <p className="pay-note">
             Бесплатная партия на этом устройстве уже сыграна. Войдите, чтобы
@@ -365,7 +374,7 @@ export function PayScreen() {
                 <button
                   key={id}
                   type="button"
-                  className="pay-option"
+                  className={`pay-option${picked === id ? " is-picked" : ""}`}
                   disabled={busy || me.mode === "off"}
                   onClick={() => void buy(id)}
                 >

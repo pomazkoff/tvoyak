@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { HomeInfo } from "@/components/home-info";
 import { HomeScreen } from "@/components/home-screen";
 import { LegalFooter } from "@/components/legal-footer";
@@ -66,6 +67,9 @@ const JSON_LD = [
 export default function HomePage() {
   return (
     <main>
+      <nav className="home-nav" aria-label="Разделы сайта">
+        <Link href="/tarify">Тарифы и цены</Link>
+      </nav>
       <HomeScreen />
       <HomeInfo />
       <LegalFooter className="legal-footer-clear" />

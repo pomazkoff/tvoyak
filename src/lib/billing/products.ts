@@ -21,6 +21,11 @@ export function isProductId(value: unknown): value is ProductId {
   return value === "game" || value === "month";
 }
 
+/** Ссылка в существующий флоу оплаты с уже выбранным тарифом. */
+export function payPath(product: ProductId): string {
+  return `/pay?product=${product}`;
+}
+
 /** Ответы сервера, при которых показываем экран оплаты. */
 export type PaywallError = "login_required" | "payment_required";
 

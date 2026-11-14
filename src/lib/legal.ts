@@ -14,6 +14,7 @@ export const SELLER = {
 export const LEGAL_EDITION = "10.11.2026";
 
 export const LEGAL_LINKS = [
+  { href: "/tarify", label: "Тарифы" },
   { href: "/oferta", label: "Публичная оферта" },
   {
     href: "/privacy",

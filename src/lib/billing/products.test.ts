@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { decideAccess, isDeviceId, isProductId, PRODUCTS } from "./products";
+import {
+  decideAccess,
+  isDeviceId,
+  isProductId,
+  payPath,
+  PRODUCTS,
+} from "./products";
 
 const base = {
   loggedIn: false,
@@ -65,6 +71,8 @@ describe("тарифы", () => {
     expect(PRODUCTS.month.priceRub).toBe(499);
     expect(isProductId("month")).toBe(true);
     expect(isProductId("year")).toBe(false);
+    expect(payPath("game")).toBe("/pay?product=game");
+    expect(payPath("month")).toBe("/pay?product=month");
   });
   it("id устройства", () => {
     expect(isDeviceId("a".repeat(32))).toBe(true);

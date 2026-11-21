@@ -54,6 +54,12 @@ const MESSAGES: Record<string, string> = {
   stale: "Отвечает уже другой игрок — посмотрите на экран.",
   frozen: "Вы заморожены — этот вопрос пропускаете.",
   bad_effect: "Неизвестный сюрприз.",
+  bad_themes: "Нужны 12 разных тем. Соберите набор ещё раз.",
+  unknown_theme: "Часть тем сейчас недоступна. Выберите другие.",
+  theme_short:
+    "В одной из тем меньше пяти вопросов — на колонку не хватит. Выберите другую.",
+  themes_unavailable:
+    "Не удалось сохранить темы. Комната не создана, попробуйте ещё раз.",
 };
 
 /** «Время вышло — −N» для отвечавшего, чей срок истёк. */
@@ -65,4 +71,20 @@ export function lateAnswerMessage(value: number): string {
 export function messageFor(code: string | undefined): string {
   if (!code) return "Не получилось. Попробуйте ещё раз.";
   return MESSAGES[code] ?? "Не получилось. Попробуйте ещё раз.";
+}
+
+/** Ошибка создания комнаты с выбранными темами: называет сами темы. */
+export function themeBoardMessage(
+  code: string | undefined,
+  themes: string[] | undefined,
+): string {
+  const names = (themes ?? []).filter((theme) => theme.trim());
+  const list = names.map((theme) => `«${theme}»`).join(", ");
+  if (code === "theme_short" && list) {
+    return `В ${list} не хватает вопросов для колонки: нужно хотя бы пять. Выберите другую тему.`;
+  }
+  if (code === "unknown_theme" && list) {
+    return `Темы ${list} сейчас недоступны. Выберите другие.`;
+  }
+  return messageFor(code);
 }

@@ -33,7 +33,8 @@ type Rpc = {
 };
 
 function client(key: string) {
-  return createClient(url ?? "", key, {
+  // Пустой URL роняет сборку сьюта ещё до skipIf, если ключей нет.
+  return createClient(url || "http://127.0.0.1:54321", key || "missing", {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }

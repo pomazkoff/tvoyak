@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { lateAnswerMessage, messageFor } from "@/lib/rooms/messages";
+import {
+  lateAnswerMessage,
+  messageFor,
+  themeBoardMessage,
+} from "@/lib/rooms/messages";
 
 describe("сообщения об ошибках", () => {
   it("«Кто-то нажал раньше» — только для проигранной гонки", () => {
@@ -21,6 +25,13 @@ describe("сообщения об ошибках", () => {
     expect(lateAnswerMessage(400)).toBe("Время вышло — −400");
     expect(lateAnswerMessage(-400)).toBe("Время вышло — −400");
     expect(lateAnswerMessage(0)).toBe("Время вышло");
+  });
+
+  it("нехватка вопросов называет тему", () => {
+    expect(themeBoardMessage("theme_short", ["Рок"])).toMatch(/«Рок»/);
+    expect(themeBoardMessage("theme_short", ["Рок"])).toMatch(/пять/);
+    expect(themeBoardMessage("unknown_theme", ["Кино"])).toMatch(/«Кино»/);
+    expect(themeBoardMessage("bad_themes", [])).toBe(messageFor("bad_themes"));
   });
 
   it("сбой RPC не называют созданием комнаты", () => {

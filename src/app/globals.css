@@ -3727,7 +3727,7 @@ button {
 .theme-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 90;
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -3771,6 +3771,7 @@ button {
 }
 
 .theme-picker-body {
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   padding-right: 0.15rem;
@@ -3900,6 +3901,7 @@ button {
 
 .theme-picker-foot {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.75rem;
@@ -3913,7 +3915,8 @@ button {
 }
 
 .theme-picker-foot .action {
-  flex: 1 1 16rem;
+  flex: 1 1 auto;
+  min-height: 56px;
 }
 
 .theme-filters {
@@ -4025,6 +4028,7 @@ button {
 
   .theme-picker-foot .action,
   .theme-picker-foot .theme-ghost {
+    flex: none;
     width: 100%;
   }
 }

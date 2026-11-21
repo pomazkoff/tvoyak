@@ -72,6 +72,7 @@ import {
 } from "@/lib/rooms/host-link";
 import { phonePath } from "@/lib/rooms/host-phone";
 import { tvEntryLabel } from "@/lib/rooms/tv-code";
+import { readPickedThemes, PICKED_THEMES_KEY } from "@/lib/rooms/picked-themes";
 import {
   readHostSecret,
   readPhoneToken,
@@ -643,6 +644,27 @@ function Lobby({
   onSurprises: (on: boolean) => void;
 }) {
   const seated = scoreboardPlayers(players);
+  const pickedRaw = useSyncExternalStore(
+    noopSubscribe,
+    () => {
+      try {
+        return window.sessionStorage.getItem(PICKED_THEMES_KEY) ?? "";
+      } catch {
+        return "";
+      }
+    },
+    () => "",
+  );
+  const pickedThemes = pickedRaw
+    ? readPickedThemes(
+        {
+          getItem: () => pickedRaw,
+          setItem: () => undefined,
+          removeItem: () => undefined,
+        },
+        code,
+      )
+    : null;
   // На сервере ключа не видно — табличку показываем только в браузере.
   const mounted = useSyncExternalStore(
     noopSubscribe,
@@ -782,6 +804,16 @@ function Lobby({
               </span>
             </span>
           </label>
+        ) : null}
+        {pickedThemes ? (
+          <details className="lobby-themes">
+            <summary>Темы выбраны заранее</summary>
+            <p>Раунд 1. {pickedThemes.slice(0, 6).join(" · ")}</p>
+            <p>Раунд 2. {pickedThemes.slice(6).join(" · ")}</p>
+            <p className="lobby-themes-note">
+              Порядок колонок внутри раунда на поле будет случайным.
+            </p>
+          </details>
         ) : null}
         <button
           type="button"

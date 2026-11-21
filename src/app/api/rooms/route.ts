@@ -1,6 +1,8 @@
 import { paywallEnabled } from "@/lib/billing/config";
 import { isDeviceId } from "@/lib/billing/products";
 import { checkAccess, ipHash, userFromRequest } from "@/lib/billing/server";
+import { loadThemeCatalog } from "@/lib/game/theme-catalog";
+import { inspectBoard, parseThemeBoard } from "@/lib/game/themes";
 import { isCompanyId } from "@/lib/rooms/company";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import type { CreateRoomResult, HostMode } from "@/lib/supabase/types";
@@ -9,11 +11,14 @@ export async function POST(request: Request) {
   let hostMode: HostMode = "human";
   let company: string | null = null;
   let device: string | null = null;
+  // null — автоподбор при старте, как раньше. Массив — закреплённые 12 тем.
+  let board: string[] | null = null;
   try {
     const body = (await request.json()) as {
       hostMode?: unknown;
       companyId?: unknown;
       deviceId?: unknown;
+      categories?: unknown;
     };
     device = isDeviceId(body?.deviceId) ? body.deviceId : null;
     company = isCompanyId(body?.companyId) ? body.companyId : null;
@@ -21,6 +26,12 @@ export async function POST(request: Request) {
     else if (body?.hostMode === undefined || body.hostMode === "human")
       hostMode = "human";
     else return Response.json({ error: "bad_host_mode" }, { status: 400 });
+    if (body?.categories !== undefined && body.categories !== null) {
+      const parsed = parseThemeBoard(body.categories);
+      if (!parsed)
+        return Response.json({ error: "bad_themes" }, { status: 400 });
+      board = parsed;
+    }
   } catch {
     return Response.json({ error: "invalid_json" }, { status: 400 });
   }
@@ -40,6 +51,16 @@ export async function POST(request: Request) {
       });
       if (!access.ok) {
         return Response.json({ error: access.error }, { status: 402 });
+      }
+    }
+    if (board) {
+      const catalog = await loadThemeCatalog(supabase, company);
+      const { problem } = inspectBoard(board, catalog);
+      if (problem) {
+        return Response.json(
+          { error: problem.error, themes: problem.themes },
+          { status: 400 },
+        );
       }
     }
     const { data, error } = await supabase.rpc("create_room", {
@@ -86,11 +107,28 @@ export async function POST(request: Request) {
       if (companyError) console.error("room_company", companyError.code);
     }
 
+    if (board && result.room_id) {
+      const { error: boardError } = await supabase
+        .from("room_secrets")
+        .update({ board_categories: board })
+        .eq("room_id", result.room_id);
+      if (boardError) {
+        console.error("room_themes", boardError.code);
+        const { error: dropError } = await supabase
+          .from("rooms")
+          .delete()
+          .eq("id", result.room_id);
+        if (dropError) console.error("room_themes_rollback", dropError.code);
+        return Response.json({ error: "themes_unavailable" }, { status: 502 });
+      }
+    }
+
     return Response.json({
       code: result.code,
       hostSecret: result.host_secret,
       roomId: result.room_id,
       hostMode: result.host_mode,
+      ...(board ? { themes: board } : {}),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";

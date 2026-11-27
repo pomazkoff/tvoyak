@@ -47,6 +47,7 @@ import {
   type MatchState,
 } from "@/components/game/use-match";
 import { Logo } from "@/components/marks";
+import { SeasonalLine } from "@/components/seasonal/seasonal-line";
 import { Panel, Shell } from "@/components/shell";
 import { StyledQr } from "@/components/styled-qr";
 import { mediaPlaysSound } from "@/lib/game/music-pause";
@@ -681,6 +682,7 @@ function Lobby({
       <div>
         <header className="app-header">
           <Logo compact />
+          <SeasonalLine className="seasonal-greet">С наступающим!</SeasonalLine>
         </header>
         {playUrl ? (
           <div className="qr-card">
@@ -1161,6 +1163,7 @@ function Results({ players }: { players: PlayerRow[] }) {
   return (
     <Panel>
       <h2 className="text-3xl font-semibold">Итог</h2>
+      <SeasonalLine className="seasonal-finale">С Новым годом!</SeasonalLine>
       <ol className="mt-4 grid gap-2">
         {table.map((player, index) => (
           <li

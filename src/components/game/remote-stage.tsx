@@ -17,6 +17,7 @@ import {
 import type { MatchState } from "@/components/game/use-match";
 import { displayPrompt } from "@/lib/game/prompt";
 import { hasEffect, scrambleWords } from "@/lib/game/surprises";
+import { SeasonalLine } from "@/components/seasonal/seasonal-line";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import type { PlayerRow } from "@/lib/supabase/types";
 
@@ -274,6 +275,7 @@ function RoundResults({
   return (
     <div className="remote-results" role="status">
       <p className="hand text-2xl">{title}</p>
+      <SeasonalLine className="seasonal-round">С наступающим!</SeasonalLine>
       <ol className="mt-1 grid gap-1">
         {table.map((player, index) => (
           <li key={player.id} className="flex justify-between">

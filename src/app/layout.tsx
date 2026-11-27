@@ -10,6 +10,9 @@ import {
 import { BugReport } from "@/components/feedback/bug-report";
 import { VkPixel } from "@/components/analytics/vk-pixel";
 import { RoughDefs } from "@/components/marks";
+import { Garland } from "@/components/seasonal/garland";
+import { SeasonalRoot } from "@/components/seasonal/seasonal-root";
+import { seasonalBootScript } from "@/lib/seasonal/new-year";
 import {
   OG_DESCRIPTION,
   OG_TITLE,
@@ -19,6 +22,7 @@ import {
   SITE_URL,
 } from "@/lib/seo/site";
 import "./globals.css";
+import "@/components/seasonal/seasonal.css";
 
 const golos = Golos_Text({
   subsets: ["cyrillic", "latin"],
@@ -92,12 +96,22 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="ru"
       className={`${golos.variable} ${sofia.variable} ${caveat.variable} ${oswald.variable} ${mono.variable} h-full`}
+      suppressHydrationWarning
     >
       <body
         className={`${golos.className} flex min-h-full flex-col antialiased`}
       >
+        <script
+          dangerouslySetInnerHTML={{
+            __html: seasonalBootScript(process.env.NEXT_PUBLIC_SEASONAL_THEME),
+          }}
+        />
         <RoughDefs />
         {children}
+        <Garland />
+        <Suspense fallback={null}>
+          <SeasonalRoot />
+        </Suspense>
         <Suspense fallback={null}>
           <BugReport />
           <VkPixel />

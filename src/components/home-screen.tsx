@@ -7,6 +7,7 @@ import { useBackgroundMusic } from "@/components/game/background-music";
 import { armSpeechUnlock } from "@/components/game/speech";
 import { MusicToggle } from "@/components/game/music-toggle";
 import { Arrow, BotSketch, HostSketch, Logo } from "@/components/marks";
+import { SeasonalLine } from "@/components/seasonal/seasonal-line";
 import { ThemePicker } from "@/components/theme-picker";
 import { authHeader, deviceId } from "@/lib/billing/client";
 import { isPaywallError } from "@/lib/billing/products";
@@ -97,6 +98,7 @@ export function HomeScreen() {
         <div className="home-brand">
           <Logo />
           <p className="logo-caption hand">викторина для своих</p>
+          <SeasonalLine className="seasonal-greet">С наступающим!</SeasonalLine>
           <div className="home-lead">
             <h1 className="torn-line hand">
               Викторина для компании.

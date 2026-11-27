@@ -20,6 +20,7 @@ import {
   useNow,
 } from "@/components/game/use-match";
 import { Logo } from "@/components/marks";
+import { SeasonalLine } from "@/components/seasonal/seasonal-line";
 import { Panel, Shell } from "@/components/shell";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import {
@@ -234,6 +235,7 @@ export function PlayScreen({ code }: { code: string }) {
 
   return (
     <Shell width="max-w-xl">
+      <SeasonalLine className="seasonal-greet">С наступающим!</SeasonalLine>
       {error ? (
         <p className="text-danger" role="alert">
           {error}
@@ -515,6 +517,7 @@ function PlayTurn({
     return (
       <Panel>
         <h2 className="text-2xl font-semibold">Итог</h2>
+        <SeasonalLine className="seasonal-finale">С Новым годом!</SeasonalLine>
         <ol className="mt-3 grid gap-2">
           {table.map((player, index) => (
             <li key={player.id} className="flex justify-between">

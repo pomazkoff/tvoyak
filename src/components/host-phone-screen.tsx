@@ -29,9 +29,11 @@ import {
   useMatch,
   useNow,
 } from "@/components/game/use-match";
+import { TogetherFinale } from "@/components/game/together";
 import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
+import { isTogether } from "@/lib/game/together";
 import { playerEffects } from "@/lib/game/surprises";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
 import {
@@ -348,6 +350,7 @@ function HostRemote({
     (player) => player.id === match.game.chooser_player_id,
   );
   const voiceOn = room.host_voice ?? room.host_mode === "bot";
+  const together = isTogether(room.play_mode);
   const surprise = currentSurprise(match);
   const inQuestion = ![
     "lobby",
@@ -578,12 +581,17 @@ function HostRemote({
                   decisions: decisionsFrom(sheet, finalPicks),
                 })
               }
+              together={together}
             />
           </div>
         ) : null}
 
         {phase === "finished" ? (
-          <p className="hand text-3xl">Игра окончена — итог на экране.</p>
+          together ? (
+            <TogetherFinale room={room} players={players} compact />
+          ) : (
+            <p className="hand text-3xl">Игра окончена — итог на экране.</p>
+          )
         ) : null}
 
         {phase !== "finished" ? (

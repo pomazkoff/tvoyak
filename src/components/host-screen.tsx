@@ -32,6 +32,12 @@ import { MediaPlayer, MediaWaiting } from "@/components/game/media-player";
 import { PictureTask } from "@/components/game/picture-task";
 import { MusicToggle } from "@/components/game/music-toggle";
 import {
+  TeamPlaque,
+  TogetherAnswer,
+  TogetherFinale,
+  TogetherSeat,
+} from "@/components/game/together";
+import {
   armSpeechUnlock,
   prewarmSpeech,
   speakRussian,
@@ -58,6 +64,7 @@ import {
   shouldHoldMedia,
 } from "@/lib/game/media-hold";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
+import { isTogether, minPlayers } from "@/lib/game/together";
 import {
   ROULETTE_SPIN_MS,
   SURPRISE_META,
@@ -79,8 +86,9 @@ import {
   readPhoneToken,
   saveHostSecret,
   useHasHostSecret,
+  useStoredPlayer,
 } from "@/lib/rooms/storage";
-import type { PlayerRow } from "@/lib/supabase/types";
+import type { PlayMode, PlayerRow } from "@/lib/supabase/types";
 
 const noopSubscribe = () => () => undefined;
 
@@ -136,6 +144,7 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const [deskChoice, setDeskChoice] = useState<boolean | null>(null);
   const desk = deskChoice ?? queryDesk;
   const spoken = useRef<string | null>(null);
+  const togetherOpened = useRef<string | null>(null);
   // Трек/видео вопроса ждёт, пока голос дочитает вопрос: id вопроса, для
   // которого голос закончил (или вышел срок), и таймер-страховка.
   const [voiceDone, setVoiceDone] = useState<string | null>(null);
@@ -182,6 +191,11 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   }, [normalized, ownsRoom, game, phoneHost]);
 
   const hostMode = match.status === "ready" ? match.room.host_mode : null;
+  const together = match.status === "ready" && isTogether(match.room.play_mode);
+  const seatedCount =
+    match.status === "ready" ? scoreboardPlayers(match.players).length : 0;
+  const openPhase = game?.phase ?? null;
+  const openQuestion = game?.current_question_id ?? null;
   const questionPrompt =
     match.status === "ready"
       ? displayPrompt(
@@ -339,6 +353,18 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     hostMode,
     ownsRoom,
   ]);
+
+  // «Вместе»: соло открывает ответ само, кот и кнопка не разводят стол.
+  useEffect(() => {
+    if (!together || !ownsRoom || !normalized || !openPhase) return;
+    const soloQuestion = openPhase === "question" && seatedCount <= 1;
+    const reopen = openPhase === "buzzing" || openPhase === "cat_pick";
+    if (!soloQuestion && !reopen) return;
+    const key = `${openPhase}:${openQuestion ?? ""}`;
+    if (togetherOpened.current === key) return;
+    togetherOpened.current = key;
+    void callHost(normalized, "open_buzz").then(() => requestMatchReload());
+  }, [together, ownsRoom, normalized, openPhase, openQuestion, seatedCount]);
 
   // Бот-ведущий озвучивает вердикт. Очки и фаза приходят отдельными
   // событиями, поэтому сравниваем очки чуть позже перехода.
@@ -515,6 +541,7 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
           onStart={() => void run("start")}
           origin={origin}
           hostMode={match.room.host_mode}
+          playMode={isTogether(match.room.play_mode) ? "together" : "versus"}
           phoneHost={phoneHost}
           surprises={match.room.surprises === true}
           onSurprises={(on) => void run("surprises", { correct: on })}
@@ -584,6 +611,7 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
           game={match.game}
           hostStartsMedia={match.room.host_starts_media}
           hostMode={match.room.host_mode}
+          together={together}
           onVoice={(value) => {
             setVoiceChoice({ value, base: roomVoice });
             if (ownsRoom) void run("voice", { correct: value });
@@ -623,6 +651,7 @@ function Lobby({
   onStart,
   origin,
   hostMode,
+  playMode,
   phoneHost,
   surprises,
   onSurprises,
@@ -640,11 +669,13 @@ function Lobby({
   onStart: () => void;
   origin: string;
   hostMode: "human" | "bot";
+  playMode: PlayMode;
   phoneHost: boolean;
   surprises: boolean;
   onSurprises: (on: boolean) => void;
 }) {
   const seated = scoreboardPlayers(players);
+  const need = minPlayers(playMode);
   const pickedRaw = useSyncExternalStore(
     noopSubscribe,
     () => {
@@ -788,7 +819,10 @@ function Lobby({
             </div>
           </div>
         )}
-        {ownsRoom ? (
+        {ownsRoom && playMode === "together" ? (
+          <TogetherSeat code={code} />
+        ) : null}
+        {ownsRoom && playMode !== "together" ? (
           <label className="surprise-toggle mt-6">
             <input
               type="checkbox"
@@ -819,15 +853,17 @@ function Lobby({
         ) : null}
         <button
           type="button"
-          disabled={!ownsRoom || seated.length < 2 || pending}
+          disabled={!ownsRoom || seated.length < need || pending}
           onClick={onStart}
           className="action mt-6"
         >
           {pending ? "Раздаём поле…" : "Начать игру"}
         </button>
         <p className="mt-2 text-sm text-muted">
-          {seated.length < 2
-            ? "Нужно минимум два игрока."
+          {seated.length < need
+            ? playMode === "together"
+              ? "Нужен хотя бы один игрок. Можно сесть прямо здесь."
+              : "Нужно минимум два игрока."
             : `${seated.length}/10`}
         </p>
       </div>
@@ -904,6 +940,8 @@ function GameView({
     current?.kind !== "text" &&
     (current?.kind !== "image" || game.phase !== "reveal" || hasPicture);
   const hot = left !== null && left <= 5;
+  const together = isTogether(match.room.play_mode);
+  const localPlayer = useStoredPlayer(code);
   const chooserName = chooser?.nickname ?? "игрок";
   // В обоих режимах ведущий может выбрать клетку за игрока (телефон отвалился).
   const hostCanPick = ownsRoom && game.phase === "board" && !pending;
@@ -921,12 +959,20 @@ function GameView({
     <main className="stage">
       <header className="stage-head">
         <Logo compact />
-        <PlayerRail
-          players={players}
-          activeId={game.chooser_player_id}
-          note={game.phase === "board" ? "выбирает" : undefined}
-          badges={badges}
-        />
+        {together ? (
+          <TeamPlaque
+            room={match.room}
+            players={players}
+            activeId={game.chooser_player_id}
+          />
+        ) : (
+          <PlayerRail
+            players={players}
+            activeId={game.chooser_player_id}
+            note={game.phase === "board" ? "выбирает" : undefined}
+            badges={badges}
+          />
+        )}
         <p className="enter-code mono">войти: {code}</p>
       </header>
       <div className="stage-body">
@@ -937,10 +983,13 @@ function GameView({
         ) : null}
         {game.phase === "board" ? (
           <p className="pick-prompt hand">
-            Выбирает {chooserName} с телефона
-            {hostCanPick && hostMode !== "bot"
-              ? " — или нажмите клетку за него"
-              : ""}
+            {together
+              ? "Выберите клетку — отвечаете всей командой"
+              : `Выбирает ${chooserName} с телефона${
+                  hostCanPick && hostMode !== "bot"
+                    ? " — или нажмите клетку за него"
+                    : ""
+                }`}
           </p>
         ) : null}
         {game.phase === "board" || game.phase === "cat_pick" ? (
@@ -1034,6 +1083,15 @@ function GameView({
                 Время вышло
               </p>
             ) : null}
+            {together &&
+            localPlayer?.role === "player" &&
+            (game.phase === "answering" || game.phase === "buzzing") ? (
+              <TogetherAnswer
+                key={game.current_question_id ?? "together"}
+                code={code}
+                token={localPlayer.token}
+              />
+            ) : null}
             {left !== null && game.phase !== "reveal" ? (
               <div className={`timer poster ${hot ? "is-hot" : ""}`}>
                 <svg viewBox="0 0 120 120" aria-hidden>
@@ -1057,7 +1115,13 @@ function GameView({
             ) : null}
           </article>
         ) : null}
-        {game.phase === "finished" ? <Results players={players} /> : null}
+        {game.phase === "finished" ? (
+          together ? (
+            <TogetherFinale room={match.room} players={players} />
+          ) : (
+            <Results players={players} />
+          )
+        ) : null}
       </div>
     </main>
   );
@@ -1076,6 +1140,7 @@ function HostDesk({
   finalPicks,
   hostStartsMedia,
   hostMode,
+  together,
   onVoice,
   onOpenBuzz,
   onPass,
@@ -1097,6 +1162,7 @@ function HostDesk({
   finalPicks: Record<string, boolean>;
   hostStartsMedia: boolean;
   hostMode: "human" | "bot";
+  together: boolean;
   onVoice: (value: boolean) => void;
   onOpenBuzz: () => void;
   onPass: () => void;
@@ -1139,6 +1205,7 @@ function HostDesk({
           onJudge={onJudge}
           onFinalPick={onFinalPick}
           onFinalize={onFinalize}
+          together={together}
         />
         {ownsRoom && hostMode === "human" ? (
           <div>

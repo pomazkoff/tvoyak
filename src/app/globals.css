@@ -1190,6 +1190,89 @@ label {
   text-align: center;
 }
 
+.play-mode-caption {
+  margin: 1.15rem 0 -0.35rem;
+  font-size: 1.45rem;
+}
+
+.team-plaque {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+}
+
+.team-kicker {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.team-score-num {
+  font-size: clamp(2.6rem, 5vw, 5.2rem);
+  line-height: 0.85;
+}
+
+.team-streak,
+.together-live {
+  max-width: 22rem;
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.together-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.together-names .tape.is-on {
+  background: #d7261e;
+  color: #f7f6f2;
+}
+
+.together-answer {
+  margin-top: 1rem;
+}
+
+.team-finale-score {
+  font-size: clamp(4rem, 10vw, 7rem);
+  line-height: 0.85;
+}
+
+@media (max-width: 800px) {
+  .stage-head {
+    flex-wrap: wrap;
+  }
+
+  .stage-head:has(.team-plaque) {
+    align-items: flex-end;
+  }
+
+  .stage-head:has(.team-plaque) .team-plaque {
+    order: 1;
+    flex-basis: 100%;
+  }
+
+  .stage-head:has(.team-plaque) .logo-lockup {
+    order: 2;
+  }
+
+  .stage-head:has(.team-plaque) .enter-code {
+    order: 3;
+    margin-left: auto;
+  }
+
+  .play-mode-caption {
+    font-size: 1.25rem;
+  }
+}
+
 /* Красная обводка выбора идёт вокруг всей плитки, снаружи её края:
    скруглённая «петля от руки» не задевает ни иконку, ни подпись. Радиусы
    подобраны так, чтобы углы плитки не вылезали за линию. */

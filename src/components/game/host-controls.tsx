@@ -150,6 +150,7 @@ export function HostMoves({
   onJudge,
   onFinalPick,
   onFinalize,
+  together = false,
   className = "flex flex-wrap gap-2",
 }: Pick<
   HostControlHandlers,
@@ -164,8 +165,12 @@ export function HostMoves({
   sheet: HostSheet | null;
   pending: boolean;
   finalPicks: Record<string, boolean>;
+  /** «Вместе»: отвечают все, ведущий не судит гонку. */
+  together?: boolean;
   className?: string;
 }) {
+  const canPass =
+    game.phase === "buzzing" || (together && game.phase === "answering");
   return (
     <>
       <div className={className}>
@@ -176,20 +181,20 @@ export function HostMoves({
             onClick={onOpenBuzz}
             className="action"
           >
-            К кнопке
+            {together ? "Отвечаем" : "К кнопке"}
           </button>
         ) : null}
-        {game.phase === "buzzing" ? (
+        {canPass ? (
           <button
             type="button"
             disabled={pending}
             onClick={onPass}
             className="action"
           >
-            Никто не берёт
+            {together ? "Сдаёмся" : "Никто не берёт"}
           </button>
         ) : null}
-        {game.phase === "judging" && game.round !== 3 ? (
+        {game.phase === "judging" && game.round !== 3 && !together ? (
           <>
             <button
               type="button"

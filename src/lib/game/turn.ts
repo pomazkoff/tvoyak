@@ -7,6 +7,7 @@ import { answerFormatOk, isAnswerFormat } from "@/lib/game/surprises";
 import { PICTURE_JUDGE_NOTE } from "@/lib/pictures/rules";
 import { PRICE_CATEGORY, specialCategory } from "@/lib/packs/categories";
 import { isPictureFormat } from "@/lib/pictures/types";
+import { isTogether } from "@/lib/game/together";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 
 type Rpc = {
@@ -138,11 +139,73 @@ export async function judgeText(
   return { correct: local.correct, method: local.method };
 }
 
+async function roomIsTogether(code: string): Promise<boolean> {
+  try {
+    const { data, error } = await getServiceSupabase()
+      .from("rooms")
+      .select("play_mode")
+      .eq("code", code.trim().toUpperCase())
+      .maybeSingle();
+    if (error || !data) return false;
+    return isTogether(data.play_mode);
+  } catch {
+    return false;
+  }
+}
+
+async function submitTogetherAnswer(code: string, token: string, text: string) {
+  const begun = await callRpc("together_begin", {
+    p_code: code,
+    p_player_token: token,
+    p_text: text,
+  });
+  if (!begun.ok) {
+    return { ok: false, error: begun.error ?? "rpc_failed" };
+  }
+  const raw = String(begun.raw_text ?? text);
+  const verdict = await judgeText(
+    raw,
+    String(begun.expected ?? ""),
+    asVariants(begun.variants),
+    () => questionContext(begun.question_id),
+  );
+  const applied = await callRpc("together_resolve", {
+    p_code: code,
+    p_player_id: begun.player_id ?? null,
+    p_correct: verdict.correct,
+    p_method: verdict.method,
+  });
+  if (applied.ok === false) {
+    return { ok: false, error: applied.error ?? "rpc_failed" };
+  }
+  const revealed = applied.revealed === true;
+  return {
+    ok: true,
+    resolved: true,
+    correct: verdict.correct,
+    revealed,
+    waiting: !revealed,
+    points: typeof applied.points === "number" ? applied.points : 0,
+    multiplier: typeof applied.multiplier === "number" ? applied.multiplier : 1,
+  };
+}
+
+/** Телефон игрока открывает общий ответ, когда кнопка или кот уже на экране. */
+export async function openTogether(code: string, token: string) {
+  return callRpc("together_open", {
+    p_code: code,
+    p_player_token: token,
+  });
+}
+
 export async function submitPlayerAnswer(
   code: string,
   token: string,
   text: string,
 ) {
+  if (await roomIsTogether(code)) {
+    return submitTogetherAnswer(code, token, text);
+  }
   const begun = await callRpc("begin_answer", {
     p_code: code,
     p_player_token: token,
@@ -358,11 +421,23 @@ export async function hostAction(input: {
   if (input.action === "start") {
     return callRpc("start_game", { p_code: input.code });
   }
+  const together =
+    input.action === "open_buzz" ||
+    input.action === "pass" ||
+    input.action === "judge"
+      ? await roomIsTogether(input.code)
+      : false;
+
   if (input.action === "open_buzz") {
-    return callRpc("open_buzz", { p_code: input.code });
+    return callRpc(together ? "together_open" : "open_buzz", {
+      p_code: input.code,
+      ...(together ? { p_player_token: null } : {}),
+    });
   }
   if (input.action === "pass") {
-    return callRpc("pass_question", { p_code: input.code });
+    return callRpc(together ? "together_give_up" : "pass_question", {
+      p_code: input.code,
+    });
   }
   if (input.action === "continue") {
     return callRpc("continue_game", { p_code: input.code });
@@ -371,6 +446,7 @@ export async function hostAction(input: {
     return callRpc("host_sheet", { p_code: input.code });
   }
   if (input.action === "judge") {
+    if (together) return { ok: false, error: "bad_phase" };
     return callRpc("apply_verdict", {
       p_code: input.code,
       p_correct: input.correct === true,

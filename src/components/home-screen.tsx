@@ -6,7 +6,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useBackgroundMusic } from "@/components/game/background-music";
 import { armSpeechUnlock } from "@/components/game/speech";
 import { MusicToggle } from "@/components/game/music-toggle";
-import { Arrow, BotSketch, HostSketch, Logo } from "@/components/marks";
+import {
+  Arrow,
+  BotSketch,
+  HostSketch,
+  Logo,
+  TogetherSketch,
+  VersusSketch,
+} from "@/components/marks";
 import { SeasonalLine } from "@/components/seasonal/seasonal-line";
 import { ThemePicker } from "@/components/theme-picker";
 import { authHeader, deviceId } from "@/lib/billing/client";
@@ -17,11 +24,12 @@ import { companyId } from "@/lib/rooms/company";
 import { hostPath } from "@/lib/rooms/host-link";
 import { clearPickedThemes, savePickedThemes } from "@/lib/rooms/picked-themes";
 import { saveHostSecret } from "@/lib/rooms/storage";
-import type { HostMode } from "@/lib/supabase/types";
+import type { HostMode, PlayMode } from "@/lib/supabase/types";
 
 export function HomeScreen() {
   const router = useRouter();
   const [hostMode, setHostMode] = useState<HostMode>("human");
+  const [playMode, setPlayMode] = useState<PlayMode>("versus");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +56,7 @@ export function HomeScreen() {
         body: JSON.stringify({
           deviceId: deviceId() ?? undefined,
           hostMode,
+          playMode,
           companyId: companyId(safeStorage()) ?? undefined,
           ...(categories ? { categories } : {}),
         }),
@@ -125,8 +134,9 @@ export function HomeScreen() {
               Новая комната
             </span>
             <p className="mt-3 max-w-[34ch] text-[17px] leading-6 text-muted">
-              Ведущий не играет. На экране будет код и QR, за стол сядут до
-              десяти человек.
+              {playMode === "together"
+                ? "Один счёт на всех. Кто-то угадал — очки ваши. Можно и в одного, с этого же телефона."
+                : "Ведущий не играет. На экране будет код и QR, за стол сядут до десяти человек."}
             </p>
             <div className="mode-row">
               <ModeCard
@@ -142,6 +152,30 @@ export function HomeScreen() {
                 sketch={<BotSketch />}
               />
             </div>
+            <p className="play-mode-caption hand">Как играем</p>
+            <div className="mode-row" data-play-mode={playMode}>
+              <ModeCard
+                name="playMode"
+                checked={playMode === "versus"}
+                label="Против друг друга"
+                onSelect={() => setPlayMode("versus")}
+                sketch={<VersusSketch />}
+              />
+              <ModeCard
+                name="playMode"
+                checked={playMode === "together"}
+                label="Вместе"
+                onSelect={() => setPlayMode("together")}
+                sketch={<TogetherSketch />}
+              />
+            </div>
+            {playMode === "together" ? (
+              <p className="mt-3 text-sm text-muted">
+                Одному телевизор не нужен: после создания сядь за стол на этом
+                же экране. Друзей можно позвать по QR — ответ любого идёт в
+                общий котёл.
+              </p>
+            ) : null}
             {error ? (
               <p className="mt-3 text-danger" role="alert">
                 {error}
@@ -251,17 +285,19 @@ function ModeCard({
   label,
   onSelect,
   sketch,
+  name = "hostMode",
 }: {
   checked: boolean;
   label: string;
   onSelect: () => void;
   sketch: ReactNode;
+  name?: string;
 }) {
   return (
     <label className={`mode-card ${checked ? "is-picked" : ""}`}>
       <input
         type="radio"
-        name="hostMode"
+        name={name}
         checked={checked}
         onChange={onSelect}
         className="sr-only"

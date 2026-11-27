@@ -96,6 +96,29 @@ export function HostSketch() {
   );
 }
 
+export function VersusSketch() {
+  return (
+    <svg viewBox="0 0 96 72" className="sketch" aria-hidden>
+      <path d="M22 22c0-6 5-11 11-11s11 5 11 11-5 11-11 11-11-5-11-11z" />
+      <path d="M18 58c2-10 8-16 15-16s13 6 15 16" />
+      <path d="M52 22c0-6 5-11 11-11s11 5 11 11-5 11-11 11-11-5-11-11z" />
+      <path d="M48 58c2-10 8-16 15-16s13 6 15 16" />
+      <path d="M40 34h16M48 26l8 8-8 8" />
+    </svg>
+  );
+}
+
+export function TogetherSketch() {
+  return (
+    <svg viewBox="0 0 96 72" className="sketch" aria-hidden>
+      <path d="M28 20c0-6 4.6-10 10-10s10 4.4 10 10-4.6 10-10 10-10-4.4-10-10z" />
+      <path d="M48 20c0-6 4.6-10 10-10s10 4.4 10 10-4.6 10-10 10-10-4.4-10-10z" />
+      <path d="M20 58c1.6-12 8-18 16-18 4 0 7.2 1.2 10 3.4 2.8-2.2 6-3.4 10-3.4 8 0 14.4 6 16 18" />
+      <path d="M40 40c4 3 12 3 16 0" />
+    </svg>
+  );
+}
+
 export function BotSketch() {
   return (
     <svg viewBox="0 0 96 72" className="sketch" aria-hidden>

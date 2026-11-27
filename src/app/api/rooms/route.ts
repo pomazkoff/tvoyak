@@ -5,10 +5,16 @@ import { loadThemeCatalog } from "@/lib/game/theme-catalog";
 import { inspectBoard, parseThemeBoard } from "@/lib/game/themes";
 import { isCompanyId } from "@/lib/rooms/company";
 import { getServiceSupabase } from "@/lib/supabase/admin";
-import type { CreateRoomResult, HostMode } from "@/lib/supabase/types";
+import { parsePlayMode } from "@/lib/game/together";
+import type {
+  CreateRoomResult,
+  HostMode,
+  PlayMode,
+} from "@/lib/supabase/types";
 
 export async function POST(request: Request) {
   let hostMode: HostMode = "human";
+  let playMode: PlayMode = "versus";
   let company: string | null = null;
   let device: string | null = null;
   // null — автоподбор при старте, как раньше. Массив — закреплённые 12 тем.
@@ -16,6 +22,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
       hostMode?: unknown;
+      playMode?: unknown;
       companyId?: unknown;
       deviceId?: unknown;
       categories?: unknown;
@@ -26,6 +33,11 @@ export async function POST(request: Request) {
     else if (body?.hostMode === undefined || body.hostMode === "human")
       hostMode = "human";
     else return Response.json({ error: "bad_host_mode" }, { status: 400 });
+    const parsedPlay = parsePlayMode(body?.playMode);
+    if (!parsedPlay) {
+      return Response.json({ error: "bad_play_mode" }, { status: 400 });
+    }
+    playMode = parsedPlay;
     if (body?.categories !== undefined && body.categories !== null) {
       const parsed = parseThemeBoard(body.categories);
       if (!parsed)
@@ -78,12 +90,31 @@ export async function POST(request: Request) {
 
     if (result.room_id) {
       // Новые комнаты — со «Сюрпризами» (в лобби можно выключить). Старые
-      // комнаты (null) живут без них.
+      // комнаты (null) живут без них. «Вместе» без сюрпризов: баффы
+      // перекладывают личные очки, а здесь счёт общий.
+      const patch: { surprises: boolean; play_mode?: PlayMode } = {
+        surprises: playMode !== "together",
+      };
+      if (playMode === "together") patch.play_mode = "together";
       const { error: surpriseError } = await supabase
         .from("rooms")
-        .update({ surprises: true })
+        .update(patch)
         .eq("id", result.room_id);
-      if (surpriseError) console.error("room_surprises", surpriseError.code);
+      if (surpriseError) {
+        console.error("room_surprises", surpriseError.code);
+        if (playMode === "together") {
+          const { error: dropError } = await supabase
+            .from("rooms")
+            .delete()
+            .eq("id", result.room_id);
+          if (dropError)
+            console.error("room_together_rollback", dropError.code);
+          return Response.json(
+            { error: "together_unavailable" },
+            { status: 503 },
+          );
+        }
+      }
     }
 
     if (paywall && result.room_id) {
@@ -128,6 +159,7 @@ export async function POST(request: Request) {
       hostSecret: result.host_secret,
       roomId: result.room_id,
       hostMode: result.host_mode,
+      playMode,
       ...(board ? { themes: board } : {}),
     });
   } catch (error) {

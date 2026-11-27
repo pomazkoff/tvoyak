@@ -1,4 +1,5 @@
 export type HostMode = "human" | "bot";
+export type PlayMode = "versus" | "together";
 export type PlayerRole = "player" | "spectator";
 export type RoomStatus = "lobby" | "round1" | "round2" | "final" | "finished";
 
@@ -14,6 +15,18 @@ export type RoomRow = {
   host_voice?: boolean | null;
   /** «Сюрпризы»: баффы и дебаффы на 2–3 клетках. null — выключены (старые комнаты). */
   surprises?: boolean | null;
+  /**
+   * versus — соревнуются. together — общий счёт.
+   * Нет поля, пока на базу не накатили миграцию: для клиента это versus.
+   */
+  play_mode?: PlayMode | null;
+  team_score?: number | null;
+  team_streak?: number | null;
+  team_best_streak?: number | null;
+  team_correct?: number | null;
+  team_played?: number | null;
+  /** Рекорд компании до этой партии. null — сравнивать не с чем. */
+  team_record?: number | null;
   created_at: string;
 };
 

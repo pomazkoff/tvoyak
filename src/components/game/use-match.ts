@@ -56,6 +56,12 @@ export type MatchState =
 const gameColumns =
   "room_id, version, phase, round, current_question_id, buzz_winner_player_id, chooser_player_id, deadline, revealed_answer, updated_at";
 
+const roomColumns =
+  "id, code, status, host_mode, host_starts_media, host_phone, host_voice, surprises, created_at";
+
+const roomTogetherColumns =
+  "play_mode, team_score, team_streak, team_best_streak, team_correct, team_played, team_record";
+
 /** Попросить все открытые экраны партии перечитать состояние сейчас. */
 export function requestMatchReload(): void {
   if (typeof window === "undefined") return;
@@ -86,15 +92,21 @@ export function useMatch(code: string): MatchState {
     let lastFingerprint = "";
 
     async function readRoom(): Promise<RoomRow | null | "error"> {
-      const { data, error } = await supabase
+      // Колонки «Вместе» есть только после миграции. Пока её нет, комната
+      // читается по-старому и остаётся соревновательной.
+      const rich = await supabase
         .from("rooms")
-        .select(
-          "id, code, status, host_mode, host_starts_media, host_phone, host_voice, surprises, created_at",
-        )
+        .select(`${roomColumns}, ${roomTogetherColumns}`)
         .eq("code", normalized)
         .maybeSingle();
-      if (error) return "error";
-      return (data as RoomRow | null) ?? null;
+      if (!rich.error) return (rich.data as RoomRow | null) ?? null;
+      const plain = await supabase
+        .from("rooms")
+        .select(roomColumns)
+        .eq("code", normalized)
+        .maybeSingle();
+      if (plain.error) return "error";
+      return (plain.data as RoomRow | null) ?? null;
     }
 
     async function load(room: RoomRow) {

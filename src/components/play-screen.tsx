@@ -2,8 +2,9 @@
 
 import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { displayPrompt } from "@/lib/game/prompt";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Board } from "@/components/game/board";
+import { TogetherAnswer, TogetherFinale } from "@/components/game/together";
 import {
   EffectBadges,
   SurpriseChooser,
@@ -23,6 +24,7 @@ import { Logo } from "@/components/marks";
 import { SeasonalLine } from "@/components/seasonal/seasonal-line";
 import { Panel, Shell } from "@/components/shell";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
+import { isTogether, liveMultiplierLabel } from "@/lib/game/together";
 import {
   answerFormatOk,
   formatRule,
@@ -173,6 +175,7 @@ export function PlayScreen({ code }: { code: string }) {
   }
 
   if (session && match.status === "ready" && match.game.phase !== "lobby") {
+    const together = isTogether(match.room.play_mode);
     const meScore =
       match.players.find((player) => player.id === session.playerId)?.score ??
       0;
@@ -181,7 +184,9 @@ export function PlayScreen({ code }: { code: string }) {
         <header className="phone-bar">
           <Logo compact />
           <p className="hand phone-who">
-            {session.nickname} · {meScore}
+            {together
+              ? `${session.nickname} · команда ${match.room.team_score ?? 0}`
+              : `${session.nickname} · ${meScore}`}
           </p>
           <EffectBadges
             effects={playerEffects(
@@ -398,13 +403,44 @@ function PlayTurn({
       ? scrambleWords(displayPrompt(current.prompt) ?? "", questionId)
       : displayPrompt(current.prompt)
     : null;
-  const iAnswer =
-    session.role === "player" &&
-    ((game.phase === "answering" &&
+  const together = isTogether(match.room.play_mode);
+  const openedFor = useRef<string | null>(null);
+  const teamTurn =
+    game.phase === "answering" ||
+    game.phase === "buzzing" ||
+    game.phase === "cat_pick";
+  const racedTurn =
+    (game.phase === "answering" &&
       (current?.special === "cat"
         ? current.assigned_player_id === session.playerId
         : game.buzz_winner_player_id === session.playerId)) ||
-      (game.phase === "final_answer" && (me?.score ?? 0) > 0));
+    (game.phase === "final_answer" && (me?.score ?? 0) > 0);
+  const iAnswer =
+    session.role === "player" && (together ? teamTurn : racedTurn);
+
+  useEffect(() => {
+    if (!together || session.role !== "player") return;
+    if (game.phase !== "buzzing" && game.phase !== "cat_pick") return;
+    const key = `${game.phase}:${game.current_question_id ?? ""}`;
+    if (openedFor.current === key) return;
+    openedFor.current = key;
+    void fetch("/api/play/together", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "open",
+        code,
+        token: session.token,
+      }),
+    }).then(() => requestMatchReload());
+  }, [
+    together,
+    session.role,
+    session.token,
+    game.phase,
+    game.current_question_id,
+    code,
+  ]);
 
   async function rpc(
     name: string,
@@ -511,6 +547,9 @@ function PlayTurn({
   }
 
   if (game.phase === "finished") {
+    if (together) {
+      return <TogetherFinale room={match.room} players={players} compact />;
+    }
     const table = scoreboardPlayers(players)
       .slice()
       .sort((leftPlayer, rightPlayer) => rightPlayer.score - leftPlayer.score);
@@ -534,10 +573,11 @@ function PlayTurn({
     );
   }
 
-  const mine = game.phase === "answering" && iAnswer;
+  const mine = !together && game.phase === "answering" && iAnswer;
   // Срок ответа истёк у этого телефона: прячем поле и пишем штраф. Сервер
   // тем временем применит −цену (advance_clock из useMatch).
   if (
+    !together &&
     mine &&
     left === 0 &&
     game.current_question_id &&
@@ -749,12 +789,30 @@ function PlayTurn({
         </div>
       ) : null}
 
-      {game.phase === "buzzing" && session.role === "player" && frozen ? (
+      {together && game.phase === "question" ? (
+        <p className="hand mt-3 text-2xl">
+          {liveMultiplierLabel(match.room.team_streak ?? 0)}. Сейчас можно будет
+          отвечать всем.
+        </p>
+      ) : null}
+      {together && game.phase !== "question" ? (
+        <p className="hand together-live">
+          {liveMultiplierLabel(match.room.team_streak ?? 0)}
+        </p>
+      ) : null}
+
+      {!together &&
+      game.phase === "buzzing" &&
+      session.role === "player" &&
+      frozen ? (
         <button type="button" disabled className="buzz is-done" data-frozen>
           ❄ Заморожены
         </button>
       ) : null}
-      {game.phase === "buzzing" && session.role === "player" && !frozen ? (
+      {!together &&
+      game.phase === "buzzing" &&
+      session.role === "player" &&
+      !frozen ? (
         <button
           type="button"
           disabled={pending || alreadyBuzzed}
@@ -768,7 +826,16 @@ function PlayTurn({
         </button>
       ) : null}
 
-      {iAnswer &&
+      {together && iAnswer ? (
+        <TogetherAnswer
+          key={game.current_question_id ?? "together"}
+          code={code}
+          token={session.token}
+        />
+      ) : null}
+
+      {!together &&
+      iAnswer &&
       !(timedOut && game.phase === "answering") &&
       !(game.phase === "final_answer" && finalSent) ? (
         <Panel className="answer-panel">
@@ -844,7 +911,7 @@ function PlayTurn({
         </div>
       ) : null}
 
-      {game.phase === "judging" ? (
+      {game.phase === "judging" && !together ? (
         <p className="text-muted">
           {game.round === 3
             ? "Ведущий проверяет ответы."

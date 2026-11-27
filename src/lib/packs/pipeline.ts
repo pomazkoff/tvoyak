@@ -186,20 +186,34 @@ export async function reviewDrafts(
         reviewed.value ?? draft.value,
         valueCap(draft),
       );
+      const finalAnswer = reviewed.answer || draft.answer;
       // Факт-чекер мог поправить эталон — утечку проверяем ещё раз по итоговому.
       const finalLeak = leakCheck({
         ...draft,
-        answer: reviewed.answer || draft.answer,
+        answer: finalAnswer,
       });
       reviewed.passes.push({
         pass: "leak",
         status: finalLeak.blocking ? "failed" : "passed",
         notes: finalLeak.notes,
       });
+      // Тот же эталон после правки факт-чекера тоже повтор.
+      if (
+        answerDuplicateIndexes(
+          [{ category: draft.category, answer: finalAnswer }],
+          existing,
+        ).length
+      ) {
+        reviewed.passes.push({
+          pass: "duplicates",
+          status: "failed",
+          notes: "повтор эталона после факт-чекера",
+        });
+      }
       const rejected = reviewed.passes.some((pass) => pass.status === "failed");
       const itemId = await insertItem(
         packId,
-        { ...draft, value, answer: reviewed.answer || draft.answer },
+        { ...draft, value, answer: finalAnswer },
         rejected ? "rejected" : "draft",
         reviewed.agentMark,
       );
@@ -212,7 +226,14 @@ export async function reviewDrafts(
       if (media) {
         await addReview(packId, itemId, "media", media.status, media.notes);
       }
-      if (!rejected) survivors += 1;
+      if (!rejected) {
+        existing.push({
+          category: draft.category,
+          prompt: draft.prompt,
+          answer: finalAnswer,
+        });
+        survivors += 1;
+      }
     }
   };
   await Promise.all(

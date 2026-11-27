@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+type Kind = "dot" | "soft" | "star";
+
 type Flake = {
   x: number;
   y: number;
@@ -9,12 +11,13 @@ type Flake = {
   vy: number;
   drift: number;
   phase: number;
-  light: boolean;
+  spin: number;
+  sprite: HTMLCanvasElement;
 };
 
 function flakeCount(width: number): number {
-  if (width < 700) return 28;
-  return 52;
+  if (width < 700) return 50;
+  return 96;
 }
 
 function pixelRatio(width: number): number {
@@ -25,24 +28,96 @@ function pixelRatio(width: number): number {
   return Math.min(window.devicePixelRatio || 1, 1.25);
 }
 
+function paintSprite(kind: Kind, radius: number): HTMLCanvasElement {
+  const halo = kind === "soft" ? radius * 1.65 : radius + 2;
+  const size = Math.max(2, Math.ceil(halo * 2));
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const pen = canvas.getContext("2d");
+  if (!pen) return canvas;
+  const center = size / 2;
+  if (kind === "soft") {
+    const glow = pen.createRadialGradient(
+      center,
+      center,
+      radius * 0.15,
+      center,
+      center,
+      halo,
+    );
+    glow.addColorStop(0, "rgba(255,255,255,0.98)");
+    glow.addColorStop(0.42, "rgba(255,255,255,0.86)");
+    glow.addColorStop(0.72, "rgba(255,255,255,0.42)");
+    glow.addColorStop(1, "rgba(255,255,255,0)");
+    pen.fillStyle = glow;
+    pen.beginPath();
+    pen.arc(center, center, halo, 0, Math.PI * 2);
+    pen.fill();
+    return canvas;
+  }
+  if (kind === "star") {
+    pen.translate(center, center);
+    pen.strokeStyle = "rgba(255,255,255,0.96)";
+    pen.lineWidth = Math.max(1.8, radius * 0.34);
+    pen.lineCap = "round";
+    pen.beginPath();
+    for (let arm = 0; arm < 3; arm += 1) {
+      const angle = (Math.PI / 3) * arm;
+      pen.moveTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+      pen.lineTo(-Math.cos(angle) * radius, -Math.sin(angle) * radius);
+    }
+    pen.stroke();
+    pen.fillStyle = "rgba(255,255,255,0.98)";
+    pen.beginPath();
+    pen.arc(0, 0, Math.max(1.4, radius * 0.22), 0, Math.PI * 2);
+    pen.fill();
+    return canvas;
+  }
+  pen.fillStyle = "rgba(255,255,255,0.97)";
+  pen.beginPath();
+  pen.arc(center, center, radius, 0, Math.PI * 2);
+  pen.fill();
+  return canvas;
+}
+
 function makeFlakes(width: number, height: number): Flake[] {
-  const count = flakeCount(width);
-  return Array.from({ length: count }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
-    r: 1.3 + Math.random() * 2.3,
-    vy: 0.16 + Math.random() * 0.38,
-    drift: 0.12 + Math.random() * 0.35,
-    phase: Math.random() * Math.PI * 2,
-    light: Math.random() > 0.4,
-  }));
+  const cache = new Map<string, HTMLCanvasElement>();
+  const sprite = (kind: Kind, radius: number) => {
+    const key = `${kind}:${Math.round(radius)}`;
+    const cached = cache.get(key);
+    if (cached) return cached;
+    const painted = paintSprite(kind, radius);
+    cache.set(key, painted);
+    return painted;
+  };
+  return Array.from({ length: flakeCount(width) }, () => {
+    const roll = Math.random();
+    const kind: Kind = roll < 0.16 ? "soft" : roll < 0.3 ? "star" : "dot";
+    const r =
+      kind === "soft"
+        ? 10 + Math.random() * 6
+        : kind === "star"
+          ? 5 + Math.random() * 4
+          : 3.4 + Math.random() * 4.2;
+    return {
+      x: Math.random() * width,
+      y: Math.random() * height,
+      r,
+      vy: (kind === "soft" ? 0.22 : 0.32) + Math.random() * 0.45,
+      drift: 0.2 + Math.random() * 0.55,
+      phase: Math.random() * Math.PI * 2,
+      spin: (Math.random() - 0.5) * 0.01,
+      sprite: sprite(kind, r),
+    };
+  });
 }
 
 /**
- * Редкий снег на весь экран. Холст под содержимым (z-index: -1),
- * поэтому хлопья не перекрывают буквы, QR и медиа. На дешёвых экранах
- * меньше хлопьев и плотность пикселей 1. При prefers-reduced-motion
- * кадр один, без requestAnimationFrame.
+ * Снег на весь экран, под содержимым (z-index: -1): буквы, QR и медиа
+ * остаются сверху. Хлопья белые и крупные, спрайты кэшируются.
+ * На узком экране их меньше, плотность пикселей не выше 1.25.
+ * При prefers-reduced-motion кадр один, без requestAnimationFrame.
  */
 export function Snow() {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -66,43 +141,23 @@ export function Snow() {
       for (const flake of flakes) {
         if (!still) {
           flake.y += flake.vy;
+          flake.phase += flake.spin;
           flake.x +=
-            Math.sin(flake.phase + flake.y * 0.012) * flake.drift * 0.3;
-          if (flake.y > height + 6) {
-            flake.y = -6;
+            Math.sin(flake.phase + flake.y * 0.01) * flake.drift * 0.35;
+          const margin = flake.r * 2 + 8;
+          if (flake.y > height + margin) {
+            flake.y = -margin;
             flake.x = Math.random() * width;
           }
-          if (flake.x < -8) flake.x = width + 8;
-          if (flake.x > width + 8) flake.x = -8;
+          if (flake.x < -margin) flake.x = width + margin;
+          if (flake.x > width + margin) flake.x = -margin;
         }
-        context.strokeStyle = flake.light
-          ? "rgba(255,255,255,0.92)"
-          : "rgba(150, 182, 206, 0.9)";
-        context.fillStyle = context.strokeStyle;
-        if (flake.r > 2.5) {
-          context.save();
-          context.translate(flake.x, flake.y);
-          context.rotate(flake.phase);
-          context.lineWidth = 1.1;
-          context.beginPath();
-          context.moveTo(-flake.r, 0);
-          context.lineTo(flake.r, 0);
-          context.moveTo(0, -flake.r);
-          context.lineTo(0, flake.r);
-          context.moveTo(-flake.r * 0.7, -flake.r * 0.7);
-          context.lineTo(flake.r * 0.7, flake.r * 0.7);
-          context.moveTo(flake.r * 0.7, -flake.r * 0.7);
-          context.lineTo(-flake.r * 0.7, flake.r * 0.7);
-          context.stroke();
-          context.restore();
-        } else {
-          context.beginPath();
-          context.arc(flake.x, flake.y, flake.r, 0, Math.PI * 2);
-          context.fill();
-          context.strokeStyle = "rgba(96, 124, 148, 0.4)";
-          context.lineWidth = 0.6;
-          context.stroke();
-        }
+        const sprite = flake.sprite;
+        context.save();
+        context.translate(flake.x, flake.y);
+        context.rotate(flake.phase);
+        context.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
+        context.restore();
       }
     };
 

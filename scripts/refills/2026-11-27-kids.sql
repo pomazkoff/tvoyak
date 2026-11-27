@@ -1,0 +1,12 @@
+-- «Детский рисунок», 27.11.2026 (№ 113–…); ИИ-рисунки без текста и логотипов (встроенная генерация).
+-- Аддитивно: задания ВЫКЛЮЧЕННЫМИ (enabled = false) — включает Илья на /admin/pictures.
+
+insert into public.question_bank (category, prompt, answer, variants, kind, image_url, curtain, value, picture, picture_spec, reveal_seconds, image_credit, image_license, image_page, enabled) values
+  ('Детский рисунок', 'Детский рисунок № 113: мультфильм.', 'Маша и Медведь', array['Маша и медведь', 'Masha and the Bear']::text[], 'image', '/pictures/k/b640f4181df8d7fc4f2a.jpg', false, 200, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 114: мультфильм.', 'Смешарики', array['Smeshariki', 'Kikoriki']::text[], 'image', '/pictures/k/871ac99265bf531ec573.jpg', false, 200, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 115: мультфильм.', 'Фиксики', array['The Fixies']::text[], 'image', '/pictures/k/5488c0fd94fa32e46a73.jpg', false, 300, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 116: фильм.', 'Бэтмен', array['Batman', 'Тёмный рыцарь']::text[], 'image', '/pictures/k/42dcfe38cd8ca4488057.jpg', false, 300, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 117: фильм.', 'Трансформеры', array['Transformers']::text[], 'image', '/pictures/k/5a6750f7fcc78e195e08.jpg', false, 300, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 118: мультфильм.', 'Мой сосед Тоторо', array['Тоторо', 'My Neighbor Totoro']::text[], 'image', '/pictures/k/2bcdbf60597ab783015d.jpg', false, 400, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false),
+  ('Детский рисунок', 'Детский рисунок № 119: фильм.', 'Годзилла', array['Godzilla', 'Годзила']::text[], 'image', '/pictures/k/2ef79613d046c7d6d885.jpg', false, 300, 'kids', '{"effect":"blur"}'::jsonb, 10, 'Рисунок нарисован ИИ для «Твояка»', 'ИИ-рисунок (фан-арт)', null, false)
+on conflict (category, prompt) do nothing;

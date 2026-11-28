@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
     },
   },
   // Браузеру нужны URL и anon-ключ для Realtime. Service role сюда не попадает.
+  // VERCEL_ENV сам в клиент не вшивается. Он нужен Метрике, чтобы дефолтный
+  // счётчик включался только в продакшен-сборке, не на превью и не локально.
   env: {
     NEXT_PUBLIC_SUPABASE_URL: publicEnv(
       "SUPABASE_URL",
@@ -32,6 +34,7 @@ const nextConfig: NextConfig = {
       "SUPABASE_ANON_KEY",
       "NEXT_PUBLIC_SUPABASE_ANON_KEY",
     ),
+    NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV || "",
   },
 };
 

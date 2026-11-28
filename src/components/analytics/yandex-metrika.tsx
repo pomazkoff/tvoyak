@@ -3,53 +3,35 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 import {
+  bootYandexMetrika,
   rememberUtmTouch,
   ymCounterId,
   ymHit,
-  ymInitSnippet,
 } from "@/lib/analytics";
 
 /**
- * Счётчик Метрики на всех страницах. Первый просмотр шлёт init,
- * дальше — hit на смену адреса. UTM запоминаем и без счётчика:
- * они нужны комнате и платежу, даже если NEXT_PUBLIC_YM_ID пуст.
+ * Счётчик Метрики на всех страницах. Скрипт ставится в браузере и только
+ * на проде tvoyak.ru: так превью и localhost не попадают в отчёт.
+ * Первый просмотр шлёт init, дальше — hit на смену адреса.
+ * UTM запоминаем и без счётчика: они нужны комнате и платежу.
  */
 export function YandexMetrika() {
   const pathname = usePathname();
   const search = useSearchParams();
   const searchKey = search.toString();
   const firstHit = useRef(true);
-  const id = ymCounterId();
 
   useEffect(() => {
     rememberUtmTouch(window.location.search);
+    const id = ymCounterId();
     if (!id) return;
+    bootYandexMetrika(id);
     if (firstHit.current) {
       firstHit.current = false;
       return;
     }
     ymHit(window.location.href, document.title);
-  }, [pathname, searchKey, id]);
+  }, [pathname, searchKey]);
 
-  if (!id) return null;
-  const snippet = ymInitSnippet(id);
-  if (!snippet) return null;
-  return (
-    <>
-      <script
-        id="yandex-metrika"
-        dangerouslySetInnerHTML={{ __html: snippet }}
-      />
-      <noscript>
-        <div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`https://mc.yandex.ru/watch/${id}`}
-            style={{ position: "absolute", left: "-9999px" }}
-            alt=""
-          />
-        </div>
-      </noscript>
-    </>
-  );
+  return null;
 }

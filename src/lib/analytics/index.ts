@@ -13,6 +13,8 @@ export {
   type GoalParams,
 } from "./params";
 export {
+  YM_DEFAULT_ID,
+  bootYandexMetrika,
   claimOnce,
   tariffRub,
   track,

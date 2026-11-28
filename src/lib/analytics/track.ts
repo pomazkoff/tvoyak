@@ -10,19 +10,52 @@ const STARTER_PREFIX = "tvoyak:ym:starter:";
 
 const memoryOnce = new Set<string>();
 const memoryStarters = new Set<string>();
+let bootedId: number | null = null;
+
+/** Счётчик tvoyak.ru. Не секрет: это номер публичного счётчика Метрики. */
+export const YM_DEFAULT_ID = "114751032";
+
+const PRODUCTION_HOSTS = new Set(["tvoyak.ru", "www.tvoyak.ru"]);
 
 /** Память вкладки между тестами. На сайт не влияет. */
 export function resetAnalyticsMemory(): void {
   memoryOnce.clear();
   memoryStarters.clear();
+  bootedId = null;
 }
 
-/** Числовой id счётчика или null, если NEXT_PUBLIC_YM_ID не задан. */
-export function ymCounterId(): number | null {
-  const raw = process.env.NEXT_PUBLIC_YM_ID?.trim() ?? "";
+function parseCounterId(raw: string): number | null {
   if (!/^\d{5,12}$/.test(raw)) return null;
   const id = Number(raw);
   return Number.isInteger(id) ? id : null;
+}
+
+/**
+ * Id счётчика, если хиты вообще можно слать.
+ * Пустой NEXT_PUBLIC_YM_ID на проде tvoyak.ru даёт YM_DEFAULT_ID.
+ * Превью, localhost и прочий хост — null, чтобы не сорить в статистику.
+ * Явное, но нечисловое значение не подменяется дефолтом.
+ */
+export function ymCounterId(): number | null {
+  if (process.env.NEXT_PUBLIC_VERCEL_ENV !== "production") return null;
+  if (typeof window === "undefined") return null;
+  const host = window.location?.hostname?.toLowerCase() ?? "";
+  if (!PRODUCTION_HOSTS.has(host)) return null;
+  const configured = process.env.NEXT_PUBLIC_YM_ID?.trim() ?? "";
+  return parseCounterId(configured || YM_DEFAULT_ID);
+}
+
+/** Вставляет tag.js один раз. Скрипт в JSX после гидрации браузер не выполняет. */
+export function bootYandexMetrika(id: number): void {
+  if (typeof document === "undefined" || bootedId === id) return;
+  bootedId = id;
+  if (document.getElementById("yandex-metrika")) return;
+  const snippet = ymInitSnippet(id);
+  if (!snippet) return;
+  const script = document.createElement("script");
+  script.id = "yandex-metrika";
+  script.text = snippet;
+  (document.head || document.documentElement).appendChild(script);
 }
 
 /**

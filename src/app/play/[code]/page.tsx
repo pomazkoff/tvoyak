@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { PlayScreen } from "@/components/play-screen";
 import { Opening } from "@/components/shell";
 import { normalizeRoomCode } from "@/lib/rooms/codes";
+import { inviteMeta } from "@/lib/share/links";
 
 /** Заголовок вкладки с кодом комнаты. noindex задан статически в layout.tsx. */
 export async function generateMetadata({
@@ -12,8 +13,15 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { code } = await params;
   const room = normalizeRoomCode(code);
+  const share = inviteMeta(room);
   return {
     title: room ? `Комната ${room}` : "Комната",
+    description: share.description,
+    openGraph: {
+      title: share.title,
+      description: share.description,
+      url: room ? `/play/${room}` : undefined,
+    },
   };
 }
 

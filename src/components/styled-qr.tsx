@@ -23,9 +23,11 @@ function isFinderEye(row: number, col: number, size: number): boolean {
 export function StyledQr({
   value,
   size = 232,
+  label = "QR-код комнаты",
 }: {
   value: string;
   size?: number;
+  label?: string;
 }) {
   const modules = useMemo(() => {
     const code = create(value, { errorCorrectionLevel: "Q" });
@@ -59,7 +61,7 @@ export function StyledQr({
       width={size}
       height={size}
       role="img"
-      aria-label="QR-код комнаты"
+      aria-label={label}
       shapeRendering="geometricPrecision"
     >
       <rect width={total} height={total} fill={PAPER} />

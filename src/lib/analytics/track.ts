@@ -1,5 +1,14 @@
 import { PRODUCTS } from "@/lib/billing/products";
-import { YM_EVENTS, isYmEvent, type ShareFormat, type YmEvent } from "./goals";
+import {
+  GOAL_EVENT,
+  YM_EVENTS,
+  bindGoalSender,
+  isYmEvent,
+  type GoalDetail,
+  type GoalName,
+  type ShareFormat,
+  type YmEvent,
+} from "./goals";
 import { goalParams, isUuid, type AnalyticsInput } from "./params";
 import { readUtmTouch, type UtmRecord } from "./utm";
 
@@ -110,9 +119,9 @@ function readUtm(): UtmRecord {
   }
 }
 
-/** reachGoal. Без счётчика и на сервере — тишина. */
-export function track(event: YmEvent, params?: AnalyticsInput): void {
-  if (!isYmEvent(event) || !ymCounterId()) return;
+/** reachGoal. Без счётчика и на сервере — тишина. true, если вызов ушёл в ym. */
+export function track(event: YmEvent, params?: AnalyticsInput): boolean {
+  if (!isYmEvent(event) || !ymCounterId()) return false;
   const goal = goalParams(
     params as Record<string, unknown> | undefined,
     readUtm(),
@@ -120,7 +129,37 @@ export function track(event: YmEvent, params?: AnalyticsInput): void {
   const args: unknown[] = [event];
   if (Object.keys(goal).length) args.push(goal);
   callYm("reachGoal", ...args);
+  return true;
 }
+
+/**
+ * final_qr_click и share_click. Если trackGoal уже отправил цель
+ * (`sent === true`), второй reachGoal не зовём.
+ */
+export function listenForGoalEvents(): void {
+  if (typeof window === "undefined") return;
+  const host = window as Window & { __tvoyakGoalBridge?: boolean };
+  if (host.__tvoyakGoalBridge || typeof host.addEventListener !== "function") {
+    return;
+  }
+  host.__tvoyakGoalBridge = true;
+  host.addEventListener(GOAL_EVENT, (event) => {
+    const detail = (event as CustomEvent<GoalDetail>).detail;
+    if (!detail || detail.sent !== false) return;
+    if (detail.goal !== "final_qr_click" && detail.goal !== "share_click") {
+      return;
+    }
+    const params: AnalyticsInput | undefined = detail.format
+      ? { format: detail.format }
+      : undefined;
+    track(detail.goal, params);
+  });
+}
+
+bindGoalSender((goal: GoalName, format?: ShareFormat) =>
+  track(goal, format ? { format } : undefined),
+);
+listenForGoalEvents();
 
 function storageGet(key: string): string | null {
   try {

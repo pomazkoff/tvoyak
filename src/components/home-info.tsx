@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LandingLinks } from "@/components/seo/landing-links";
 import { HOME_FAQ } from "@/lib/seo/site";
 
 const STEPS = [
@@ -82,6 +83,9 @@ export function HomeInfo() {
           <Link href="/business" className="biz-link">
             Твояк для баров и корпоративов →
           </Link>
+        </p>
+        <p className="home-info-more">
+          <LandingLinks className="biz-link" />
         </p>
       </footer>
     </div>

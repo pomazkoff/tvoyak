@@ -1,0 +1,21 @@
+/* Посадочные. Сетка шагов на 4 карточки, остальное — общие классы главной и /business. */
+
+.seo-page .seo-steps {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.seo-page .seo-gap {
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 1100px) {
+  .seo-page .seo-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 800px) {
+  .seo-page .seo-steps {
+    grid-template-columns: 1fr;
+  }
+}

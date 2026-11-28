@@ -10,9 +10,13 @@ const nextConfig: NextConfig = {
   // Комнаты, админка и API не должны попадать в поиск (дублирует meta robots).
   async headers() {
     const noindex = [{ key: "X-Robots-Tag", value: "noindex, nofollow" }];
-    return ["/play/:path*", "/host/:path*", "/admin/:path*", "/api/:path*"].map(
-      (source) => ({ source, headers: noindex }),
-    );
+    return [
+      "/play/:path*",
+      "/host/:path*",
+      "/itog/:path*",
+      "/admin/:path*",
+      "/api/:path*",
+    ].map((source) => ({ source, headers: noindex }));
   },
   turbopack: {
     rules: {

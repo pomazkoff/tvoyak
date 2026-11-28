@@ -92,21 +92,26 @@ export function useMatch(code: string): MatchState {
     let lastFingerprint = "";
 
     async function readRoom(): Promise<RoomRow | null | "error"> {
-      // Колонки «Вместе» есть только после миграции. Пока её нет, комната
-      // читается по-старому и остаётся соревновательной.
-      const rich = await supabase
-        .from("rooms")
-        .select(`${roomColumns}, ${roomTogetherColumns}`)
-        .eq("code", normalized)
-        .maybeSingle();
-      if (!rich.error) return (rich.data as RoomRow | null) ?? null;
-      const plain = await supabase
-        .from("rooms")
-        .select(roomColumns)
-        .eq("code", normalized)
-        .maybeSingle();
-      if (plain.error) return "error";
-      return (plain.data as RoomRow | null) ?? null;
+      // host_label и колонки «Вместе» появляются миграциями. Нет колонки —
+      // PostgREST отвергает весь select, поэтому пробуем наборы от полного
+      // к старому. Старая база остаётся соревновательной и без имени ведущего.
+      const selects = [
+        `${roomColumns}, host_label, ${roomTogetherColumns}`,
+        `${roomColumns}, ${roomTogetherColumns}`,
+        `${roomColumns}, host_label`,
+        roomColumns,
+      ];
+      let failed = false;
+      for (const columns of selects) {
+        const result = await supabase
+          .from("rooms")
+          .select(columns)
+          .eq("code", normalized)
+          .maybeSingle();
+        if (!result.error) return (result.data as RoomRow | null) ?? null;
+        failed = true;
+      }
+      return failed ? "error" : null;
     }
 
     async function load(room: RoomRow) {

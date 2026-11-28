@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 import {
   bootYandexMetrika,
+  listenForGoalEvents,
   rememberUtmTouch,
   ymCounterId,
   ymHit,
@@ -22,6 +23,7 @@ export function YandexMetrika() {
   const firstHit = useRef(true);
 
   useEffect(() => {
+    listenForGoalEvents();
     rememberUtmTouch(window.location.search);
     const id = ymCounterId();
     if (!id) return;

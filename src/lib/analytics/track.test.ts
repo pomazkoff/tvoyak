@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { YM_EVENTS, YM_PENDING_EVENTS } from "./goals";
+import { YM_EVENTS, metrikaCounterId, trackGoal } from "./goals";
 import { goalParams } from "./params";
 import {
   YM_DEFAULT_ID,
   bootYandexMetrika,
+  listenForGoalEvents,
   resetAnalyticsMemory,
   tariffRub,
   track,
@@ -24,6 +25,7 @@ function installBrowser(hostname = "localhost") {
   const store = new Map<string, string>();
   const calls: unknown[][] = [];
   const scripts: { id: string; text: string }[] = [];
+  const listeners = new Set<(event: Event) => void>();
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => store.get(key) ?? null,
     setItem: (key: string, value: string) => {
@@ -38,6 +40,13 @@ function installBrowser(hostname = "localhost") {
     location: { hostname, href: `https://${hostname}/`, protocol: "https:" },
     ym: (...args: unknown[]) => {
       calls.push(args);
+    },
+    addEventListener(_type: string, fn: (event: Event) => void) {
+      listeners.add(fn);
+    },
+    dispatchEvent(event: Event) {
+      for (const fn of listeners) fn(event);
+      return true;
     },
   });
   vi.stubGlobal("document", {
@@ -253,6 +262,53 @@ describe("track", () => {
     ]);
   });
 
+  it("final_qr_click и share_click уходят один раз, с UTM и дефолтным номером", () => {
+    const { calls } = asProduction();
+    vi.stubEnv("NEXT_PUBLIC_YM_ID", "");
+    const queued: unknown[][] = [];
+    const ym = Object.assign(
+      (...args: unknown[]) => {
+        calls.push(args);
+        queued.push(args);
+      },
+      { a: queued },
+    );
+    (window as unknown as { ym: typeof ym }).ym = ym;
+    ym(Number(YM_DEFAULT_ID), "init", {});
+    expect(metrikaCounterId(window)).toBe(114751032);
+
+    rememberUtmTouch("?utm_source=ya&utm_medium=cpc");
+    listenForGoalEvents();
+    trackGoal("share_click", { format: "stories" });
+    trackGoal("final_qr_click");
+    trackGoal("share_click", { format: "square" });
+
+    const reaches = calls.filter((call) => call[1] === "reachGoal");
+    expect(reaches).toHaveLength(3);
+    expect(reaches.map((call) => call[2])).toEqual([
+      "share_click",
+      "final_qr_click",
+      "share_click",
+    ]);
+    expect(reaches.every((call) => call[0] === 114751032)).toBe(true);
+    expect(reaches[0]?.[3]).toMatchObject({
+      format: "stories",
+      utm_source: "ya",
+      utm_medium: "cpc",
+      utm_first_source: "ya",
+      utm_first_medium: "cpc",
+    });
+    expect(reaches[1]?.[3]).toMatchObject({
+      utm_source: "ya",
+      utm_first_source: "ya",
+    });
+    expect(reaches[1]?.[3]).not.toHaveProperty("format");
+    expect(reaches[2]?.[3]).toMatchObject({
+      format: "square",
+      utm_source: "ya",
+    });
+  });
+
   it("скрипт счётчика ставится один раз", () => {
     const { scripts } = asProduction();
     vi.stubEnv("NEXT_PUBLIC_YM_ID", "");
@@ -268,8 +324,6 @@ describe("track", () => {
   it("готовые цели QR и шаринга зовут reachGoal", () => {
     const { calls } = asProduction();
     vi.stubEnv("NEXT_PUBLIC_YM_ID", "12345678");
-    expect(YM_PENDING_EVENTS.final_qr_click).toBe("final_qr_click");
-    expect(YM_PENDING_EVENTS.share_click).toBe("share_click");
     trackFinalQrClick({ role: "host", room_id: ROOM });
     trackShareClick("stories", { role: "host", room_id: ROOM });
     expect(calls.map((call) => call[2])).toEqual([

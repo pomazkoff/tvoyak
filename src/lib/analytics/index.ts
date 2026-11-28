@@ -1,8 +1,12 @@
 export {
+  GOAL_EVENT,
   SHARE_FORMATS,
   YM_EVENTS,
-  YM_PENDING_EVENTS,
   isYmEvent,
+  metrikaCounterId,
+  trackGoal,
+  type GoalDetail,
+  type GoalName,
   type ShareFormat,
   type YmEvent,
 } from "./goals";
@@ -16,6 +20,7 @@ export {
   YM_DEFAULT_ID,
   bootYandexMetrika,
   claimOnce,
+  listenForGoalEvents,
   tariffRub,
   track,
   trackFinalQrClick,

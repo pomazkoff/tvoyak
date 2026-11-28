@@ -30,6 +30,8 @@ import {
   useMatch,
   useNow,
 } from "@/components/game/use-match";
+import { FinaleLoop } from "@/components/game/finale-loop";
+import { InviteShare, useClientOrigin } from "@/components/game/invite-share";
 import { TogetherFinale } from "@/components/game/together";
 import { Logo } from "@/components/marks";
 import { Panel, Shell } from "@/components/shell";
@@ -480,6 +482,7 @@ function HostRemote({
             >
               {pending ? "Раздаём поле…" : "Начать игру"}
             </button>
+            <PhoneInvite code={code} />
           </section>
         ) : null}
 
@@ -612,11 +615,19 @@ function HostRemote({
         ) : null}
 
         {phase === "finished" ? (
-          together ? (
-            <TogetherFinale room={room} players={players} compact />
-          ) : (
-            <p className="hand text-3xl">Игра окончена — итог на экране.</p>
-          )
+          <>
+            {together ? (
+              <TogetherFinale room={room} players={players} compact />
+            ) : (
+              <p className="hand text-3xl">Игра окончена — итог на экране.</p>
+            )}
+            <FinaleLoop
+              code={code}
+              roomId={room.id}
+              hostLabel={room.host_label}
+              variant="phone"
+            />
+          </>
         ) : null}
 
         {phase !== "finished" ? (
@@ -635,4 +646,10 @@ function HostRemote({
       </div>
     </div>
   );
+}
+
+function PhoneInvite({ code }: { code: string }) {
+  const origin = useClientOrigin();
+  const url = origin ? `${origin}/play/${code}` : "";
+  return <InviteShare url={url} code={code} />;
 }

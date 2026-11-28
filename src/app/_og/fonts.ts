@@ -30,11 +30,13 @@ async function load(
   );
 }
 
-export async function ogFonts(): Promise<OgFont[]> {
-  const groups = await Promise.all([
+let cached: Promise<OgFont[]> | null = null;
+
+export function ogFonts(): Promise<OgFont[]> {
+  cached ??= Promise.all([
     load("Sofia", "sofia-sans-extra-condensed", 900),
     load("Golos", "golos-text", 600),
     load("Caveat", "caveat", 700),
-  ]);
-  return groups.flat();
+  ]).then((groups) => groups.flat());
+  return cached;
 }

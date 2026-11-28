@@ -56,6 +56,8 @@ import {
 import { Logo } from "@/components/marks";
 import { SeasonalLine } from "@/components/seasonal/seasonal-line";
 import { Panel, Shell } from "@/components/shell";
+import { FinaleLoop } from "@/components/game/finale-loop";
+import { InviteShare } from "@/components/game/invite-share";
 import { StyledQr } from "@/components/styled-qr";
 import { mediaPlaysSound } from "@/lib/game/music-pause";
 import {
@@ -106,7 +108,6 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
   const match = useMatch(code);
   const now = useNow();
   const playUrl = normalized && origin ? `${origin}/play/${normalized}` : "";
-  const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
   const ownsRoom = useHasHostSecret(normalized);
   const [hostCopied, setHostCopied] = useState<"idle" | "copied" | "failed">(
     "idle",
@@ -520,16 +521,6 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
     }
   }
 
-  async function copyLink() {
-    if (!playUrl) return;
-    try {
-      await navigator.clipboard.writeText(playUrl);
-      setCopied("copied");
-    } catch {
-      setCopied("failed");
-    }
-  }
-
   if (match.status !== "ready" || !normalized) {
     const text =
       match.status === "invalid"
@@ -556,11 +547,9 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
           code={normalized}
           players={match.players}
           playUrl={playUrl}
-          copied={copied}
           ownsRoom={ownsRoom}
           pending={pending}
           error={error}
-          onCopy={() => void copyLink()}
           hostCopied={hostCopied}
           onCopyHost={() => void copyHostLink()}
           onStart={() => void run("start")}
@@ -666,11 +655,9 @@ function Lobby({
   code,
   players,
   playUrl,
-  copied,
   ownsRoom,
   pending,
   error,
-  onCopy,
   hostCopied,
   onCopyHost,
   onStart,
@@ -684,11 +671,9 @@ function Lobby({
   code: string;
   players: PlayerRow[];
   playUrl: string;
-  copied: "idle" | "copied" | "failed";
   ownsRoom: boolean;
   pending: boolean;
   error: string | null;
-  onCopy: () => void;
   hostCopied: "idle" | "copied" | "failed";
   onCopyHost: () => void;
   onStart: () => void;
@@ -752,16 +737,7 @@ function Lobby({
             </div>
           </div>
         ) : null}
-        <button
-          type="button"
-          onClick={onCopy}
-          className="hand mt-3 block text-2xl text-pen"
-        >
-          {copied === "copied" ? "Ссылка у вас" : "Скопировать ссылку"}
-        </button>
-        {copied === "failed" ? (
-          <p className="text-danger">Не удалось скопировать.</p>
-        ) : null}
+        <InviteShare url={playUrl} code={code} />
         {ownsRoom ? (
           <div className="mt-2 max-w-xs text-sm text-muted">
             <p>
@@ -1141,11 +1117,19 @@ function GameView({
           </article>
         ) : null}
         {game.phase === "finished" ? (
-          together ? (
-            <TogetherFinale room={match.room} players={players} />
-          ) : (
-            <Results players={players} />
-          )
+          <>
+            {together ? (
+              <TogetherFinale room={match.room} players={players} />
+            ) : (
+              <Results players={players} />
+            )}
+            <FinaleLoop
+              code={code}
+              roomId={match.room.id}
+              hostLabel={match.room.host_label}
+              variant="board"
+            />
+          </>
         ) : null}
       </div>
     </main>

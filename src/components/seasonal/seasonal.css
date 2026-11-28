@@ -28,7 +28,8 @@
 
 html[data-season="newyear"] body:has(.stage) .seasonal-garland,
 html[data-season="newyear"] body:has(.lobby) .seasonal-garland,
-html[data-season="newyear"] body:has(.tv-page) .seasonal-garland {
+html[data-season="newyear"] body:has(.tv-page) .seasonal-garland,
+html[data-season="newyear"] body:has(.seo-page) .seasonal-garland {
   display: block;
 }
 
@@ -169,6 +170,10 @@ html[data-season="newyear"] .lobby {
 
 html[data-season="newyear"] .tv-page {
   padding-top: 2.75rem;
+}
+
+html[data-season="newyear"] .seo-page .biz-hero {
+  padding-top: 4.5rem;
 }
 
 html[data-season="newyear"] .phone:not(.is-mine) {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LandingLinks } from "@/components/seo/landing-links";
 import { LEGAL_LINKS, SELLER } from "@/lib/legal";
 
 /** Реквизиты и ссылки на документы. Не ставить на игровые экраны. */
@@ -18,6 +19,9 @@ export function LegalFooter({ className = "" }: { className?: string }) {
             <Link href={link.href}>{link.label}</Link>
           </span>
         ))}
+      </p>
+      <p className="legal-footer-links">
+        <LandingLinks lead="" />
       </p>
     </footer>
   );

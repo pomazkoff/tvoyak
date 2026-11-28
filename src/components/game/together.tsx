@@ -1,5 +1,7 @@
 "use client";
 
+import { YM_EVENTS, claimOnce, track, ymCounterId } from "@/lib/analytics";
+import { countRoomPlayers } from "@/lib/analytics/player-count";
 import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { scoreboardPlayers } from "@/lib/game/scoreboard";
 import {
@@ -230,6 +232,19 @@ export function TogetherSeat({ code }: { code: string }) {
         return;
       }
       vkGoal("player_joined");
+      if (
+        ymCounterId() &&
+        claimOnce(YM_EVENTS.players_joined, result.player_id)
+      ) {
+        const roomId = result.room_id;
+        void countRoomPlayers(roomId).then((count) => {
+          track(YM_EVENTS.players_joined, {
+            role: "player",
+            room_id: roomId,
+            count,
+          });
+        });
+      }
       savePlayer(code, {
         playerId: result.player_id,
         token: result.player_token,

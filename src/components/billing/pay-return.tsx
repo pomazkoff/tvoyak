@@ -1,5 +1,6 @@
 "use client";
 
+import { YM_EVENTS, tariffRub, trackOnce } from "@/lib/analytics";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/marks";
@@ -26,9 +27,18 @@ export function PayReturn() {
             headers: await authHeader(),
           },
         );
-        const payload = (await res.json()) as { status?: string };
+        const payload = (await res.json()) as {
+          status?: string;
+          product?: string;
+        };
         if (payload.status === "succeeded" || payload.status === "canceled") {
           setState(payload.status);
+          if (payload.status === "succeeded" && ref) {
+            trackOnce(YM_EVENTS.payment_success, ref, {
+              role: "host",
+              tariff: tariffRub(payload.product),
+            });
+          }
           return;
         }
         if (!res.ok) {

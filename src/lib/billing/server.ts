@@ -9,6 +9,8 @@ import {
   type ProductId,
 } from "./products";
 import { normalizeCode, type PromoResult } from "./promo";
+import { saveUtm } from "@/lib/analytics/persist";
+import type { UtmRecord } from "@/lib/analytics/utm";
 import { createYkPayment, fetchYkPayment, type YkPayment } from "./yookassa";
 
 /** Пользователь по токену из заголовка Authorization: Bearer … */
@@ -162,6 +164,7 @@ export async function startCheckout(
   user: User,
   product: ProductId,
   promo?: unknown,
+  utm?: UtmRecord | null,
 ): Promise<CheckoutResult> {
   const item = PRODUCTS[product];
   let ref: string;
@@ -192,6 +195,7 @@ export async function startCheckout(
     if (error || !row) return { error: "payment_failed" };
     ref = row.id as string;
   }
+  await saveUtm(supabase, "host_payments", ref, utm);
   let payment: YkPayment;
   try {
     payment = await createYkPayment({

@@ -115,11 +115,26 @@ export async function POST(request: Request) {
       }
       if (!secret) return reply({ ok: false, error: "bad_tv_code" }, 403);
 
-      const { data: room } = await supabase
+      const rich = await supabase
         .from("rooms")
-        .select("code")
+        .select("code, host_mode, play_mode")
         .eq("id", secret.room_id)
         .maybeSingle();
+      let room = rich.data as {
+        code?: string;
+        host_mode?: string;
+        play_mode?: string | null;
+      } | null;
+      if (rich.error && schemaMissing(rich.error)) {
+        const plain = await supabase
+          .from("rooms")
+          .select("code, host_mode")
+          .eq("id", secret.room_id)
+          .maybeSingle();
+        room = plain.data as typeof room;
+      } else if (rich.error) {
+        return reply({ ok: false, error: "rpc_failed" }, 502);
+      }
       if (!room?.code) return reply({ ok: false, error: "bad_tv_code" }, 403);
 
       const token = randomBytes(32).toString("base64url");
@@ -140,7 +155,14 @@ export async function POST(request: Request) {
       if (!claimed || claimed.length === 0) {
         return reply({ ok: false, error: "bad_tv_code" }, 403);
       }
-      return reply({ ok: true, code: room.code, hostSecret: token });
+      return reply({
+        ok: true,
+        code: room.code,
+        hostSecret: token,
+        roomId: secret.room_id,
+        hostMode: room.host_mode,
+        ...(room.play_mode ? { playMode: room.play_mode } : {}),
+      });
     }
 
     const code =

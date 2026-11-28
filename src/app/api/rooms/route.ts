@@ -1,3 +1,5 @@
+import { saveUtm } from "@/lib/analytics/persist";
+import { sanitizeUtm } from "@/lib/analytics/utm";
 import { paywallEnabled } from "@/lib/billing/config";
 import { isDeviceId } from "@/lib/billing/products";
 import { checkAccess, ipHash, userFromRequest } from "@/lib/billing/server";
@@ -20,6 +22,7 @@ export async function POST(request: Request) {
   let device: string | null = null;
   // null — автоподбор при старте, как раньше. Массив — закреплённые 12 тем.
   let board: string[] | null = null;
+  let utmRaw: unknown;
   try {
     const body = (await request.json()) as {
       hostMode?: unknown;
@@ -27,7 +30,9 @@ export async function POST(request: Request) {
       companyId?: unknown;
       deviceId?: unknown;
       categories?: unknown;
+      utm?: unknown;
     };
+    utmRaw = body?.utm;
     device = isDeviceId(body?.deviceId) ? body.deviceId : null;
     company = isCompanyId(body?.companyId) ? body.companyId : null;
     if (body?.hostMode === "bot") hostMode = "bot";
@@ -48,6 +53,7 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "invalid_json" }, { status: 400 });
   }
+  const utm = sanitizeUtm(utmRaw);
 
   try {
     const supabase = getServiceSupabase();
@@ -154,6 +160,10 @@ export async function POST(request: Request) {
         if (dropError) console.error("room_themes_rollback", dropError.code);
         return Response.json({ error: "themes_unavailable" }, { status: 502 });
       }
+    }
+
+    if (result.room_id) {
+      await saveUtm(supabase, "rooms", result.room_id, utm);
     }
 
     const label = hostLabelFromUser(user);

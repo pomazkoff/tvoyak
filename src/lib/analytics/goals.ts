@@ -1,22 +1,38 @@
 /**
- * Цели вирусной петли, не завязанные на модуль Метрики из соседнего PR.
+ * Имена целей и вирусная петля финала.
  *
- * 1. Если `window.ym` уже есть и виден номер счётчика (очередь инициализации
- *    `ym.a` или `Ya._metrika.getCounters()`), зовём
- *    `ym(id, "reachGoal", goal, { format })`.
- * 2. Всегда шлём `window` событие `tvoyak:goal`. В `detail.sent` — ушёл ли
- *    прямой вызов. Слушатель track() должен звать reachGoal только когда
- *    `sent === false`, иначе цель посчитается дважды.
+ * Кнопки QR и шаринга зовут trackGoal. Если модуль Метрики уже загружен,
+ * цель уходит через единый track() — один reachGoal и с UTM.
+ * Иначе, если window.ym есть и в очереди виден номер счётчика, зовём
+ * reachGoal напрямую. Всегда шлём событие `tvoyak:goal`: слушатель
+ * вызывает track() только при `sent === false`, чтобы не посчитать цель
+ * дважды.
  *
- * Цели: `final_qr_click` и `share_click`.
- * У share_click параметр format: stories | square | link | download.
- * stories/square — ушла картинка файлом, link — вместо файла ушла ссылка
- * на итог, download — нажата «Скачать картинку».
+ * share_click format: stories | square | link | download.
  */
 
 export const GOAL_EVENT = "tvoyak:goal";
 
-export type ShareFormat = "stories" | "square" | "link" | "download";
+export const YM_EVENTS = {
+  click_create_room: "click_create_room",
+  room_created: "room_created",
+  tv_connected: "tv_connected",
+  players_joined: "players_joined",
+  game_started: "game_started",
+  game_finished: "game_finished",
+  paywall_view: "paywall_view",
+  checkout_start: "checkout_start",
+  payment_success: "payment_success",
+  final_qr_click: "final_qr_click",
+  share_click: "share_click",
+  b2b_lead_submit: "b2b_lead_submit",
+} as const;
+
+export type YmEvent = (typeof YM_EVENTS)[keyof typeof YM_EVENTS];
+
+export const SHARE_FORMATS = ["stories", "square", "link", "download"] as const;
+
+export type ShareFormat = (typeof SHARE_FORMATS)[number];
 
 export type GoalName = "final_qr_click" | "share_click";
 
@@ -26,12 +42,27 @@ export type GoalDetail = {
   sent: boolean;
 };
 
+const EVENT_SET = new Set<string>(Object.values(YM_EVENTS));
+
+export function isYmEvent(value: string): value is YmEvent {
+  return EVENT_SET.has(value);
+}
+
 type YmFn = ((...args: unknown[]) => void) & { a?: unknown[] };
 
 type MetrikaWindow = Window & {
   ym?: YmFn;
   Ya?: { _metrika?: { getCounters?: () => Array<{ id?: number }> } };
 };
+
+type GoalSender = (goal: GoalName, format?: ShareFormat) => boolean;
+
+let sendGoal: GoalSender | null = null;
+
+/** track.ts подключает единый track(), чтобы не было цикла импортов. */
+export function bindGoalSender(sender: GoalSender): void {
+  sendGoal = sender;
+}
 
 export function metrikaCounterId(scope: MetrikaWindow): number | null {
   const queue = scope.ym && Array.isArray(scope.ym.a) ? scope.ym.a : [];
@@ -58,11 +89,15 @@ export function trackGoal(
   const format = params?.format;
   let sent = false;
   try {
-    const id = metrikaCounterId(view);
-    if (id != null && typeof view.ym === "function") {
-      if (format) view.ym(id, "reachGoal", goal, { format });
-      else view.ym(id, "reachGoal", goal);
-      sent = true;
+    if (!scope && sendGoal) {
+      sent = sendGoal(goal, format);
+    } else {
+      const id = metrikaCounterId(view);
+      if (id != null && typeof view.ym === "function") {
+        if (format) view.ym(id, "reachGoal", goal, { format });
+        else view.ym(id, "reachGoal", goal);
+        sent = true;
+      }
     }
   } catch {
     sent = false;

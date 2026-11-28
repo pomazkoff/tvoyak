@@ -1,5 +1,6 @@
 "use client";
 
+import { YM_EVENTS, track, utmForApi } from "@/lib/analytics";
 import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -46,6 +47,11 @@ export function HomeScreen() {
   async function createRoom(categories?: string[]) {
     setPending(true);
     setError(null);
+    track(YM_EVENTS.click_create_room, {
+      role: "host",
+      host_type: hostMode,
+      play_mode: playMode,
+    });
     try {
       const response = await fetch("/api/rooms", {
         method: "POST",
@@ -58,12 +64,14 @@ export function HomeScreen() {
           hostMode,
           playMode,
           companyId: companyId(safeStorage()) ?? undefined,
+          utm: utmForApi(),
           ...(categories ? { categories } : {}),
         }),
       });
       const payload = (await response.json()) as {
         code?: string;
         hostSecret?: string;
+        roomId?: string;
         error?: string;
         themes?: string[];
       };
@@ -80,6 +88,12 @@ export function HomeScreen() {
         return;
       }
       vkGoal("room_created");
+      track(YM_EVENTS.room_created, {
+        role: "host",
+        host_type: hostMode,
+        play_mode: playMode,
+        room_id: payload.roomId,
+      });
       if (payload.themes?.length === 12) {
         savePickedThemes(sessionStorageSafe(), payload.code, payload.themes);
       } else {

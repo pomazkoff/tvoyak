@@ -1,5 +1,6 @@
 "use client";
 
+import { YM_EVENTS, track } from "@/lib/analytics";
 import { vkGoal } from "@/lib/analytics/vk-pixel";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
@@ -37,6 +38,7 @@ export function LeadForm() {
       };
       if (response.ok && payload.ok) {
         vkGoal("b2b_lead_submitted");
+        track(YM_EVENTS.b2b_lead_submit);
         setState("sent");
         return;
       }

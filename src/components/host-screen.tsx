@@ -1,5 +1,6 @@
 "use client";
 
+import { trackGameFinished, trackGameStarted } from "@/lib/analytics";
 import { isPaywallError } from "@/lib/billing/products";
 import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { displayPrompt } from "@/lib/game/prompt";
@@ -189,6 +190,17 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
       cancelled = true;
     };
   }, [normalized, ownsRoom, game, phoneHost]);
+
+  useEffect(() => {
+    if (match.status !== "ready" || match.game.phase !== "finished") return;
+    trackGameFinished({
+      role: "host",
+      host_type: match.room.host_mode,
+      play_mode: match.room.play_mode,
+      room_id: match.room.id,
+      count: scoreboardPlayers(match.players).length,
+    });
+  }, [match]);
 
   const hostMode = match.status === "ready" ? match.room.host_mode : null;
   const together = match.status === "ready" && isTogether(match.room.play_mode);
@@ -460,7 +472,20 @@ export function HostScreen({ code, origin }: { code: string; origin: string }) {
         );
         return;
       }
-      if (action === "start" && result.ok === true) vkGoal("game_started");
+      if (action === "start" && result.ok === true) {
+        vkGoal("game_started");
+        trackGameStarted(
+          match.status === "ready"
+            ? {
+                role: "host",
+                host_type: match.room.host_mode,
+                play_mode: match.room.play_mode,
+                room_id: match.room.id,
+                count: scoreboardPlayers(match.players).length,
+              }
+            : { role: "host" },
+        );
+      }
       // Не ждём realtime: сразу перечитываем партию, иначе экран (и кнопки
       // ведущего) ещё секунды показывают старую фазу.
       requestMatchReload();

@@ -9,6 +9,7 @@ import {
 } from "next/font/google";
 import { BugReport } from "@/components/feedback/bug-report";
 import { VkPixel } from "@/components/analytics/vk-pixel";
+import { YandexMetrika } from "@/components/analytics/yandex-metrika";
 import { RoughDefs } from "@/components/marks";
 import { Garland } from "@/components/seasonal/garland";
 import { SeasonalRoot } from "@/components/seasonal/seasonal-root";
@@ -115,6 +116,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Suspense fallback={null}>
           <BugReport />
           <VkPixel />
+          <YandexMetrika />
         </Suspense>
       </body>
     </html>

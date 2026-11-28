@@ -1,5 +1,6 @@
 "use client";
 
+import { trackGameFinished, trackGameStarted } from "@/lib/analytics";
 import { isPaywallError } from "@/lib/billing/products";
 import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { displayPrompt } from "@/lib/game/prompt";
@@ -282,6 +283,17 @@ function HostRemote({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game, code, token]);
 
+  useEffect(() => {
+    if (match.status !== "ready" || match.game.phase !== "finished") return;
+    trackGameFinished({
+      role: "host",
+      host_type: match.room.host_mode,
+      play_mode: match.room.play_mode,
+      room_id: match.room.id,
+      count: scoreboardPlayers(match.players).length,
+    });
+  }, [match]);
+
   async function run(action: string, extra?: Record<string, unknown>) {
     setPending(true);
     setError(null);
@@ -294,7 +306,20 @@ function HostRemote({
         );
         return;
       }
-      if (action === "start" && result.ok === true) vkGoal("game_started");
+      if (action === "start" && result.ok === true) {
+        vkGoal("game_started");
+        trackGameStarted(
+          match.status === "ready"
+            ? {
+                role: "host",
+                host_type: match.room.host_mode,
+                play_mode: match.room.play_mode,
+                room_id: match.room.id,
+                count: scoreboardPlayers(match.players).length,
+              }
+            : { role: "host" },
+        );
+      }
       requestMatchReload();
       if (revoked(result)) return;
       const raced =

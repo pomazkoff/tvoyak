@@ -1,5 +1,6 @@
 "use client";
 
+import { YM_EVENTS, tariffRub, track, utmForApi } from "@/lib/analytics";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Logo } from "@/components/marks";
@@ -68,6 +69,13 @@ export function PayScreen() {
       setError("Не удалось загрузить данные. Обновите страницу.");
     }
   }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      track(YM_EVENTS.paywall_view, { role: "host" });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -165,6 +173,7 @@ export function PayScreen() {
         body: JSON.stringify({
           product,
           promo: promo && promoFits(promo, product) ? promo.code : undefined,
+          utm: utmForApi(),
         }),
       });
       const payload = (await res.json()) as {
@@ -173,6 +182,10 @@ export function PayScreen() {
         error?: string;
       };
       if (payload.url) {
+        track(YM_EVENTS.checkout_start, {
+          role: "host",
+          tariff: tariffRub(product),
+        });
         window.location.assign(payload.url);
         return;
       }

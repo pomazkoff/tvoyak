@@ -1,5 +1,6 @@
 "use client";
 
+import { YM_EVENTS, track } from "@/lib/analytics";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Logo } from "@/components/marks";
@@ -69,6 +70,9 @@ export function TvScreen() {
           error?: string;
           code?: string;
           hostSecret?: string;
+          roomId?: string;
+          hostMode?: string;
+          playMode?: string;
         };
         if (!payload.ok || !payload.code || !payload.hostSecret) {
           digitsRef.current = "";
@@ -80,6 +84,12 @@ export function TvScreen() {
         }
         saveHostSecret(payload.code, payload.hostSecret);
         markTvDisplay(payload.code);
+        track(YM_EVENTS.tv_connected, {
+          role: "host",
+          room_id: payload.roomId,
+          host_type: payload.hostMode,
+          play_mode: payload.playMode,
+        });
         router.push(hostPath(payload.code, payload.hostSecret));
       } catch {
         digitsRef.current = "";

@@ -1,5 +1,7 @@
 "use client";
 
+import { YM_EVENTS, claimOnce, track, ymCounterId } from "@/lib/analytics";
+import { countRoomPlayers } from "@/lib/analytics/player-count";
 import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { displayPrompt } from "@/lib/game/prompt";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -119,6 +121,26 @@ export function PlayScreen({ code }: { code: string }) {
         role: result.role,
       };
       vkGoal("player_joined");
+      if (
+        result.role === "player" &&
+        ymCounterId() &&
+        claimOnce(YM_EVENTS.players_joined, result.player_id)
+      ) {
+        const roomId = result.room_id;
+        const hostType =
+          match.status === "ready" ? match.room.host_mode : undefined;
+        const playMode =
+          match.status === "ready" ? match.room.play_mode : undefined;
+        void countRoomPlayers(roomId).then((count) => {
+          track(YM_EVENTS.players_joined, {
+            role: "player",
+            room_id: roomId,
+            host_type: hostType,
+            play_mode: playMode,
+            count,
+          });
+        });
+      }
       savePlayer(normalized, nextSession);
       setMemorySession(nextSession);
       if (remoteDraft || readRemote(normalized)) {

@@ -5,6 +5,7 @@ import { loadThemeCatalog } from "@/lib/game/theme-catalog";
 import { inspectBoard, parseThemeBoard } from "@/lib/game/themes";
 import { isCompanyId } from "@/lib/rooms/company";
 import { getServiceSupabase } from "@/lib/supabase/admin";
+import { hostLabelFromUser } from "@/lib/share/host-label";
 import { parsePlayMode } from "@/lib/game/together";
 import type {
   CreateRoomResult,
@@ -52,8 +53,9 @@ export async function POST(request: Request) {
     const supabase = getServiceSupabase();
     // Оплата ведущего: пускаем создать комнату, только если играть есть чем
     // (бесплатная, кредит или безлимит). Списание — на старте партии.
+    // Имя читаем и без оплаты: оно нужно подписи на финале.
     const paywall = paywallEnabled();
-    const user = paywall ? await userFromRequest(supabase, request) : null;
+    const user = await userFromRequest(supabase, request);
     const ip = paywall ? ipHash(request) : null;
     if (paywall) {
       const access = await checkAccess(supabase, {
@@ -152,6 +154,16 @@ export async function POST(request: Request) {
         if (dropError) console.error("room_themes_rollback", dropError.code);
         return Response.json({ error: "themes_unavailable" }, { status: 502 });
       }
+    }
+
+    const label = hostLabelFromUser(user);
+    if (label && result.room_id) {
+      const { error: labelError } = await supabase
+        .from("rooms")
+        .update({ host_label: label })
+        .eq("id", result.room_id);
+      // Колонки может ещё не быть: комната уже создана, подпись не обязательна.
+      if (labelError) console.error("host_label", labelError.code);
     }
 
     return Response.json({

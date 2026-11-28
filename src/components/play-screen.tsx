@@ -4,6 +4,7 @@ import { vkGoal } from "@/lib/analytics/vk-pixel";
 import { displayPrompt } from "@/lib/game/prompt";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Board } from "@/components/game/board";
+import { FinaleLoop } from "@/components/game/finale-loop";
 import { TogetherAnswer, TogetherFinale } from "@/components/game/together";
 import {
   EffectBadges,
@@ -272,7 +273,11 @@ export function PlayScreen({ code }: { code: string }) {
       ) : (
         <Panel className="mt-6">
           <form onSubmit={(event) => void join(event)}>
-            <label htmlFor="nickname" className="text-sm text-muted">
+            <p className="hand text-3xl text-pen">Комната {normalized}</p>
+            <p className="mt-1 text-sm text-muted">
+              Ссылка открыла эту комнату. Напишите имя и входите.
+            </p>
+            <label htmlFor="nickname" className="mt-4 block text-sm text-muted">
               Как вас представить
             </label>
             <input
@@ -547,29 +552,42 @@ function PlayTurn({
   }
 
   if (game.phase === "finished") {
-    if (together) {
-      return <TogetherFinale room={match.room} players={players} compact />;
-    }
     const table = scoreboardPlayers(players)
       .slice()
       .sort((leftPlayer, rightPlayer) => rightPlayer.score - leftPlayer.score);
     return (
-      <Panel>
-        <h2 className="text-2xl font-semibold">Итог</h2>
-        <SeasonalLine className="seasonal-finale">С Новым годом!</SeasonalLine>
-        <ol className="mt-3 grid gap-2">
-          {table.map((player, index) => (
-            <li key={player.id} className="flex justify-between">
-              <span>
-                {index + 1}. {player.nickname}
-              </span>
-              <span className={player.score < 0 ? "text-danger" : "text-gold"}>
-                {player.score}
-              </span>
-            </li>
-          ))}
-        </ol>
-      </Panel>
+      <div className="grid gap-4 px-1 pb-6">
+        {together ? (
+          <TogetherFinale room={match.room} players={players} compact />
+        ) : (
+          <Panel>
+            <h2 className="text-2xl font-semibold">Итог</h2>
+            <SeasonalLine className="seasonal-finale">
+              С Новым годом!
+            </SeasonalLine>
+            <ol className="mt-3 grid gap-2">
+              {table.map((player, index) => (
+                <li key={player.id} className="flex justify-between">
+                  <span>
+                    {index + 1}. {player.nickname}
+                  </span>
+                  <span
+                    className={player.score < 0 ? "text-danger" : "text-gold"}
+                  >
+                    {player.score}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </Panel>
+        )}
+        <FinaleLoop
+          code={code}
+          roomId={match.room.id}
+          hostLabel={match.room.host_label}
+          variant="phone"
+        />
+      </div>
     );
   }
 

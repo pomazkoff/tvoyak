@@ -27,6 +27,11 @@ export type RoomRow = {
   team_played?: number | null;
   /** Рекорд компании до этой партии. null — сравнивать не с чем. */
   team_record?: number | null;
+  /**
+   * Как подписать приглашение на финале. Нет поля или null — без имени.
+   * В ссылки не попадает.
+   */
+  host_label?: string | null;
   created_at: string;
 };
 
